@@ -599,7 +599,12 @@ export const ChartWorkspace: React.FC = () => {
           {simulationLabResult && (
             <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] font-semibold uppercase text-slate-500">Last lab result</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[11px] font-semibold uppercase text-slate-500">Last lab result</div>
+                  <span className={formatSimulationLabResultScopeClass(simulationLabResultSymbolMismatch)}>
+                    {formatSimulationLabResultScopeLabel(simulationLabResultSymbolMismatch)}
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={forgetSimulationLabResult}
@@ -1058,6 +1063,17 @@ function formatSimulationLabResultMeta(result: ChartWorkspaceSimulationLabResult
 
 function formatSimulationLabResultMismatch(result: ChartWorkspaceSimulationLabResult, activeChartSymbol: string) {
   return `Result symbol differs from active chart: ${result.symbol || 'Unknown'} vs ${activeChartSymbol}`;
+}
+
+function formatSimulationLabResultScopeLabel(hasSymbolMismatch: boolean) {
+  return hasSymbolMismatch ? 'Different chart' : 'Current chart';
+}
+
+function formatSimulationLabResultScopeClass(hasSymbolMismatch: boolean) {
+  const baseClass = 'rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase';
+  return hasSymbolMismatch
+    ? `${baseClass} border-amber-400/30 bg-amber-400/10 text-amber-200`
+    : `${baseClass} border-emerald-400/30 bg-emerald-400/10 text-emerald-200`;
 }
 
 function formatSimulationLabResultTimestamp(value: string) {

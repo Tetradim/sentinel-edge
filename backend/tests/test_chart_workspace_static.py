@@ -212,6 +212,17 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("text-amber-200", dashboard)
         self.assertIn("flags persisted Simulation Lab results when their symbol differs from the active chart", text)
 
+    def test_chart_workspace_labels_lab_result_chart_scope(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("formatSimulationLabResultScopeLabel", dashboard)
+        self.assertIn("formatSimulationLabResultScopeClass", dashboard)
+        self.assertIn("Different chart", dashboard)
+        self.assertIn("Current chart", dashboard)
+        self.assertIn("simulationLabResultSymbolMismatch", dashboard)
+        self.assertIn("operator-friendly result provenance badge", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 
