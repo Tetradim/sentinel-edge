@@ -23,6 +23,7 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
         self.assertNotIn("Array.isArray(state.ready?.failing_check_details)", text)
         self.assertNotIn("typeof state.ready.check_details === 'object'", text)
         self.assertNotIn("readinessFailures.map((check)", text)
+        self.assertNotIn("readinessDetails[check] || {", text)
         self.assertIn("detail.label", text)
         self.assertIn("title={detail.description || detail.name}", text)
         self.assertIn("Readiness blockers", text)

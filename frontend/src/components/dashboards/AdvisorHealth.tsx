@@ -355,13 +355,7 @@ export const AdvisorHealth: React.FC = () => {
               )}
               <div className="flex flex-wrap gap-2">
                 {Object.entries(readinessChecks).map(([check, ok]) => {
-                  const detail = readinessDetails[check] || {
-                    name: check,
-                    label: check,
-                    description: check,
-                    required: true,
-                    ready: ok,
-                  };
+                  const detail = readinessDetails[check];
                   return (
                     <span
                       key={check}
