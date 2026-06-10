@@ -89,6 +89,47 @@ class SimulationLabOrbBacktestTests(unittest.TestCase):
                 ],
             )
 
+    def test_orb_replay_scores_target_stop_and_open_outcomes(self):
+        result = run_orb_backtest_replay(
+            symbol="spy",
+            session_id="market_open",
+            timeframe_minutes=5,
+            target_r_multiple=1.0,
+            bars=[
+                {"timestamp": "2026-06-10T09:30:00-04:00", "high": 100.0, "low": 99.0, "close": 99.5},
+                {"timestamp": "2026-06-10T09:31:00-04:00", "high": 101.0, "low": 99.5, "close": 100.5},
+                {"timestamp": "2026-06-10T09:34:00-04:00", "high": 100.8, "low": 100.0, "close": 100.7},
+                {"timestamp": "2026-06-10T09:35:00-04:00", "high": 101.5, "low": 100.8, "close": 101.4},
+                {"timestamp": "2026-06-10T09:36:00-04:00", "high": 104.3, "low": 101.8, "close": 104.1},
+                {"timestamp": "2026-06-11T09:30:00-04:00", "high": 100.0, "low": 99.0, "close": 99.5},
+                {"timestamp": "2026-06-11T09:31:00-04:00", "high": 101.0, "low": 99.5, "close": 100.5},
+                {"timestamp": "2026-06-11T09:34:00-04:00", "high": 100.8, "low": 100.0, "close": 100.7},
+                {"timestamp": "2026-06-11T09:35:00-04:00", "high": 101.5, "low": 100.8, "close": 101.4},
+                {"timestamp": "2026-06-11T09:36:00-04:00", "high": 102.0, "low": 98.8, "close": 99.2},
+                {"timestamp": "2026-06-12T09:30:00-04:00", "high": 100.0, "low": 99.0, "close": 99.5},
+                {"timestamp": "2026-06-12T09:31:00-04:00", "high": 101.0, "low": 99.5, "close": 100.5},
+                {"timestamp": "2026-06-12T09:34:00-04:00", "high": 100.8, "low": 100.0, "close": 100.7},
+                {"timestamp": "2026-06-12T09:35:00-04:00", "high": 101.5, "low": 100.8, "close": 101.4},
+                {"timestamp": "2026-06-12T09:36:00-04:00", "high": 102.0, "low": 101.0, "close": 102.0},
+            ],
+        )
+
+        outcomes = [day["breakout"]["outcome"] for day in result["days"]]
+        self.assertEqual(result["summary"]["outcome_scored_breakouts"], 3)
+        self.assertEqual(result["summary"]["target_hits"], 1)
+        self.assertEqual(result["summary"]["stop_hits"], 1)
+        self.assertEqual(result["summary"]["open_after_replay"], 1)
+        self.assertEqual(result["summary"]["avg_realized_r_multiple"], 0.0667)
+        self.assertEqual(outcomes[0]["status"], "target_hit")
+        self.assertEqual(outcomes[0]["exit_price"], 104.0)
+        self.assertEqual(outcomes[0]["realized_r_multiple"], 1.0)
+        self.assertEqual(outcomes[1]["status"], "stop_hit")
+        self.assertEqual(outcomes[1]["exit_price"], 99.0)
+        self.assertEqual(outcomes[1]["realized_r_multiple"], -1.0)
+        self.assertEqual(outcomes[2]["status"], "open_after_replay")
+        self.assertEqual(outcomes[2]["exit_price"], 102.0)
+        self.assertEqual(outcomes[2]["realized_r_multiple"], 0.2)
+
     def test_orb_replay_supports_premarket_30m_session(self):
         result = run_orb_backtest_replay(
             symbol="qqq",

@@ -70,6 +70,9 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("breakouts", text)
         self.assertIn("scored_breakouts", text)
         self.assertIn("avg_reward_r", text)
+        self.assertIn("target_hits", text)
+        self.assertIn("stop_hits", text)
+        self.assertIn("avg_realized_r", text)
         self.assertIn("allocated_notional", text)
         self.assertIn("best_plan", text)
 
@@ -83,6 +86,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("ORB backtesting", text)
         self.assertIn("/api/simulation-lab/orb/backtest", text)
         self.assertIn("risk/reward scoring", text)
+        self.assertIn("target/stop/open outcome scoring", text)
         self.assertIn("target_r_multiple", text)
         self.assertIn("buying-power allocation experiments", text)
         self.assertIn("/api/simulation-lab/buying-power/allocation", text)

@@ -580,6 +580,11 @@ def run_orb_backtest_replay(
         for breakout in breakouts
         if breakout.get("risk_reward") is not None
     ]
+    outcome_scores = [
+        breakout["outcome"]
+        for breakout in breakouts
+        if breakout.get("outcome") is not None
+    ]
     return {
         "schema_version": SIMULATION_LAB_ORB_BACKTEST_VERSION,
         "symbol": symbol.strip().upper(),
@@ -601,6 +606,11 @@ def run_orb_backtest_replay(
             "avg_reward_r_multiple": _average_metric(risk_reward_scores, "reward_r_multiple"),
             "max_risk_per_share": _max_metric(risk_reward_scores, "risk_per_share"),
             "max_reward_per_share": _max_metric(risk_reward_scores, "reward_per_share"),
+            "outcome_scored_breakouts": len(outcome_scores),
+            "target_hits": _count_outcome_status(outcome_scores, "target_hit"),
+            "stop_hits": _count_outcome_status(outcome_scores, "stop_hit"),
+            "open_after_replay": _count_outcome_status(outcome_scores, "open_after_replay"),
+            "avg_realized_r_multiple": _average_metric(outcome_scores, "realized_r_multiple"),
         },
         "days": days,
     }
@@ -645,7 +655,13 @@ def _run_orb_backtest_day(
     orb_high = max(bar["high"] for bar in range_bars)
     orb_low = min(bar["low"] for bar in range_bars)
     replay_bars = [bar for bar in bars if lock_time <= bar["timestamp"] <= market_close]
-    breakout = _first_orb_breakout(replay_bars, orb_high, orb_low, breakout_side, target_r_multiple)
+    breakout, breakout_index = _first_orb_breakout(replay_bars, orb_high, orb_low, breakout_side, target_r_multiple)
+    if breakout is not None and breakout_index is not None:
+        breakout["outcome"] = _orb_outcome_payload(
+            direction=breakout["direction"],
+            risk_reward=breakout["risk_reward"],
+            bars_after_breakout=replay_bars[breakout_index + 1:],
+        )
     return {
         "date": et_date.isoformat(),
         "status": "completed",
@@ -666,13 +682,13 @@ def _first_orb_breakout(
     orb_low: float,
     breakout_side: str,
     target_r_multiple: float,
-) -> Dict[str, Any] | None:
-    for bar in bars:
+) -> tuple[Dict[str, Any] | None, int | None]:
+    for index, bar in enumerate(bars):
         if breakout_side in {"both", "long"} and bar["high"] > orb_high:
-            return _breakout_payload("bullish", bar, bar["high"], orb_high, orb_low, target_r_multiple)
+            return _breakout_payload("bullish", bar, bar["high"], orb_high, orb_low, target_r_multiple), index
         if breakout_side in {"both", "short"} and bar["low"] < orb_low:
-            return _breakout_payload("bearish", bar, bar["low"], orb_high, orb_low, target_r_multiple)
-    return None
+            return _breakout_payload("bearish", bar, bar["low"], orb_high, orb_low, target_r_multiple), index
+    return None, None
 
 
 def _breakout_payload(
@@ -722,6 +738,105 @@ def _orb_risk_reward_payload(
         "reward_per_share": round(reward_per_share, 4),
         "reward_r_multiple": round(reward_per_share / risk_per_share, 4) if risk_per_share > 0 else 0.0,
     }
+
+
+def _orb_outcome_payload(
+    *,
+    direction: str,
+    risk_reward: Dict[str, Any],
+    bars_after_breakout: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    entry_price = float(risk_reward["entry_price"])
+    stop_price = float(risk_reward["stop_price"])
+    target_price = float(risk_reward["target_price"])
+    risk_per_share = float(risk_reward["risk_per_share"])
+
+    for bars_to_outcome, bar in enumerate(bars_after_breakout, start=1):
+        target_hit = _orb_target_hit(direction, bar, target_price)
+        stop_hit = _orb_stop_hit(direction, bar, stop_price)
+        if stop_hit:
+            return _orb_exit_payload(
+                status="stop_hit",
+                exit_source="stop",
+                exit_price=stop_price,
+                timestamp=bar["timestamp"],
+                bars_to_outcome=bars_to_outcome,
+                realized_r_multiple=-1.0,
+            )
+        if target_hit:
+            return _orb_exit_payload(
+                status="target_hit",
+                exit_source="target",
+                exit_price=target_price,
+                timestamp=bar["timestamp"],
+                bars_to_outcome=bars_to_outcome,
+                realized_r_multiple=risk_reward["reward_r_multiple"],
+            )
+
+    if bars_after_breakout:
+        last_bar = bars_after_breakout[-1]
+        exit_price = last_bar["close"]
+        realized_r_multiple = _realized_r_multiple(direction, entry_price, exit_price, risk_per_share)
+        return _orb_exit_payload(
+            status="open_after_replay",
+            exit_source="last_close",
+            exit_price=exit_price,
+            timestamp=last_bar["timestamp"],
+            bars_to_outcome=len(bars_after_breakout),
+            realized_r_multiple=realized_r_multiple,
+        )
+
+    return {
+        "status": "open_after_replay",
+        "exit_source": "no_post_breakout_bar",
+        "timestamp": None,
+        "exit_price": None,
+        "bars_to_outcome": 0,
+        "realized_r_multiple": 0.0,
+    }
+
+
+def _orb_target_hit(direction: str, bar: Dict[str, Any], target_price: float) -> bool:
+    if direction == "bullish":
+        return bar["high"] >= target_price
+    return bar["low"] <= target_price
+
+
+def _orb_stop_hit(direction: str, bar: Dict[str, Any], stop_price: float) -> bool:
+    if direction == "bullish":
+        return bar["low"] <= stop_price
+    return bar["high"] >= stop_price
+
+
+def _realized_r_multiple(direction: str, entry_price: float, exit_price: float, risk_per_share: float) -> float:
+    if risk_per_share <= 0:
+        return 0.0
+    if direction == "bullish":
+        return round((exit_price - entry_price) / risk_per_share, 4)
+    return round((entry_price - exit_price) / risk_per_share, 4)
+
+
+def _orb_exit_payload(
+    *,
+    status: str,
+    exit_source: str,
+    exit_price: float,
+    timestamp: datetime,
+    bars_to_outcome: int,
+    realized_r_multiple: float,
+) -> Dict[str, Any]:
+    return {
+        "status": status,
+        "exit_source": exit_source,
+        "timestamp": timestamp.isoformat(),
+        "exit_price": round(exit_price, 4),
+        "bars_to_outcome": bars_to_outcome,
+        "realized_r_multiple": round(float(realized_r_multiple), 4),
+    }
+
+
+def _count_outcome_status(items: List[Dict[str, Any]], status: str) -> int:
+    return sum(1 for item in items if item.get("status") == status)
 
 
 def _average_metric(items: List[Dict[str, Any]], field: str) -> float:

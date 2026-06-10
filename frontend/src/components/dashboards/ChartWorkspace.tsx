@@ -988,6 +988,9 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
       { label: 'sessions', value: formatSimulationLabResultMetric(summary.sessions) },
       { label: 'scored_breakouts', value: formatSimulationLabResultMetric(summary.scored_breakouts) },
       { label: 'avg_reward_r', value: formatSimulationLabResultMetric(summary.avg_reward_r_multiple) },
+      { label: 'target_hits', value: formatSimulationLabResultMetric(summary.target_hits) },
+      { label: 'stop_hits', value: formatSimulationLabResultMetric(summary.stop_hits) },
+      { label: 'avg_realized_r', value: formatSimulationLabResultMetric(summary.avg_realized_r_multiple) },
     );
   }
 
