@@ -78,6 +78,7 @@ export const TradingOverview: React.FC = () => {
 
   const [tickerConfigs, setTickerConfigs] = useState<Record<string, any>>({});
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -125,13 +126,19 @@ export const TradingOverview: React.FC = () => {
   };
 
   const handleAddTicker = async (symbol: string) => {
+    setActionError('');
     await api.addTicker(symbol);
     await loadData();
   };
 
   const handleRemoveTicker = async (symbol: string) => {
-    await api.removeTicker(symbol);
-    removeTicker(symbol);
+    try {
+      setActionError('');
+      await api.removeTicker(symbol);
+      removeTicker(symbol);
+    } catch {
+      setActionError(`Failed to remove ${symbol}`);
+    }
   };
 
   const handleMetricToggle = async (symbol: string, metric: string) => {
@@ -146,9 +153,11 @@ export const TradingOverview: React.FC = () => {
     const updated = { ...current, [metric]: !current[metric] };
     setTickerConfigs({ ...tickerConfigs, [symbol]: updated });
     try {
+      setActionError('');
       await api.updateTickerConfig(symbol, { metrics: updated });
     } catch {
       // Keep local UI responsive; next poll will reconcile with backend state.
+      setActionError(`Failed to update ${symbol} metrics`);
     }
   };
 
@@ -200,6 +209,7 @@ export const TradingOverview: React.FC = () => {
           <h2 className="text-2xl font-bold text-white">Active Tickers</h2>
           <AddTickerForm onAdd={handleAddTicker} />
         </div>
+        {actionError && <p className="mb-4 text-sm text-red-300">{actionError}</p>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           <AnimatePresence>
