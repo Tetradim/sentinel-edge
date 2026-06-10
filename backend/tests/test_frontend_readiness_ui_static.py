@@ -40,6 +40,9 @@ class FrontendReadinessUiStaticTests(unittest.TestCase):
         self.assertIn("failingChecks[index] || detail?.name", text)
         self.assertIn("failing_checks: failingChecks", text)
         self.assertIn("failing_check_details: failingCheckDetails", text)
+        self.assertIn("function formatReadinessCheckLabel", text)
+        self.assertIn("fallbackName.replace(/[_-]+/g, ' ')", text)
+        self.assertIn("label: detail?.label || formatReadinessCheckLabel(fallbackName)", text)
         self.assertIn("err instanceof ApiError && err.status === 503", text)
 
     def test_advisor_health_surfaces_runtime_readiness(self):

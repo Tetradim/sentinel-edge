@@ -425,11 +425,15 @@ function normalizeEdgeReadinessDetail(
 ): EdgeReadinessCheckDetail {
   return {
     name: detail?.name || fallbackName,
-    label: detail?.label || fallbackName,
+    label: detail?.label || formatReadinessCheckLabel(fallbackName),
     description: detail?.description || fallbackName,
     required: detail?.required ?? true,
     ready: detail?.ready ?? fallbackReady,
   };
+}
+
+function formatReadinessCheckLabel(fallbackName: string) {
+  return fallbackName.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function getApiErrorMessage(status: number, statusText: string, detail: unknown) {
