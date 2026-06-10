@@ -19,12 +19,14 @@ export function MonitorPanel({
   const edgeApiTone: Tone = runtime.connected ? 'green' : runtime.loading ? 'gold' : 'red';
   const schedulerTone: Tone = runtime.schedulerPaused ? 'gold' : runtime.connected ? 'green' : 'red';
   const pulseTone: Tone = runtime.pulseAvailable ? 'green' : 'gold';
+  const pulseCircuitTone = getPulseCircuitTone(runtime.pulseCircuitState);
   const killSwitchTone: Tone = runtime.killSwitchActive ? 'red' : 'green';
   const readinessTone: Tone = !runtime.connected ? 'red' : runtime.runtimeReady ? 'green' : 'gold';
   const livenessTone: Tone = runtime.edgeLive ? 'green' : runtime.connected ? 'gold' : 'red';
   const rateLimitTone: Tone = runtime.rateLimitPressure === 'normal' ? 'green' : runtime.rateLimitPressure === 'warning' ? 'gold' : 'red';
   const frontendRumTone: Tone = runtime.frontendRumStatus === 'receiving' ? 'green' : runtime.frontendRumStatus === 'waiting' ? 'gold' : 'red';
   const schedulerValue = !runtime.connected ? 'Unknown' : runtime.schedulerPaused ? 'Paused' : 'Active';
+  const pulseCircuitValue = formatPulseCircuitState(runtime.pulseCircuitState);
   const readinessValue = !runtime.connected ? 'Unknown' : runtime.runtimeReady ? 'Ready' : 'Not ready';
   const readinessDetail = getReadinessDetail(runtime.readinessFailingChecks);
   const livenessValue = runtime.edgeLive ? 'Alive' : runtime.connected ? 'Unknown' : 'Offline';
@@ -82,6 +84,12 @@ export function MonitorPanel({
       runtime.pulseAvailable ? 'online' : 'standalone',
       runtime.pulseAvailable ? 'handoff ready' : 'handoff gated',
       'health',
+    ],
+    [
+      'Pulse circuit',
+      pulseCircuitValue.toLowerCase(),
+      getPulseCircuitDetail(runtime.pulseCircuitState, runtime.pulseAvailable),
+      runtime.pulseCircuitState || 'unknown',
     ],
     [
       'Kill switch',
@@ -152,6 +160,12 @@ export function MonitorPanel({
           tone={pulseTone}
         />
         <HealthCard
+          label="Pulse circuit"
+          value={pulseCircuitValue}
+          detail={getPulseCircuitDetail(runtime.pulseCircuitState, runtime.pulseAvailable)}
+          tone={pulseCircuitTone}
+        />
+        <HealthCard
           label="Kill switch"
           value={runtime.killSwitchActive ? 'Active' : 'Clear'}
           detail={runtime.killSwitchActive ? 'Global automation stop' : 'Safety guard clear'}
@@ -200,6 +214,34 @@ function getRateLimitDetail(remaining?: number, resetSeconds?: number) {
 function getLivenessDetail(pid?: number, uptimeSeconds?: number) {
   const pidText = typeof pid === 'number' && Number.isFinite(pid) ? `pid ${pid}` : 'pid unknown';
   return `${pidText}; uptime ${formatUptime(uptimeSeconds)}`;
+}
+
+function getPulseCircuitTone(circuitState?: string): Tone {
+  const normalizedState = normalizePulseCircuitState(circuitState);
+  if (normalizedState === 'closed') return 'green';
+  if (normalizedState === 'half_open') return 'gold';
+  if (normalizedState === 'open') return 'red';
+  return 'gold';
+}
+
+function formatPulseCircuitState(circuitState?: string) {
+  const normalizedState = normalizePulseCircuitState(circuitState);
+  if (normalizedState === 'closed') return 'Closed';
+  if (normalizedState === 'half_open') return 'Half-open';
+  if (normalizedState === 'open') return 'Open';
+  return 'Unknown';
+}
+
+function getPulseCircuitDetail(circuitState: string | undefined, pulseAvailable: boolean) {
+  const normalizedState = normalizePulseCircuitState(circuitState);
+  if (normalizedState === 'closed') return 'Pulse requests allowed';
+  if (normalizedState === 'half_open') return 'Probing Pulse recovery';
+  if (normalizedState === 'open') return 'Pulse requests suppressed';
+  return pulseAvailable ? 'Circuit status unavailable' : 'Pulse unavailable';
+}
+
+function normalizePulseCircuitState(circuitState?: string) {
+  return String(circuitState || '').trim().toLowerCase().replace(/-/g, '_');
 }
 
 function formatUptime(uptimeSeconds?: number) {

@@ -135,6 +135,19 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("Edge process", text)
         self.assertIn("livenessDetail", text)
 
+    def test_monitor_panel_surfaces_pulse_circuit_state(self):
+        monitor_panel = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "MonitorPanel.tsx"
+        api_client = ROOT / "frontend" / "src" / "lib" / "api.ts"
+        text = read_existing(ASSET_COMMAND_TYPES, ASSET_COMMAND_RUNTIME_HOOK, monitor_panel, api_client)
+
+        self.assertIn("pulseCircuitState?: string", text)
+        self.assertIn("api.getPulseStatus()", text)
+        self.assertIn("pulseValue?.circuit_state || healthValue?.pulse_circuit_state", text)
+        self.assertIn("Pulse circuit", text)
+        self.assertIn("pulseCircuitValue", text)
+        self.assertIn("getPulseCircuitTone", text)
+        self.assertIn("getPulseCircuitDetail", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 

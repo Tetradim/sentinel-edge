@@ -42,6 +42,7 @@ export interface RuntimeState {
   connected: boolean;
   loading: boolean;
   pulseAvailable: boolean;
+  pulseCircuitState?: string;
   edgeLive: boolean;
   killSwitchActive: boolean;
   schedulerPaused: boolean;
