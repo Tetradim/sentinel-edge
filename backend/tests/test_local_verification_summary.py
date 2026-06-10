@@ -39,6 +39,15 @@ class LocalVerificationSummaryTests(unittest.TestCase):
         statuses = {entry["name"]: entry["status"] for entry in summary["results"]}
 
         self.assertEqual(summary["status"], "passed")
+        self.assertEqual(
+            summary["counts"],
+            {
+                "total": 3,
+                "passed": 1,
+                "failed": 0,
+                "skipped": 2,
+            },
+        )
         self.assertEqual(statuses["Backend verification"], "skipped")
         self.assertEqual(statuses["Frontend verification"], "skipped")
         self.assertEqual(statuses["Workspace whitespace check: git diff --check"], "passed")

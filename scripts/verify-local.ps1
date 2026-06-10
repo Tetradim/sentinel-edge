@@ -84,6 +84,23 @@ function Test-VerificationFailed {
     return $false
 }
 
+function Get-VerificationCounts {
+    $counts = [ordered]@{
+        total = $VerificationResults.Count
+        passed = 0
+        failed = 0
+        skipped = 0
+    }
+    foreach ($result in $VerificationResults) {
+        switch ($result.status) {
+            "passed" { $counts.passed += 1 }
+            "failed" { $counts.failed += 1 }
+            "skipped" { $counts.skipped += 1 }
+        }
+    }
+    return [pscustomobject]$counts
+}
+
 function Write-VerificationSummary {
     if ([string]::IsNullOrWhiteSpace($SummaryPath)) { return }
 
@@ -103,6 +120,7 @@ function Write-VerificationSummary {
         started_at = $VerificationStartedAt.ToUniversalTime().ToString("o")
         ended_at = $endedAt.ToUniversalTime().ToString("o")
         duration_seconds = [math]::Round(($endedAt - $VerificationStartedAt).TotalSeconds, 3)
+        counts = Get-VerificationCounts
         project_root = $ProjectRoot
         results = @($VerificationResults.ToArray())
     }

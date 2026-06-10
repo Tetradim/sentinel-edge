@@ -19,6 +19,7 @@ class LocalVerificationScriptStaticTests(unittest.TestCase):
         self.assertIn("[string]$SummaryPath", script)
         self.assertIn("Add-VerificationResult", script)
         self.assertIn("Add-VerificationSkipped", script)
+        self.assertIn("Get-VerificationCounts", script)
         self.assertIn("Write-VerificationSummary", script)
         self.assertIn("ConvertTo-Json -Depth 5", script)
         self.assertIn("verification summary written", script)
