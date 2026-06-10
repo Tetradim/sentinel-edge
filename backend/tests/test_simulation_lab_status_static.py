@@ -6,6 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SERVER = ROOT / "backend" / "server.py"
 API = ROOT / "frontend" / "src" / "lib" / "api.ts"
+CHART_WORKSPACE = ROOT / "frontend" / "src" / "components" / "dashboards" / "ChartWorkspace.tsx"
 README = ROOT / "README.md"
 
 
@@ -53,6 +54,20 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("fetchJSON('/api/simulation-lab/buying-power/allocation'", text)
         self.assertIn("async runSimulationLabStopTrailingDcaComparison", text)
         self.assertIn("fetchJSON('/api/simulation-lab/stop-trailing-dca/compare'", text)
+
+    def test_chart_workspace_retains_last_simulation_lab_result_summary(self):
+        text = CHART_WORKSPACE.read_text(encoding="utf-8")
+
+        self.assertIn("simulationLabResult", text)
+        self.assertIn("setSimulationLabResult", text)
+        self.assertIn("Last lab result", text)
+        self.assertIn("formatSimulationLabResultTitle", text)
+        self.assertIn("formatSimulationLabResultMetric", text)
+        self.assertIn("schema_version", text)
+        self.assertIn("summary", text)
+        self.assertIn("breakouts", text)
+        self.assertIn("allocated_notional", text)
+        self.assertIn("best_plan", text)
 
     def test_readme_documents_default_off_simulation_lab_gate(self):
         text = README.read_text(encoding="utf-8")

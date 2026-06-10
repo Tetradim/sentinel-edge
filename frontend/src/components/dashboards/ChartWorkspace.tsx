@@ -61,6 +61,15 @@ interface ChartWorkspaceSimulationLabStatus {
   experiments?: ChartWorkspaceSimulationLabExperiment[];
 }
 
+interface ChartWorkspaceSimulationLabResult {
+  kind: 'orb_backtest' | 'buying_power_allocation' | 'stop_trailing_dca';
+  label: string;
+  result: {
+    schema_version?: string;
+    summary?: Record<string, unknown>;
+  };
+}
+
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
 const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
 
@@ -118,6 +127,7 @@ export const ChartWorkspace: React.FC = () => {
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
   const [simulationLabStatus, setSimulationLabStatus] = useState<ChartWorkspaceSimulationLabStatus | null>(null);
+  const [simulationLabResult, setSimulationLabResult] = useState<ChartWorkspaceSimulationLabResult | null>(null);
   const [orbReplaySession, setOrbReplaySession] = useState<ChartWorkspaceOrbReplaySession>('market_open');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -306,6 +316,11 @@ export const ChartWorkspace: React.FC = () => {
         breakout_side: 'both',
         bars: snapshot.bars,
       });
+      setSimulationLabResult({
+        kind: 'orb_backtest',
+        label: `${selectedOrbReplaySession.label} ORB replay`,
+        result,
+      });
       setLabMessage(`${selectedOrbReplaySession.label} ORB replay: ${result.summary?.breakouts ?? 0} breakouts`);
     } catch (err) {
       setLabMessage(err instanceof Error ? err.message : 'ORB replay unavailable');
@@ -322,6 +337,11 @@ export const ChartWorkspace: React.FC = () => {
         max_position_pct: 0.4,
         mode: 'confidence_weighted',
         candidates: buildAllocationCandidates(snapshot.symbol, latestBar.close),
+      });
+      setSimulationLabResult({
+        kind: 'buying_power_allocation',
+        label: 'Buying-power allocation',
+        result,
       });
       setLabMessage(
         `Allocation: $${Number(result.summary?.allocated_notional ?? 0).toLocaleString()} across ${
@@ -345,6 +365,11 @@ export const ChartWorkspace: React.FC = () => {
         dca_steps: 1,
         dca_drop_pct: 0.03,
         price_path: snapshot.bars,
+      });
+      setSimulationLabResult({
+        kind: 'stop_trailing_dca',
+        label: 'Stop vs trailing-stop vs DCA',
+        result,
       });
       setLabMessage(`Exit comparison: ${result.summary?.best_plan ?? 'n/a'} best`);
     } catch (err) {
@@ -437,6 +462,19 @@ export const ChartWorkspace: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          )}
+          {simulationLabResult && (
+            <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Last lab result</div>
+              <div className="mt-1 truncate text-xs font-semibold text-slate-200">
+                {formatSimulationLabResultTitle(simulationLabResult)}
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {buildSimulationLabResultMetrics(simulationLabResult).map((metric) => (
+                  <Metric key={metric.label} label={metric.label} value={metric.value} />
+                ))}
+              </div>
             </div>
           )}
           {labMessage && <p className="mt-3 text-xs text-slate-300">{labMessage}</p>}
@@ -776,6 +814,51 @@ function formatSimulationLabEndpoint(experiment: ChartWorkspaceSimulationLabExpe
 function formatSimulationLabExperimentId(id?: string) {
   if (!id) return 'Experiment';
   return id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatSimulationLabResultTitle(result: ChartWorkspaceSimulationLabResult) {
+  const schemaVersion = result.result.schema_version || 'schema_version unknown';
+  return `${result.label} / ${schemaVersion}`;
+}
+
+function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResult) {
+  const summary = result.result.summary ?? {};
+  const metrics = [
+    {
+      label: 'schema_version',
+      value: result.result.schema_version || '--',
+    },
+  ];
+
+  if (result.kind === 'orb_backtest') {
+    metrics.push(
+      { label: 'breakouts', value: formatSimulationLabResultMetric(summary.breakouts) },
+      { label: 'sessions', value: formatSimulationLabResultMetric(summary.sessions) },
+    );
+  }
+
+  if (result.kind === 'buying_power_allocation') {
+    metrics.push(
+      { label: 'allocated_notional', value: formatSimulationLabResultMetric(summary.allocated_notional, 'currency') },
+      { label: 'allocated_count', value: formatSimulationLabResultMetric(summary.allocated_count) },
+    );
+  }
+
+  if (result.kind === 'stop_trailing_dca') {
+    metrics.push(
+      { label: 'best_plan', value: formatSimulationLabResultMetric(summary.best_plan) },
+      { label: 'best_pnl', value: formatSimulationLabResultMetric(summary.best_pnl, 'currency') },
+    );
+  }
+
+  return metrics;
+}
+
+function formatSimulationLabResultMetric(value: unknown, mode: 'plain' | 'currency' = 'plain') {
+  if (value === null || value === undefined || value === '') return '--';
+  if (mode === 'currency' && typeof value === 'number') return `$${value.toLocaleString()}`;
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  return String(value).replace(/[_-]+/g, ' ');
 }
 
 function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {
