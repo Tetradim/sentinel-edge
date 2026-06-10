@@ -164,6 +164,8 @@ export const ChartWorkspace: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [labMessage, setLabMessage] = useState('');
+  const [labRunInProgress, setLabRunInProgress] = useState(false);
+  const labRunInProgressRef = useRef(false);
   const [layoutMessage, setLayoutMessage] = useState('');
   const [viewMessage, setViewMessage] = useState('');
   const { activeSymbol, chartType, indicatorPreset, selectedIndicators, barLimit, showOrbOverlays, orbOverlaySessions } =
@@ -353,6 +355,19 @@ export const ChartWorkspace: React.FC = () => {
     setLabMessage('Lab result cleared');
   };
 
+  const runSimulationLabWorkflow = async (workflow: () => Promise<void>) => {
+    if (labRunInProgress) return;
+    if (labRunInProgressRef.current) return;
+    labRunInProgressRef.current = true;
+    setLabRunInProgress(true);
+    try {
+      await workflow();
+    } finally {
+      labRunInProgressRef.current = false;
+      setLabRunInProgress(false);
+    }
+  };
+
   const selectLayoutMode = (nextLayoutMode: ChartWorkspaceLayoutMode) => {
     updateWorkspaceLayout({
       ...workspaceLayout,
@@ -376,7 +391,7 @@ export const ChartWorkspace: React.FC = () => {
     setLayoutMessage('Layout reset');
   };
 
-  const runOrbReplay = async () => {
+  const runOrbReplay = () => runSimulationLabWorkflow(async () => {
     if (!snapshot?.bars.length) return;
     setLabMessage(`Running ${selectedOrbReplaySession.label} ORB replay`);
     try {
@@ -397,9 +412,9 @@ export const ChartWorkspace: React.FC = () => {
     } catch (err) {
       setLabMessage(err instanceof Error ? err.message : 'ORB replay unavailable');
     }
-  };
+  });
 
-  const runAllocationExperiment = async () => {
+  const runAllocationExperiment = () => runSimulationLabWorkflow(async () => {
     if (!snapshot?.bars.length || !latestBar) return;
     setLabMessage('Running buying-power allocation');
     try {
@@ -423,9 +438,9 @@ export const ChartWorkspace: React.FC = () => {
     } catch (err) {
       setLabMessage(err instanceof Error ? err.message : 'Allocation experiment unavailable');
     }
-  };
+  });
 
-  const runExitComparison = async () => {
+  const runExitComparison = () => runSimulationLabWorkflow(async () => {
     if (!snapshot?.bars.length) return;
     setLabMessage('Running exit comparison');
     try {
@@ -447,7 +462,7 @@ export const ChartWorkspace: React.FC = () => {
     } catch (err) {
       setLabMessage(err instanceof Error ? err.message : 'Exit comparison unavailable');
     }
-  };
+  });
 
   const sidePanels = hasSidePanels ? (
     <aside className={sidePanelClass}>
@@ -506,11 +521,12 @@ export const ChartWorkspace: React.FC = () => {
       )}
 
       {panelVisibility.lab && simulationLabEnabled && (
-        <section className={panelClass}>
+        <section className={panelClass} aria-busy={labRunInProgress}>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
             <FlaskConical className="h-4 w-4 text-amber-300" />
             Simulation Lab
           </div>
+          {labRunInProgress && <div className="mb-2 text-xs text-amber-200">Running...</div>}
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="ORB replay session">
               {ORB_REPLAY_SESSION_OPTIONS.map((option) => (
@@ -518,6 +534,7 @@ export const ChartWorkspace: React.FC = () => {
                   key={option.id}
                   type="button"
                   onClick={() => setOrbReplaySession(option.id)}
+                  disabled={labRunInProgress}
                   className={orbReplaySession === option.id ? activeToolClass : inactiveToolClass}
                   aria-pressed={orbReplaySession === option.id}
                 >
@@ -525,15 +542,15 @@ export const ChartWorkspace: React.FC = () => {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={runOrbReplay} className={inactiveToolClass}>
+            <button type="button" onClick={runOrbReplay} disabled={labRunInProgress} className={inactiveToolClass}>
               <BarChart3 className="h-4 w-4" />
               ORB Replay
             </button>
-            <button type="button" onClick={runAllocationExperiment} className={inactiveToolClass}>
+            <button type="button" onClick={runAllocationExperiment} disabled={labRunInProgress} className={inactiveToolClass}>
               <Activity className="h-4 w-4" />
               Buying Power
             </button>
-            <button type="button" onClick={runExitComparison} className={inactiveToolClass}>
+            <button type="button" onClick={runExitComparison} disabled={labRunInProgress} className={inactiveToolClass}>
               <Activity className="h-4 w-4" />
               Stop/DCA
             </button>
@@ -1328,9 +1345,9 @@ function getSidePanelClass(layoutMode: ChartWorkspaceLayoutMode) {
 
 const panelClass = 'rounded-lg border border-slate-800 bg-slate-950/80 p-3';
 const activeToolClass =
-  'inline-flex h-9 items-center gap-2 rounded-lg border border-cyan-300/60 bg-cyan-400/15 px-3 text-sm font-semibold text-cyan-100';
+  'inline-flex h-9 items-center gap-2 rounded-lg border border-cyan-300/60 bg-cyan-400/15 px-3 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60';
 const inactiveToolClass =
-  'inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-300 hover:border-cyan-400/40 hover:text-cyan-100';
+  'inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-300 hover:border-cyan-400/40 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60';
 const activeRadioClass = `${activeToolClass} cursor-pointer`;
 const inactiveRadioClass = `${inactiveToolClass} cursor-pointer`;
 

@@ -174,6 +174,19 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Lab result cleared", dashboard)
         self.assertIn("clear stale persisted Simulation Lab context", text)
 
+    def test_chart_workspace_guards_concurrent_simulation_lab_runs(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("labRunInProgress", dashboard)
+        self.assertIn("setLabRunInProgress", dashboard)
+        self.assertIn("runSimulationLabWorkflow", dashboard)
+        self.assertIn("if (labRunInProgress) return;", dashboard)
+        self.assertIn("disabled={labRunInProgress}", dashboard)
+        self.assertIn("aria-busy={labRunInProgress}", dashboard)
+        self.assertIn("Running...", dashboard)
+        self.assertIn("guards duplicate Simulation Lab submissions", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 
