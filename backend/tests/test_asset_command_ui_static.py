@@ -122,6 +122,19 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("Frontend RUM", text)
         self.assertIn("frontendRumDetail", text)
 
+    def test_monitor_panel_surfaces_edge_process_liveness(self):
+        monitor_panel = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "MonitorPanel.tsx"
+        api_client = ROOT / "frontend" / "src" / "lib" / "api.ts"
+        text = read_existing(ASSET_COMMAND_TYPES, ASSET_COMMAND_RUNTIME_HOOK, monitor_panel, api_client)
+
+        self.assertIn("edgeLive: boolean", text)
+        self.assertIn("edgePid?: number", text)
+        self.assertIn("edgeUptimeSeconds?: number", text)
+        self.assertIn("api.getLiveness()", text)
+        self.assertIn("livenessValue?.uptime_seconds", text)
+        self.assertIn("Edge process", text)
+        self.assertIn("livenessDetail", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 

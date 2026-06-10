@@ -21,11 +21,14 @@ export function MonitorPanel({
   const pulseTone: Tone = runtime.pulseAvailable ? 'green' : 'gold';
   const killSwitchTone: Tone = runtime.killSwitchActive ? 'red' : 'green';
   const readinessTone: Tone = !runtime.connected ? 'red' : runtime.runtimeReady ? 'green' : 'gold';
+  const livenessTone: Tone = runtime.edgeLive ? 'green' : runtime.connected ? 'gold' : 'red';
   const rateLimitTone: Tone = runtime.rateLimitPressure === 'normal' ? 'green' : runtime.rateLimitPressure === 'warning' ? 'gold' : 'red';
   const frontendRumTone: Tone = runtime.frontendRumStatus === 'receiving' ? 'green' : runtime.frontendRumStatus === 'waiting' ? 'gold' : 'red';
   const schedulerValue = !runtime.connected ? 'Unknown' : runtime.schedulerPaused ? 'Paused' : 'Active';
   const readinessValue = !runtime.connected ? 'Unknown' : runtime.runtimeReady ? 'Ready' : 'Not ready';
   const readinessDetail = getReadinessDetail(runtime.readinessFailingChecks);
+  const livenessValue = runtime.edgeLive ? 'Alive' : runtime.connected ? 'Unknown' : 'Offline';
+  const livenessDetail = getLivenessDetail(runtime.edgePid, runtime.edgeUptimeSeconds);
   const rateLimitValue = runtime.rateLimitPressure === 'unknown' ? 'Unknown' : runtime.rateLimitPressure === 'warning' ? 'Warning' : 'Normal';
   const rateLimitDetail = getRateLimitDetail(runtime.rateLimitRemaining, runtime.rateLimitResetSeconds);
   const frontendRumValue = runtime.frontendRumStatus === 'receiving' ? 'Receiving' : runtime.frontendRumStatus === 'waiting' ? 'Waiting' : 'Unknown';
@@ -49,6 +52,12 @@ export function MonitorPanel({
       !runtime.connected ? 'unknown' : runtime.schedulerPaused ? 'paused' : 'active',
       !runtime.connected ? 'backend unavailable' : runtime.schedulerPaused ? 'operator hold' : 'evaluation loop',
       'control',
+    ],
+    [
+      'Edge process',
+      livenessValue.toLowerCase(),
+      runtime.edgeLive ? livenessDetail : runtime.connected ? 'liveness unavailable' : 'backend unavailable',
+      runtime.edgeLive ? 'live' : 'unknown',
     ],
     [
       'Runtime readiness',
@@ -111,6 +120,12 @@ export function MonitorPanel({
           value={schedulerValue}
           detail={runtime.connected ? 'Runtime control available' : 'Backend unavailable'}
           tone={schedulerTone}
+        />
+        <HealthCard
+          label="Edge process"
+          value={livenessValue}
+          detail={runtime.edgeLive ? livenessDetail : runtime.connected ? 'Liveness unavailable' : 'Backend unavailable'}
+          tone={livenessTone}
         />
         <HealthCard
           label="Readiness"
@@ -180,6 +195,24 @@ function getRateLimitDetail(remaining?: number, resetSeconds?: number) {
   const remainingText = typeof remaining === 'number' && Number.isFinite(remaining) ? `${remaining} requests remaining` : 'remaining unknown';
   const resetText = typeof resetSeconds === 'number' && Number.isFinite(resetSeconds) ? `reset in ${resetSeconds}s` : 'reset unknown';
   return `${remainingText}; ${resetText}`;
+}
+
+function getLivenessDetail(pid?: number, uptimeSeconds?: number) {
+  const pidText = typeof pid === 'number' && Number.isFinite(pid) ? `pid ${pid}` : 'pid unknown';
+  return `${pidText}; uptime ${formatUptime(uptimeSeconds)}`;
+}
+
+function formatUptime(uptimeSeconds?: number) {
+  if (typeof uptimeSeconds !== 'number' || !Number.isFinite(uptimeSeconds)) return 'unknown';
+
+  const seconds = Math.max(0, Math.floor(uptimeSeconds));
+  if (seconds < 60) return `${seconds}s`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
 }
 
 function getFrontendRumDetail(

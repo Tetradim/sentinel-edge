@@ -42,10 +42,14 @@ export interface RuntimeState {
   connected: boolean;
   loading: boolean;
   pulseAvailable: boolean;
+  edgeLive: boolean;
   killSwitchActive: boolean;
   schedulerPaused: boolean;
   runtimeReady: boolean;
   readinessFailingChecks: string[];
+  edgePid?: number;
+  edgeUptimeSeconds?: number;
+  edgeLiveTimestamp?: string;
   rateLimitPressure: 'normal' | 'warning' | 'unknown';
   rateLimitRemaining?: number;
   rateLimitResetSeconds?: number;

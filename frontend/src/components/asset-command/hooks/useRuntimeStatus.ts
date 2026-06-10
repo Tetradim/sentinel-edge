@@ -6,10 +6,14 @@ const initialRuntime: RuntimeState = {
   connected: false,
   loading: true,
   pulseAvailable: false,
+  edgeLive: false,
   killSwitchActive: false,
   schedulerPaused: false,
   runtimeReady: false,
   readinessFailingChecks: [],
+  edgePid: undefined,
+  edgeUptimeSeconds: undefined,
+  edgeLiveTimestamp: undefined,
   rateLimitPressure: 'unknown',
   rateLimitRemaining: undefined,
   rateLimitResetSeconds: undefined,
@@ -29,8 +33,9 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
     let cancelled = false;
     const loadRuntime = async () => {
       try {
-        const [health, readiness, rateLimit, frontendRum, pulse, kill] = await Promise.allSettled([
+        const [health, liveness, readiness, rateLimit, frontendRum, pulse, kill] = await Promise.allSettled([
           api.getHealth(),
+          api.getLiveness(),
           api.getReadiness(),
           api.getRateLimitStatus(),
           api.getFrontendRumStatus(),
@@ -39,6 +44,7 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
         ]);
         if (cancelled) return;
         const healthValue = health.status === 'fulfilled' ? health.value : null;
+        const livenessValue = liveness.status === 'fulfilled' ? liveness.value : null;
         const readinessValue = readiness.status === 'fulfilled' ? readiness.value : null;
         const rateLimitValue = rateLimit.status === 'fulfilled' ? rateLimit.value : null;
         const frontendRumValue = frontendRum.status === 'fulfilled' ? frontendRum.value : null;
@@ -48,10 +54,14 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
           connected: health.status === 'fulfilled',
           loading: false,
           pulseAvailable: Boolean(pulseValue?.available || healthValue?.pulse_available),
+          edgeLive: livenessValue?.status === 'alive',
           killSwitchActive: Boolean(killValue?.kill_switch_active),
           schedulerPaused: Boolean(healthValue?.paused),
           runtimeReady: Boolean(readinessValue?.ready),
           readinessFailingChecks: readinessValue?.failing_checks || [],
+          edgePid: livenessValue?.pid,
+          edgeUptimeSeconds: livenessValue?.uptime_seconds,
+          edgeLiveTimestamp: livenessValue?.timestamp,
           rateLimitPressure: rateLimitValue?.pressure || 'unknown',
           rateLimitRemaining: rateLimitValue?.remaining_requests,
           rateLimitResetSeconds: rateLimitValue?.reset_seconds,
@@ -72,8 +82,12 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
             connected: false,
             loading: false,
             pulseAvailable: false,
+            edgeLive: false,
             runtimeReady: false,
             readinessFailingChecks: [],
+            edgePid: undefined,
+            edgeUptimeSeconds: undefined,
+            edgeLiveTimestamp: undefined,
             rateLimitPressure: 'unknown',
             rateLimitRemaining: undefined,
             rateLimitResetSeconds: undefined,
