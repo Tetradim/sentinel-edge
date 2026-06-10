@@ -48,6 +48,7 @@ interface PulseHandoffContract {
   recommended_endpoint?: string;
   transport_headers?: Record<string, string>;
   response_contract?: Record<string, PulseHandoffContractResponse>;
+  field_semantics?: Record<string, Record<string, unknown>>;
   feedback_semantics?: Record<string, PulseFeedbackSemantic>;
 }
 
@@ -153,6 +154,14 @@ const MARKET_DATA_OPTIONS = [
 ];
 
 const PULSE_RESPONSE_CONTRACT_KEYS = ['accepted_response', 'rejected_response', 'failed_response'];
+const PULSE_FIELD_SEMANTIC_PRIORITY_KEYS = [
+  'required',
+  'default',
+  'allowed_values',
+  'known_edge_values',
+  'known_orb_session_values',
+  'strategy_context_values',
+];
 
 const isSecretField = (key: string) => {
   const normalized = key.toLowerCase();
@@ -655,6 +664,29 @@ export function SettingsDashboard() {
             </div>
 
             <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 md:col-span-3">
+              <div className="text-sm font-medium text-gray-300">Pulse field semantics</div>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {Object.entries(pulseHandoffContract.field_semantics || {}).map(([name, semantics]) => (
+                  <div key={name} className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+                    <div className="truncate text-xs font-semibold text-cyan-200">
+                      {formatPulseContractLabel(name)}
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-500">
+                      {formatPulseFieldSemanticsEntries(semantics).map(([field, value]) => (
+                        <div key={field}>
+                          {field}: {formatPulseFieldSemanticsValue(value)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {Object.keys(pulseHandoffContract.field_semantics || {}).length === 0 && (
+                <div className="mt-3 text-xs text-amber-300">No Pulse field semantics discovered.</div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 md:col-span-3">
               <div className="text-sm font-medium text-gray-300">Pulse feedback semantics</div>
               <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
                 {Object.entries(pulseHandoffContract.feedback_semantics || {}).map(([name, semantics]) => (
@@ -1010,6 +1042,29 @@ function formatPulseContractBoolean(value?: boolean) {
 
 function formatPulseExpectedFields(fields?: string[]) {
   return fields?.length ? fields.join(', ') : '--';
+}
+
+function formatPulseFieldSemanticsEntries(semantics: Record<string, unknown>) {
+  const entries = Object.entries(semantics);
+  const priority = new Map(PULSE_FIELD_SEMANTIC_PRIORITY_KEYS.map((key, index) => [key, index]));
+  return entries.sort(([left], [right]) => {
+    const leftPriority = priority.get(left) ?? PULSE_FIELD_SEMANTIC_PRIORITY_KEYS.length;
+    const rightPriority = priority.get(right) ?? PULSE_FIELD_SEMANTIC_PRIORITY_KEYS.length;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    return left.localeCompare(right);
+  });
+}
+
+function formatPulseFieldSemanticsValue(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '--';
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '--';
+  if (typeof value === 'boolean') return formatPulseContractBoolean(value);
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, nestedValue]) => `${key}: ${formatPulseFieldSemanticsValue(nestedValue)}`)
+      .join('; ');
+  }
+  return String(value);
 }
 
 function formatSimulationLabBoolean(value?: boolean) {

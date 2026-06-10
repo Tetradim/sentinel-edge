@@ -409,7 +409,7 @@ Payloads can include:
 - Pulse account/position/queue calls.
 - Manual bridge calls for trailing stops and emergency exits.
 - Autonomous handoff through `PULSE_HANDOFF_ENDPOINT` when configured.
-- Versioned handoff contract discovery through `/api/pulse/handoff/schema` with contract version `edge.pulse.handoff.v1`.
+- Versioned handoff contract discovery through `/api/pulse/handoff/schema` with contract version `edge.pulse.handoff.v1`, with Settings rendering field semantics such as allowed mode, action, stop, DCA, and handoff session-context values.
 - Structured handoff transport headers: `Idempotency-Key`, `X-Edge-Mode`, and `X-Edge-Contract-Version`.
 - Decision Feed Pulse feedback visibility for accepted, rejected, failed, and suppressed handoff outcomes tied to the decision that produced them.
 - accepted/rejected/failed feedback semantics so Edge can distinguish Pulse acceptance, risk-limit rejection, and transport or processing failure.
