@@ -8,3 +8,10 @@ export function formatAge(iso: string | null) {
   if (minutes < 60) return `${minutes}m ago`;
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
 }
+
+export function formatElapsedAge(value?: number | null) {
+  if (value === null || value === undefined) return '';
+  if (value < 1) return 'just now';
+  if (value < 60) return `${Math.round(value)}s ago`;
+  return `${Math.round(value / 60)}m ago`;
+}

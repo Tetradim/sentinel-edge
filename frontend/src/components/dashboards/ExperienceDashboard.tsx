@@ -18,6 +18,7 @@ import {
   toPrometheusText,
 } from '@/lib/webVitals';
 import { api, ApiError, RateLimitStatus } from '@/lib/api';
+import { formatElapsedAge } from '@/lib/time';
 
 const ratingClasses = {
   good: 'bg-emerald-500/10 text-emerald-300',
@@ -187,7 +188,7 @@ export const ExperienceDashboard: React.FC = () => {
           <span>Updated: {snapshot ? new Date(snapshot.collectedAt).toLocaleTimeString() : 'collecting'}</span>
           <span>Backend ingest: {formatIngestStatus(ingestStatus, retryAfterSeconds)}</span>
           {backendStatus?.last_route && (
-            <span>Last accepted: {backendStatus.last_route} {formatAge(backendStatus.seconds_since_last)}</span>
+            <span>Last accepted: {backendStatus.last_route} {formatElapsedAge(backendStatus.seconds_since_last)}</span>
           )}
         </div>
       </div>
@@ -445,11 +446,4 @@ function formatBytes(value?: number | null) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function formatAge(value?: number | null) {
-  if (value === null || value === undefined) return '';
-  if (value < 1) return 'just now';
-  if (value < 60) return `${Math.round(value)}s ago`;
-  return `${Math.round(value / 60)}m ago`;
 }

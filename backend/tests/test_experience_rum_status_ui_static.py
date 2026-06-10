@@ -25,6 +25,9 @@ class ExperienceRumStatusUiStaticTests(unittest.TestCase):
         self.assertIn("backendStatus?.sample_count", text)
         self.assertIn("backendStatus?.route_count", text)
         self.assertIn("formatRumFreshness", text)
+        self.assertIn("import { formatElapsedAge } from '@/lib/time'", text)
+        self.assertIn("formatElapsedAge(backendStatus.seconds_since_last)", text)
+        self.assertNotIn("function formatAge(value?: number | null)", text)
 
 
 if __name__ == "__main__":
