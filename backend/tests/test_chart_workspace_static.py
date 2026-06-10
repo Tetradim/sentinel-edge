@@ -12,6 +12,7 @@ OPERATIONS_PANEL = ROOT / "frontend" / "src" / "components" / "asset-command" / 
 ASSET_DATA = ROOT / "frontend" / "src" / "components" / "asset-command" / "data.ts"
 ASSET_TYPES = ROOT / "frontend" / "src" / "components" / "asset-command" / "types.ts"
 CHART_DASHBOARD = ROOT / "frontend" / "src" / "components" / "dashboards" / "ChartWorkspace.tsx"
+PLOTLY_CHARTS = ROOT / "frontend" / "src" / "components" / "ui" / "PlotlyCharts.tsx"
 README = ROOT / "README.md"
 
 
@@ -317,6 +318,23 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Indicator Snapshot", dashboard)
         self.assertIn("MACD", dashboard)
         self.assertIn("latest EMA/SMA, RSI, and MACD values", text)
+
+    def test_plotly_chart_preserves_caller_axis_layout(self):
+        chart = PLOTLY_CHARTS.read_text(encoding="utf-8")
+
+        self.assertIn("...layout.xaxis", chart)
+        self.assertIn("...layout.yaxis", chart)
+        self.assertIn("...layout.margin", chart)
+
+    def test_chart_workspace_enables_crosshair_hover_context(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("hovermode: 'x unified'", dashboard)
+        self.assertIn("showspikes: true", dashboard)
+        self.assertIn("spikemode: 'across'", dashboard)
+        self.assertIn("spikesnap: 'cursor'", dashboard)
+        self.assertIn("crosshair-style hover context", text)
 
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")

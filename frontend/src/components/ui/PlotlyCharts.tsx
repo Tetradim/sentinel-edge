@@ -59,14 +59,16 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
           xaxis: {
             gridcolor: '#374151',
             linecolor: '#4b5563',
-            tickfont: { color: '#9ca3af' }
+            tickfont: { color: '#9ca3af' },
+            ...layout.xaxis
           },
           yaxis: {
             gridcolor: '#374151',
             linecolor: '#4b5563',
-            tickfont: { color: '#9ca3af' }
+            tickfont: { color: '#9ca3af' },
+            ...layout.yaxis
           },
-          margin: { l: 60, r: 20, t: 40, b: 40 }
+          margin: { l: 60, r: 20, t: 40, b: 40, ...layout.margin }
         }}
         config={{
           displayModeBar: false,

@@ -168,6 +168,14 @@ const ORB_OVERLAY_SESSION_OPTIONS: { id: ChartWorkspaceOrbOverlaySession; label:
   { id: 'premarket_30m', label: 'Premarket ORB' },
 ];
 
+const chartCrosshairAxis = {
+  showspikes: true,
+  spikemode: 'across',
+  spikesnap: 'cursor',
+  spikethickness: 1,
+  spikecolor: '#38bdf8',
+};
+
 export const ChartWorkspace: React.FC = () => {
   const [workspacePreferences, setWorkspacePreferences] =
     useState<ChartWorkspacePreferencesState>(readChartWorkspacePreferences);
@@ -891,8 +899,9 @@ export const ChartWorkspace: React.FC = () => {
               layout={{
                 showlegend: true,
                 legend: { orientation: 'h', y: 1.08, x: 0 },
-                xaxis: { rangeslider: { visible: false } },
-                yaxis: { title: 'Price' },
+                hovermode: 'x unified',
+                xaxis: { rangeslider: { visible: false }, ...chartCrosshairAxis },
+                yaxis: { title: 'Price', ...chartCrosshairAxis },
                 yaxis2: showVolume
                   ? { title: 'Volume', overlaying: 'y', side: 'right', showgrid: false, rangemode: 'tozero' }
                   : undefined,
@@ -912,7 +921,9 @@ export const ChartWorkspace: React.FC = () => {
             layout={{
               showlegend: true,
               legend: { orientation: 'h', y: 1.15, x: 0 },
-              yaxis: { title: 'Oscillators' },
+              hovermode: 'x unified',
+              xaxis: { ...chartCrosshairAxis },
+              yaxis: { title: 'Oscillators', ...chartCrosshairAxis },
             }}
           />
         </section>
