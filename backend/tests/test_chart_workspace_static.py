@@ -134,6 +134,20 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("endpoint_path", dashboard)
         self.assertIn("http_method", dashboard)
 
+    def test_chart_workspace_persists_last_simulation_lab_result(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY", dashboard)
+        self.assertIn("sentinel-edge.chart-workspace.lab-result.v1", dashboard)
+        self.assertIn("readChartWorkspaceLabResult", dashboard)
+        self.assertIn("persistChartWorkspaceLabResult", dashboard)
+        self.assertIn("rememberSimulationLabResult", dashboard)
+        self.assertIn("normalizeChartWorkspaceLabResult", dashboard)
+        self.assertIn("isChartWorkspaceSimulationLabResultKind", dashboard)
+        self.assertIn("useState<ChartWorkspaceSimulationLabResult | null>(readChartWorkspaceLabResult)", dashboard)
+        self.assertIn("last Simulation Lab result", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 

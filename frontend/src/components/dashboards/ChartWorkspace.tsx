@@ -75,7 +75,7 @@ interface ChartWorkspaceSimulationLabStatus {
 interface ChartWorkspaceSimulationLabResult {
   kind: 'orb_backtest' | 'buying_power_allocation' | 'stop_trailing_dca';
   label: string;
-  result: {
+  result: Record<string, unknown> & {
     schema_version?: string;
     summary?: Record<string, unknown>;
   };
@@ -83,6 +83,7 @@ interface ChartWorkspaceSimulationLabResult {
 
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
 const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
+const CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY = 'sentinel-edge.chart-workspace.lab-result.v1';
 const DEFAULT_ORB_OVERLAY_SESSIONS: ChartWorkspaceOrbOverlaySession[] = ['market_open', 'premarket_30m'];
 
 const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
@@ -155,7 +156,7 @@ export const ChartWorkspace: React.FC = () => {
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
   const [simulationLabStatus, setSimulationLabStatus] = useState<ChartWorkspaceSimulationLabStatus | null>(null);
-  const [simulationLabResult, setSimulationLabResult] = useState<ChartWorkspaceSimulationLabResult | null>(null);
+  const [simulationLabResult, setSimulationLabResult] = useState<ChartWorkspaceSimulationLabResult | null>(readChartWorkspaceLabResult);
   const [orbReplaySession, setOrbReplaySession] = useState<ChartWorkspaceOrbReplaySession>('market_open');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -333,6 +334,11 @@ export const ChartWorkspace: React.FC = () => {
     setLayoutMessage(persistChartWorkspaceLayout(nextLayout) ? 'Layout saved' : 'Layout changes are local only');
   };
 
+  const rememberSimulationLabResult = (nextResult: ChartWorkspaceSimulationLabResult) => {
+    setSimulationLabResult(nextResult);
+    return persistChartWorkspaceLabResult(nextResult);
+  };
+
   const selectLayoutMode = (nextLayoutMode: ChartWorkspaceLayoutMode) => {
     updateWorkspaceLayout({
       ...workspaceLayout,
@@ -368,7 +374,7 @@ export const ChartWorkspace: React.FC = () => {
         target_r_multiple: 2,
         bars: snapshot.bars,
       });
-      setSimulationLabResult({
+      rememberSimulationLabResult({
         kind: 'orb_backtest',
         label: `${selectedOrbReplaySession.label} ORB replay`,
         result,
@@ -390,7 +396,7 @@ export const ChartWorkspace: React.FC = () => {
         mode: 'confidence_weighted',
         candidates: buildAllocationCandidates(snapshot.symbol, latestBar.close),
       });
-      setSimulationLabResult({
+      rememberSimulationLabResult({
         kind: 'buying_power_allocation',
         label: 'Buying-power allocation',
         result,
@@ -418,7 +424,7 @@ export const ChartWorkspace: React.FC = () => {
         dca_drop_pct: 0.03,
         price_path: snapshot.bars,
       });
-      setSimulationLabResult({
+      rememberSimulationLabResult({
         kind: 'stop_trailing_dca',
         label: 'Stop vs trailing-stop vs DCA',
         result,
@@ -1086,6 +1092,27 @@ function clearChartWorkspacePreferences() {
   }
 }
 
+function readChartWorkspaceLabResult(): ChartWorkspaceSimulationLabResult | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storedResult = window.localStorage.getItem(CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY);
+    if (!storedResult) return null;
+    return normalizeChartWorkspaceLabResult(JSON.parse(storedResult));
+  } catch {
+    return null;
+  }
+}
+
+function persistChartWorkspaceLabResult(result: ChartWorkspaceSimulationLabResult) {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY, JSON.stringify(result));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutState {
   if (!isRecord(value)) return cloneDefaultLayoutState();
   const storedPanels = isRecord(value.panelVisibility) ? value.panelVisibility : {};
@@ -1118,6 +1145,25 @@ function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePrefe
         ? value.showOrbOverlays
         : DEFAULT_PREFERENCES_STATE.showOrbOverlays,
     orbOverlaySessions: normalizeOrbOverlaySessions(value.orbOverlaySessions),
+  };
+}
+
+function normalizeChartWorkspaceLabResult(value: unknown): ChartWorkspaceSimulationLabResult | null {
+  if (!isRecord(value)) return null;
+  const kind = value.kind;
+  const label = typeof value.label === 'string' ? value.label.trim() : '';
+  const storedResult = isRecord(value.result) ? value.result : null;
+  if (!isChartWorkspaceSimulationLabResultKind(kind) || !label || !storedResult) return null;
+
+  const summary = isRecord(storedResult.summary) ? storedResult.summary : undefined;
+  return {
+    kind,
+    label,
+    result: {
+      ...storedResult,
+      schema_version: typeof storedResult.schema_version === 'string' ? storedResult.schema_version : undefined,
+      summary,
+    },
   };
 }
 
@@ -1154,6 +1200,10 @@ function isChartWorkspaceIndicatorId(value: unknown): value is ChartWorkspaceInd
 
 function isChartWorkspaceIndicatorPresetId(value: unknown): value is ChartWorkspaceIndicatorPresetId {
   return value === 'custom' || INDICATOR_PRESET_OPTIONS.some((option) => option.id === value);
+}
+
+function isChartWorkspaceSimulationLabResultKind(value: unknown): value is ChartWorkspaceSimulationLabResult['kind'] {
+  return value === 'orb_backtest' || value === 'buying_power_allocation' || value === 'stop_trailing_dca';
 }
 
 function normalizeChartWorkspaceSymbol(value: unknown) {
