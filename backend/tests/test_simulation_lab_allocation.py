@@ -72,6 +72,38 @@ class SimulationLabAllocationTests(unittest.TestCase):
         self.assertEqual(result["summary"]["allocated_notional"], 7000.0)
         self.assertEqual(result["summary"]["unallocated_notional"], 2000.0)
 
+    def test_priority_fill_reports_candidates_skipped_after_buying_power_is_exhausted(self):
+        result = run_buying_power_allocation_experiment(
+            buying_power=3000.0,
+            cash_reserve_pct=0.0,
+            max_position_pct=1.0,
+            mode="priority_fill",
+            candidates=[
+                {"symbol": "nvda", "confidence": 0.95, "requested_notional": 2500.0},
+                {"symbol": "aapl", "confidence": 0.80, "requested_notional": 2500.0},
+                {"symbol": "spy", "confidence": 0.60, "requested_notional": 2500.0},
+            ],
+        )
+
+        self.assertEqual([item["symbol"] for item in result["allocations"]], ["NVDA", "AAPL"])
+        self.assertEqual([item["allocated_notional"] for item in result["allocations"]], [2500.0, 500.0])
+        self.assertEqual(result["summary"]["allocated_count"], 2)
+        self.assertEqual(result["summary"]["skipped_count"], 1)
+        self.assertEqual(result["summary"]["requested_notional"], 7500.0)
+        self.assertEqual(result["summary"]["unfilled_requested_notional"], 4500.0)
+        self.assertEqual(result["skipped"], [
+            {
+                "symbol": "SPY",
+                "confidence": 0.6,
+                "requested_notional": 2500.0,
+                "current_exposure": 0.0,
+                "position_capacity_notional": 2500.0,
+                "position_limited": False,
+                "position_limited_notional": 0.0,
+                "reason": "buying_power_exhausted",
+            }
+        ])
+
     def test_buying_power_allocation_is_runnable_only_when_lab_is_enabled(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop(SIMULATION_LAB_ENV_FLAG, None)

@@ -102,6 +102,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("/api/simulation-lab/buying-power/allocation", text)
         self.assertIn("aggregate fill-ratio summaries", text)
         self.assertIn("position-cap constraint attribution", text)
+        self.assertIn("buying_power_exhausted", text)
         self.assertIn("post-capacity fill ratios", text)
         self.assertIn("stop vs trailing-stop vs DCA comparisons", text)
         self.assertIn("/api/simulation-lab/stop-trailing-dca/compare", text)

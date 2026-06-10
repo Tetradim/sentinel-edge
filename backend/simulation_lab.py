@@ -470,6 +470,16 @@ def run_buying_power_allocation_experiment(
         buying_power=buying_power,
         mode=mode,
     )
+    allocated_indexes = set()
+    for allocation in allocations:
+        candidate_index = allocation.pop("_candidate_index", None)
+        if candidate_index is not None:
+            allocated_indexes.add(candidate_index)
+    if mode == "priority_fill":
+        for candidate in eligible:
+            if candidate["index"] not in allocated_indexes:
+                skipped.append(_skipped_allocation(candidate, "buying_power_exhausted", candidate["candidate_cap"]))
+
     allocated_notional = round(sum(item["allocated_notional"] for item in allocations), 2)
     unallocated_notional = round(max(0.0, allocatable_notional - allocated_notional), 2)
     requested_notional = round(sum(candidate["requested_notional"] for candidate in normalised), 2)
@@ -583,6 +593,7 @@ def _allocation_payload(candidate: Dict[str, Any], allocated: float, buying_powe
     requested = candidate["requested_notional"]
     position_limited_notional = candidate.get("position_limited_notional", 0.0)
     return {
+        "_candidate_index": candidate["index"],
         "symbol": candidate["symbol"],
         "confidence": round(candidate["confidence"], 4),
         "requested_notional": round(requested, 2),
