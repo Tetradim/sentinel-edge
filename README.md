@@ -591,6 +591,8 @@ To capture a JSON summary for CI artifacts or local debugging:
 .\scripts\verify-local.ps1 -SummaryPath .\verification-summary.json
 ```
 
+When skip flags are used, the summary includes explicit `skipped` entries so the artifact still shows the verification scope.
+
 The recent implementation has been checked with:
 
 ```bash

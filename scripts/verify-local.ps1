@@ -61,6 +61,22 @@ function Add-VerificationResult {
     })
 }
 
+function Add-VerificationSkipped {
+    param(
+        [string]$Name,
+        [string]$WorkingDirectory,
+        [string]$Reason
+    )
+    Write-Status "$Name skipped: $Reason" "WARN"
+    Add-VerificationResult `
+        -Name $Name `
+        -Status "skipped" `
+        -ExitCode $null `
+        -WorkingDirectory $WorkingDirectory `
+        -DurationSeconds 0 `
+        -ErrorMessage $null
+}
+
 function Test-VerificationFailed {
     foreach ($result in $VerificationResults) {
         if ($result.status -eq "failed") { return $true }
@@ -168,6 +184,11 @@ if (-not $SkipBackend) {
         -FilePath $BackendPython `
         -ArgumentList @("-m", "unittest", "discover", "-s", "backend/tests", "-p", "test_*static.py") `
         -WorkingDirectory $ProjectRoot
+} else {
+    Add-VerificationSkipped `
+        -Name "Backend verification" `
+        -WorkingDirectory $ProjectRoot `
+        -Reason "-SkipBackend was supplied"
 }
 
 if (-not $SkipFrontend) {
@@ -205,7 +226,17 @@ if (-not $SkipFrontend) {
             -FilePath $npm `
             -ArgumentList @("audit", "--audit-level=moderate") `
             -WorkingDirectory $Frontend
+    } else {
+        Add-VerificationSkipped `
+            -Name "Frontend audit: npm audit --audit-level=moderate" `
+            -WorkingDirectory $Frontend `
+            -Reason "-SkipAudit was supplied"
     }
+} else {
+    Add-VerificationSkipped `
+        -Name "Frontend verification" `
+        -WorkingDirectory $Frontend `
+        -Reason "-SkipFrontend was supplied"
 }
 
 Invoke-ExternalCommand `
