@@ -39,6 +39,9 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
         self.assertIn("'Readiness unavailable'", text)
         self.assertIn("const readinessGuardMessage = state.ready", text)
         self.assertIn("'Unable to confirm Edge runtime readiness.", text)
+        self.assertIn("const readinessCheckedAt = formatAge(state.ready?.timestamp || null)", text)
+        self.assertIn("Readiness checked", text)
+        self.assertIn("{readinessCheckedAt}", text)
         self.assertIn("{readinessGuardTitle}", text)
         self.assertIn("{readinessGuardMessage}", text)
 

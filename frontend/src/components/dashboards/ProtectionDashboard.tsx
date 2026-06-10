@@ -73,6 +73,17 @@ const currency = (value: number) => `$${value.toLocaleString(undefined, { maximu
 
 const percent = (value: number) => `${value.toFixed(2)}%`;
 
+const formatAge = (iso: string | null) => {
+  if (!iso) return 'never';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return 'unknown';
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
+};
+
 const normalizePositions = (raw: unknown): ProtectionPosition[] => {
   if (Array.isArray(raw)) return raw.filter(Boolean).map((item) => ({ ...item, symbol: String(item.symbol || '').toUpperCase() }));
   if (!raw || typeof raw !== 'object') return [];
@@ -162,6 +173,7 @@ export const ProtectionDashboard: React.FC = () => {
   const readinessGuardMessage = state.ready
     ? 'Edge runtime must be ready before enabling paper handoff.'
     : 'Unable to confirm Edge runtime readiness. Refresh or check /api/ready before enabling paper handoff.';
+  const readinessCheckedAt = formatAge(state.ready?.timestamp || null);
 
   const positionStats = useMemo(() => {
     const totalExposure = state.positions.reduce((sum, item) => sum + Math.abs(numberOrZero(item.market_value)), 0);
@@ -297,6 +309,9 @@ export const ProtectionDashboard: React.FC = () => {
           <p className="mt-2 text-red-100/80">
             {readinessGuardMessage}
           </p>
+          <div className="mt-2 text-xs text-red-100/70">
+            Readiness checked: {readinessCheckedAt}
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {(failingReadinessDetails.length > 0 ? failingReadinessDetails : [{
               name: 'readiness_unknown',
