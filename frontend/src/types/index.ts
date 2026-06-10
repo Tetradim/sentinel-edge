@@ -144,6 +144,17 @@ export interface ChartWorkspaceSnapshot {
   orb_session_status?: OrbSessionStatus | null;
 }
 
+export interface PulseFeedback {
+  sent?: boolean;
+  status?: string;
+  reason?: string;
+  endpoint?: string;
+  status_code?: number;
+  legacy_fallback?: boolean;
+  response?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface DecisionEntry {
   symbol: string;
   decision: string;
@@ -152,6 +163,10 @@ export interface DecisionEntry {
   confidence: number;
   price: number;
   orb_decision_context?: OrbDecisionContext;
+  handoff_sent?: boolean;
+  handoff_status?: string;
+  handoff_reason?: string;
+  pulse_feedback?: PulseFeedback;
   timestamp: string;
 }
 

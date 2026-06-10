@@ -404,9 +404,14 @@ class EvaluationScheduler:
 
             # ── 8. Send decision to Pulse when autonomous handoff allows it ───
             confidence = min(abs(signal_strength) / 10.0, 1.0)
+            handoff_result: Dict[str, Any] = {
+                "sent": False,
+                "status": "not_attempted",
+                "reason": "decision_did_not_request_handoff",
+            }
             handoff_sent = False
             if decision == Decision.BUY:
-                handoff_sent = await self._handoff_to_pulse(
+                handoff_result = await self._handoff_to_pulse_with_feedback(
                     symbol=symbol,
                     action=AutomationAction.BUY,
                     confidence=confidence,
@@ -416,7 +421,7 @@ class EvaluationScheduler:
                 )
 
             elif decision == Decision.STOP_BUYING:
-                handoff_sent = await self._handoff_to_pulse(
+                handoff_result = await self._handoff_to_pulse_with_feedback(
                     symbol=symbol,
                     action=AutomationAction.STOP_BUYING,
                     confidence=confidence,
@@ -430,7 +435,7 @@ class EvaluationScheduler:
                     min(2.0, max(0.5, (atr / price) * 100 * 2))
                     if price > 0 else 1.5
                 )
-                handoff_sent = await self._handoff_to_pulse(
+                handoff_result = await self._handoff_to_pulse_with_feedback(
                     symbol=symbol,
                     action=AutomationAction.TRAILING_STOP,
                     confidence=confidence,
@@ -442,7 +447,7 @@ class EvaluationScheduler:
                 )
 
             elif decision == Decision.TIGHTEN_TRAILING_STOP:
-                handoff_sent = await self._handoff_to_pulse(
+                handoff_result = await self._handoff_to_pulse_with_feedback(
                     symbol=symbol,
                     action=AutomationAction.TIGHTEN_TRAILING_STOP,
                     confidence=confidence,
@@ -454,7 +459,7 @@ class EvaluationScheduler:
                 )
 
             elif decision == Decision.TIGHTEN_STOP:
-                handoff_sent = await self._handoff_to_pulse(
+                handoff_result = await self._handoff_to_pulse_with_feedback(
                     symbol=symbol,
                     action=AutomationAction.TIGHTEN_STOP,
                     confidence=confidence,
@@ -465,7 +470,7 @@ class EvaluationScheduler:
                 )
 
             elif decision == Decision.EMERGENCY_EXIT:
-                handoff_sent = await self._handoff_to_pulse(
+                handoff_result = await self._handoff_to_pulse_with_feedback(
                     symbol=symbol,
                     action=AutomationAction.EMERGENCY_EXIT,
                     confidence=max(confidence, 0.95),
@@ -473,6 +478,7 @@ class EvaluationScheduler:
                     orb_session=orb_decision_context["signal_session"],
                     metadata={**orb_metadata, "drawdown_pct": pos["drawdown_pct"], "pnl_pct": pnl_pct},
                 )
+            handoff_sent = bool(handoff_result.get("sent", False))
 
             # ── 9a. Notify PositionTracker of decision taken ─────────────────
             # Only mutate local position state after Pulse accepts the handoff.
@@ -497,6 +503,10 @@ class EvaluationScheduler:
                     "pnl_pct":         round(pos["pnl_pct"], 3),
                     "has_position":    pos["has_position"],
                     "orb_decision_context": orb_decision_context,
+                    "handoff_sent": handoff_sent,
+                    "handoff_status": handoff_result.get("status"),
+                    "handoff_reason": handoff_result.get("reason"),
+                    "pulse_feedback": handoff_result,
                     "timestamp":       now.isoformat(),
                 })
                 self.recent_decisions = self.recent_decisions[:50]
@@ -641,6 +651,32 @@ class EvaluationScheduler:
         metadata: Optional[Dict] = None,
     ) -> bool:
         """Gate and send an autonomous Edge -> Pulse handoff command."""
+        handoff_result = await self._handoff_to_pulse_with_feedback(
+            symbol=symbol,
+            action=action,
+            confidence=confidence,
+            reason=reason,
+            orb_session=orb_session,
+            stop_type=stop_type,
+            trailing_percent=trailing_percent,
+            dca=dca,
+            metadata=metadata,
+        )
+        return bool(handoff_result.get("sent", False))
+
+    async def _handoff_to_pulse_with_feedback(
+        self,
+        symbol: str,
+        action: AutomationAction,
+        confidence: float,
+        reason: str,
+        orb_session: str = "market_open",
+        stop_type: Optional[str] = None,
+        trailing_percent: Optional[float] = None,
+        dca: Optional[Dict] = None,
+        metadata: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
+        """Gate and send an autonomous Edge -> Pulse handoff command, returning structured feedback."""
         command = HandoffCommand(
             symbol=symbol,
             action=action,
@@ -666,7 +702,17 @@ class EvaluationScheduler:
                 action.value,
                 gate_reason,
             )
-            return False
+            return {
+                "sent": False,
+                "status": "suppressed",
+                "reason": gate_reason,
+                "symbol": command.symbol,
+                "action": command.action.value,
+                "mode": command.mode.value,
+                "orb_session": command.orb_session,
+                "idempotency_key": command.idempotency_key,
+                "market_status": market_status,
+            }
 
         allowed, gate_reason = self.automation.plan(command)
         if not allowed:
@@ -676,18 +722,29 @@ class EvaluationScheduler:
                 action.value,
                 gate_reason,
             )
-            return False
+            return {
+                "sent": False,
+                "status": "suppressed",
+                "reason": gate_reason,
+                "symbol": command.symbol,
+                "action": command.action.value,
+                "mode": command.mode.value,
+                "orb_session": command.orb_session,
+                "idempotency_key": command.idempotency_key,
+            }
 
         handoff_result = await self.pulse.send_handoff_command(command.payload())
+        if not isinstance(handoff_result, dict):
+            handoff_result = {
+                "sent": bool(handoff_result),
+                "status": "accepted" if handoff_result else "failed",
+                "reason": "pulse_accepted" if handoff_result else "pulse_send_failed",
+            }
         self.automation.record_sent(command, handoff_result)
-        handoff_sent = (
-            bool(handoff_result.get("sent", False))
-            if isinstance(handoff_result, dict)
-            else bool(handoff_result)
-        )
+        handoff_sent = bool(handoff_result.get("sent", False))
         if handoff_sent:
             logger.info("Pulse handoff sent: %s %s conf=%.2f", symbol, action.value, confidence)
-        return handoff_sent
+        return handoff_result
 
     async def evaluate_all(self):
         """Evaluate all active tickers concurrently."""

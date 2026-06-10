@@ -77,6 +77,7 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
                 Icon: Activity,
               };
               const { Icon } = style;
+              const pulseFeedbackLabel = formatPulseDecisionFeedback(entry);
               const signalColor =
                 entry.signal_strength >= 2
                   ? 'text-emerald-400'
@@ -111,6 +112,11 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
                     {orbContextLabel && (
                       <span className="max-w-[112px] truncate text-[10px] leading-none text-gray-500 whitespace-nowrap">
                         {orbContextLabel}
+                      </span>
+                    )}
+                    {pulseFeedbackLabel && (
+                      <span className="max-w-[112px] truncate text-[10px] leading-none text-cyan-400/80 whitespace-nowrap">
+                        Pulse {pulseFeedbackLabel}
                       </span>
                     )}
                   </div>
@@ -159,6 +165,14 @@ function formatOrbDecisionContext(context?: OrbDecisionContext) {
   const timeframe = context.signal_timeframe || '15m';
   const status = formatOrbSessionId(context.active_status);
   return `${context.active_label || sessionLabel} / ${sessionLabel} ${timeframe} / ${status}`;
+}
+
+function formatPulseDecisionFeedback(entry: DecisionEntry) {
+  const status = entry.handoff_status || entry.pulse_feedback?.status;
+  if (!status || status === 'not_attempted') return '';
+  const reason = entry.handoff_reason || entry.pulse_feedback?.reason;
+  const label = formatOrbSessionId(status);
+  return reason ? `${label}: ${String(reason)}` : label;
 }
 
 function formatOrbSessionId(value?: string) {
