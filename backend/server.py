@@ -247,10 +247,12 @@ def _refresh_readiness_metrics() -> Dict[str, Any]:
     _publish_readiness_metrics(checks, ready)
     return {
         "ready": ready,
+        "status": "ready" if ready else "not_ready",
         "checks": checks,
         "check_details": check_details,
         "failing_checks": failing_checks,
         "failing_check_details": failing_check_details,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
 
@@ -771,21 +773,10 @@ async def health():
 async def readiness():
     """Return 200 only when Edge core runtime dependencies are ready."""
     readiness_state = _refresh_readiness_metrics()
-    checks = readiness_state["checks"]
     ready = readiness_state["ready"]
-    failing_checks = readiness_state["failing_checks"]
-    payload = {
-        "ready": ready,
-        "status": "ready" if ready else "not_ready",
-        "checks": checks,
-        "check_details": readiness_state["check_details"],
-        "failing_checks": failing_checks,
-        "failing_check_details": readiness_state["failing_check_details"],
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-    }
     if not ready:
-        raise HTTPException(status_code=503, detail=payload)
-    return payload
+        raise HTTPException(status_code=503, detail=readiness_state)
+    return readiness_state
 
 
 @api_router.post("/frontend/rum")

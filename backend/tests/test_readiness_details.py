@@ -61,6 +61,8 @@ class ReadinessDetailsTests(unittest.TestCase):
         )
         self.assertTrue(all(detail["required"] for detail in state["failing_check_details"]))
         self.assertIn("Scheduler initialized", [detail["label"] for detail in state["failing_check_details"]])
+        self.assertEqual(state["status"], "not_ready")
+        self.assertRegex(state["timestamp"], r"^\d{4}-\d{2}-\d{2}T.*Z$")
 
 
 if __name__ == "__main__":
