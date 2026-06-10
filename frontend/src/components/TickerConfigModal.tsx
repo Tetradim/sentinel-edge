@@ -56,6 +56,7 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
   const [initialLoad, setInitialLoad] = useState(true);
   const [backtestResults, setBacktestResults] = useState<BacktestResult | null>(null);
   const [runningBacktest, setRunningBacktest] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [monteCarloSettings, setMonteCarloSettings] = useState({
     enabled: true,
     method: 'bootstrap',
@@ -75,6 +76,7 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
   useEffect(() => {
     if (isOpen && symbol) {
       setInitialLoad(true);
+      setActionError('');
       api.getTickerConfig(symbol).then((config) => {
         setLocalConfig({
           price_providers: config?.price_providers || DEFAULT_PROVIDERS,
@@ -119,6 +121,7 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
     setSaving(true);
     try {
       // Save price providers config
+      setActionError('');
       await api.updateTickerConfig(symbol, {
         price_providers: localConfig.price_providers,
         metrics: localConfig.metrics,
@@ -129,6 +132,7 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
       onRefresh?.();
     } catch (error) {
       console.error('Failed to save config:', error);
+      setActionError('Failed to save ticker configuration');
     } finally {
       setSaving(false);
     }
@@ -198,10 +202,12 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
         .toISOString()
         .split('T')[0];
 
+      setActionError('');
       const result = await api.runBacktest(symbol, startDate, endDate, 10000, monteCarloSettings);
       setBacktestResults(result);
     } catch (error) {
       console.error('Backtest failed:', error);
+      setActionError('Backtest failed. Check backend availability and parameters.');
     } finally {
       setRunningBacktest(false);
     }
@@ -222,10 +228,12 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
         num_simulations: [500, 1000],
       };
 
+      setActionError('');
       const result = await api.optimizeStrategy(symbol, startDate, endDate, paramGrid, 10000);
       setBacktestResults(result.best_results);
     } catch (error) {
       console.error('Optimization failed:', error);
+      setActionError('Optimization failed. Check backend availability and parameter ranges.');
     } finally {
       setRunningBacktest(false);
     }
@@ -261,6 +269,15 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
 
         {/* Content */}
         <div className="px-6 py-4 space-y-4">
+          {actionError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+            >
+              {actionError}
+            </div>
+          )}
+
           {initialLoad ? (
             <div className="text-sm text-zinc-400">Loading...</div>
           ) : (
