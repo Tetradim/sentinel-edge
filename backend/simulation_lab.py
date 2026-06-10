@@ -17,6 +17,7 @@ SIMULATION_LAB_BUYING_POWER_VERSION = "edge.simulation_lab.buying_power_allocati
 SIMULATION_LAB_STOP_TRAILING_DCA_VERSION = "edge.simulation_lab.stop_trailing_dca.v1"
 SIMULATION_LAB_INPUT_FINGERPRINT_ALGORITHM = "sha256.canonical_json.v1"
 SIMULATION_LAB_RESULT_METADATA_FIELDS = ("run_id", "input_fingerprint", "input_fingerprint_algorithm")
+SIMULATION_LAB_DISABLED_REASON = "Set EDGE_SIMULATION_LAB_ENABLED=true to reveal Simulation Lab workflows."
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _BREAKOUT_SIDES = {"both", "long", "short"}
 _ALLOCATION_MODES = {"confidence_weighted", "equal_weight", "priority_fill"}
@@ -107,6 +108,7 @@ def simulation_lab_status() -> Dict[str, Any]:
         "enabled": enabled,
         "default_hidden": not enabled,
         "env_flag": SIMULATION_LAB_ENV_FLAG,
+        "disabled_reason": None if enabled else SIMULATION_LAB_DISABLED_REASON,
         "experiments": [experiment.to_status(enabled) for experiment in _EXPERIMENTS],
     }
 

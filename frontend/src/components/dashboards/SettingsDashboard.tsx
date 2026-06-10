@@ -85,6 +85,7 @@ interface SimulationLabStatus {
   enabled?: boolean;
   default_hidden?: boolean;
   env_flag?: string;
+  disabled_reason?: string | null;
   experiments?: SimulationLabExperiment[];
 }
 
@@ -866,11 +867,12 @@ export function SettingsDashboard() {
           <div className="text-sm text-gray-500">Simulation Lab status unavailable until the backend status endpoint responds.</div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
               <RuntimeDetail label="schema_version" value={simulationLabStatus.schema_version || '--'} />
               <RuntimeDetail label="env_flag" value={simulationLabStatus.env_flag || 'EDGE_SIMULATION_LAB_ENABLED'} />
               <RuntimeDetail label="enabled" value={formatSimulationLabBoolean(simulationLabStatus.enabled)} />
               <RuntimeDetail label="default_hidden" value={formatSimulationLabBoolean(simulationLabStatus.default_hidden)} />
+              <RuntimeDetail label="disabled_reason" value={simulationLabStatus.disabled_reason || '--'} />
             </div>
 
             <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">

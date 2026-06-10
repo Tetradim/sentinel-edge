@@ -118,6 +118,8 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("Simulation Lab status", text)
         self.assertIn("EDGE_SIMULATION_LAB_ENABLED", text)
         self.assertIn("default_hidden", text)
+        self.assertIn("disabled_reason", text)
+        self.assertIn('RuntimeDetail label="disabled_reason"', text)
         self.assertIn("Experiment catalog", text)
         self.assertIn("formatSimulationLabBoolean", text)
         self.assertIn("formatSimulationLabExperimentEndpoint", text)
@@ -126,6 +128,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("result_metadata_fields", text)
         self.assertIn("runnable", text)
         self.assertIn("Simulation Lab status in Settings", readme)
+        self.assertIn("disabled reason", readme)
 
 
 if __name__ == "__main__":

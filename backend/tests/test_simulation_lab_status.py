@@ -23,6 +23,10 @@ class SimulationLabStatusTests(unittest.TestCase):
         self.assertTrue(status["default_hidden"])
         self.assertEqual(status["env_flag"], "EDGE_SIMULATION_LAB_ENABLED")
         self.assertEqual(
+            status["disabled_reason"],
+            "Set EDGE_SIMULATION_LAB_ENABLED=true to reveal Simulation Lab workflows.",
+        )
+        self.assertEqual(
             [experiment["id"] for experiment in status["experiments"]],
             ["orb_backtest", "buying_power_allocation", "stop_trailing_dca"],
         )
@@ -60,6 +64,7 @@ class SimulationLabStatusTests(unittest.TestCase):
 
         self.assertTrue(status["enabled"])
         self.assertFalse(status["default_hidden"])
+        self.assertIsNone(status["disabled_reason"])
         self.assertTrue(all(experiment["state"] == "visible" for experiment in status["experiments"]))
         orb_experiment = next(experiment for experiment in status["experiments"] if experiment["id"] == "orb_backtest")
         self.assertEqual(orb_experiment["status"], "available")
