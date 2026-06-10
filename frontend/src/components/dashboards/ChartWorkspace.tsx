@@ -47,6 +47,8 @@ interface ChartWorkspacePreferencesState {
 }
 
 interface ChartWorkspaceSimulationLabExperiment {
+  id?: string;
+  label?: string;
   runnable?: boolean;
   http_method?: string;
   endpoint_path?: string;
@@ -180,6 +182,7 @@ export const ChartWorkspace: React.FC = () => {
   const simulationLabEnabled = Boolean(
     simulationLabStatus?.enabled && simulationLabStatus.experiments?.some((experiment) => experiment.runnable),
   );
+  const simulationLabExperiments = simulationLabStatus?.experiments?.filter((experiment) => experiment.runnable) ?? [];
   const visiblePanelOptions = useMemo(
     () => PANEL_OPTIONS.filter((option) => option.id !== 'lab' || simulationLabEnabled),
     [simulationLabEnabled],
@@ -400,6 +403,27 @@ export const ChartWorkspace: React.FC = () => {
               Stop/DCA
             </button>
           </div>
+          {simulationLabExperiments.length > 0 && (
+            <div className="mt-3 space-y-1 text-[11px] text-slate-400">
+              <div className="font-semibold uppercase text-slate-500">Lab catalog</div>
+              {simulationLabExperiments.map((experiment, index) => {
+                const endpointLabel = formatSimulationLabEndpoint(experiment);
+                return (
+                  <div
+                    key={`${experiment.id || experiment.endpoint_path || experiment.label || 'experiment'}-${index}`}
+                    className="border-t border-slate-800/80 pt-1 first:border-t-0"
+                  >
+                    <div className="truncate text-slate-300">
+                      {experiment.label || formatSimulationLabExperimentId(experiment.id)}
+                    </div>
+                    <div className="truncate font-mono text-[10px] text-slate-500" title={endpointLabel}>
+                      {endpointLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {labMessage && <p className="mt-3 text-xs text-slate-300">{labMessage}</p>}
         </section>
       )}
@@ -714,6 +738,18 @@ function orbLineTrace(x: string[], y: number, name: string, color: string) {
 function formatOrbSessionStatus(status?: string) {
   if (!status) return '--';
   return status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatSimulationLabEndpoint(experiment: ChartWorkspaceSimulationLabExperiment) {
+  const method = experiment.http_method || 'POST';
+  const endpoint = experiment.endpoint_path || 'endpoint unavailable';
+  const schemaVersion = experiment.result_schema_version || 'schema unknown';
+  return `${method} ${endpoint} / ${schemaVersion}`;
+}
+
+function formatSimulationLabExperimentId(id?: string) {
+  if (!id) return 'Experiment';
+  return id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {

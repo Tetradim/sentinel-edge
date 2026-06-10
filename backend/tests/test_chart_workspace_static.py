@@ -99,6 +99,16 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("panelVisibility.lab && simulationLabEnabled", dashboard)
         self.assertIn("option.id !== 'lab' || simulationLabEnabled", dashboard)
 
+    def test_chart_workspace_surfaces_simulation_lab_catalog_metadata(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("simulationLabExperiments", dashboard)
+        self.assertIn("Lab catalog", dashboard)
+        self.assertIn("formatSimulationLabEndpoint", dashboard)
+        self.assertIn("result_schema_version", dashboard)
+        self.assertIn("endpoint_path", dashboard)
+        self.assertIn("http_method", dashboard)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 
