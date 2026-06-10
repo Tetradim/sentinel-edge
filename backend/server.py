@@ -221,6 +221,7 @@ def _readiness_check_details(checks: Dict[str, bool]) -> Dict[str, Dict[str, Any
             },
         )
         details[check_name] = {
+            "name": check_name,
             "label": metadata["label"],
             "description": metadata["description"],
             "required": metadata["required"],
@@ -242,8 +243,15 @@ def _refresh_readiness_metrics() -> Dict[str, Any]:
     ready = all(value for key, value in checks.items() if key != "demo_mode")
     failing_checks = [key for key, value in checks.items() if key != "demo_mode" and not value]
     check_details = _readiness_check_details(checks)
+    failing_check_details = [check_details[key] for key in failing_checks]
     _publish_readiness_metrics(checks, ready)
-    return {"ready": ready, "checks": checks, "check_details": check_details, "failing_checks": failing_checks}
+    return {
+        "ready": ready,
+        "checks": checks,
+        "check_details": check_details,
+        "failing_checks": failing_checks,
+        "failing_check_details": failing_check_details,
+    }
 
 
 def _rate_limit_pressure(tracked_clients: int) -> str:
@@ -772,6 +780,7 @@ async def readiness():
         "checks": checks,
         "check_details": readiness_state["check_details"],
         "failing_checks": failing_checks,
+        "failing_check_details": readiness_state["failing_check_details"],
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
     if not ready:

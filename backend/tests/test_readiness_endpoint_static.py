@@ -26,6 +26,7 @@ class ReadinessEndpointStaticTests(unittest.TestCase):
         self.assertIn('"required"', text)
         self.assertIn('"ready": ready', text)
         self.assertIn('"failing_checks": failing_checks', text)
+        self.assertIn('"failing_check_details": failing_check_details', text)
         self.assertIn('"check_details": check_details', text)
         self.assertIn('if key != "demo_mode" and not value', text)
 

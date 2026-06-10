@@ -15,7 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
-import { api } from '@/lib/api';
+import { api, type EdgeReadinessCheckDetail } from '@/lib/api';
 
 interface ProtectionPosition {
   symbol: string;
@@ -155,8 +155,21 @@ export const ProtectionDashboard: React.FC = () => {
   const queueSize = numberOrZero(state.queue?.size ?? state.queue?.pending ?? state.stats?.retry_queue?.size ?? state.stats?.retry_queue?.pending);
   const runtimeReady = Boolean(state.ready?.ready);
   const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
-  const readinessDetails = state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
+  const readinessDetails: Record<string, EdgeReadinessCheckDetail> =
+    state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
   const readinessFailures: string[] = Array.isArray(state.ready?.failing_checks) ? state.ready.failing_checks : [];
+  const failingReadinessDetails: EdgeReadinessCheckDetail[] = Array.isArray(state.ready?.failing_check_details)
+    ? state.ready.failing_check_details
+    : readinessFailures.map((check) => {
+        const detail = readinessDetails[check];
+        return {
+          name: detail?.name || check,
+          label: detail?.label || check,
+          description: detail?.description || check,
+          required: detail?.required ?? true,
+          ready: detail?.ready ?? Boolean(readinessChecks[check]),
+        };
+      });
   const handoffBlocked = state.ready ? !runtimeReady : true;
 
   const positionStats = useMemo(() => {
@@ -294,18 +307,21 @@ export const ProtectionDashboard: React.FC = () => {
             Edge runtime must be ready before enabling paper handoff.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(readinessFailures.length > 0 ? readinessFailures : ['readiness_unknown']).map((check) => {
-              const detail = readinessDetails[check];
-              return (
-                <span
-                  key={check}
-                  title={detail?.description || check}
-                  className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-100"
-                >
-                  {detail?.label || check}
-                </span>
-              );
-            })}
+            {(failingReadinessDetails.length > 0 ? failingReadinessDetails : [{
+              name: 'readiness_unknown',
+              label: 'readiness_unknown',
+              description: 'Readiness status is unavailable.',
+              required: true,
+              ready: false,
+            }]).map((detail) => (
+              <span
+                key={detail.name}
+                title={detail.description || detail.name}
+                className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-100"
+              >
+                {detail.label}
+              </span>
+            ))}
           </div>
         </div>
       )}

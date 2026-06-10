@@ -22,6 +22,7 @@ export interface EdgeLiveness {
 }
 
 export interface EdgeReadinessCheckDetail {
+  name: string;
   label: string;
   description: string;
   required: boolean;
@@ -34,6 +35,7 @@ export interface EdgeReadiness {
   checks: Record<string, boolean>;
   check_details?: Record<string, EdgeReadinessCheckDetail>;
   failing_checks: string[];
+  failing_check_details?: EdgeReadinessCheckDetail[];
   timestamp?: string;
 }
 

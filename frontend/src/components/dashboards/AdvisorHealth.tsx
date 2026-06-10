@@ -11,7 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
-import { api } from '@/lib/api';
+import { api, type EdgeReadinessCheckDetail } from '@/lib/api';
 
 interface ProviderStatus {
   healthy: boolean;
@@ -158,8 +158,21 @@ export const AdvisorHealth: React.FC = () => {
   const pulseConnected = Boolean(state.pulse?.available || state.health?.pulse_available);
   const processAlive = state.live?.status === 'alive';
   const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
-  const readinessDetails = state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
+  const readinessDetails: Record<string, EdgeReadinessCheckDetail> =
+    state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
   const readinessFailures: string[] = Array.isArray(state.ready?.failing_checks) ? state.ready.failing_checks : [];
+  const failingReadinessDetails: EdgeReadinessCheckDetail[] = Array.isArray(state.ready?.failing_check_details)
+    ? state.ready.failing_check_details
+    : readinessFailures.map((check) => {
+        const detail = readinessDetails[check];
+        return {
+          name: detail?.name || check,
+          label: detail?.label || check,
+          description: detail?.description || check,
+          required: detail?.required ?? true,
+          ready: detail?.ready ?? false,
+        };
+      });
   const runtimeReady = Boolean(state.ready?.ready);
   const paused = Boolean(state.health?.paused || state.stats?.paused);
   const running = Boolean(state.health?.running || state.stats?.running);
@@ -198,7 +211,7 @@ export const AdvisorHealth: React.FC = () => {
         <MetricCard
           title="Runtime Readiness"
           value={state.ready ? (runtimeReady ? 'Ready' : 'Blocked') : 'Unknown'}
-          subtitle={`${readinessFailures.length} failing readiness checks`}
+          subtitle={`${failingReadinessDetails.length} failing readiness checks`}
           icon={runtimeReady ? CheckCircle : AlertTriangle}
           color={runtimeReady ? 'green' : state.ready ? 'red' : 'yellow'}
         />
@@ -335,18 +348,24 @@ export const AdvisorHealth: React.FC = () => {
             <div data-testid="edge-readiness-checks" className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
               <div className="mb-2 flex items-center gap-2 font-medium">
                 <AlertTriangle className="h-4 w-4" />
-                {readinessFailures.length} failing readiness checks
+                {failingReadinessDetails.length} failing readiness checks
               </div>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(readinessChecks).map(([check, ok]) => {
-                  const detail = readinessDetails[check];
+                  const detail = readinessDetails[check] || {
+                    name: check,
+                    label: check,
+                    description: check,
+                    required: true,
+                    ready: ok,
+                  };
                   return (
                     <span
                       key={check}
-                      title={detail?.description || check}
+                      title={detail.description || detail.name}
                       className={`rounded-full px-2 py-0.5 text-xs ${ok ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/15 text-red-200'}`}
                     >
-                      {detail?.label || check}: {ok ? 'ok' : 'blocked'}
+                      {detail.label}: {ok ? 'ok' : 'blocked'}
                     </span>
                   );
                 })}
