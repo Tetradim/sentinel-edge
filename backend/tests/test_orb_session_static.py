@@ -72,8 +72,12 @@ class ORBSessionStaticTests(unittest.TestCase):
 
         self.assertIn("orb_decision_context?: OrbDecisionContext", types)
         self.assertIn("export interface OrbDecisionContext", types)
-        self.assertIn("entry.orb_decision_context?.signal_timeframe", feed)
-        self.assertIn("entry.orb_decision_context?.active_label", feed)
+        self.assertIn("formatOrbDecisionContext", feed)
+        self.assertIn("formatOrbDecisionContext(entry.orb_decision_context)", feed)
+        self.assertIn("context.signal_timeframe", feed)
+        self.assertIn("context.signal_session", feed)
+        self.assertIn("context.active_label", feed)
+        self.assertIn("context.active_status", feed)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, TrendingUp, TrendingDown, Activity, AlertTriangle, Wifi } from 'lucide-react';
 import { formatCompactAge } from '@/lib/time';
-import type { DecisionEntry } from '@/types';
+import type { DecisionEntry, OrbDecisionContext } from '@/types';
 
 interface DecisionFeedProps {
   decisions: DecisionEntry[];
@@ -83,6 +83,7 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
                   : entry.signal_strength <= -2
                   ? 'text-red-400'
                   : 'text-gray-400';
+              const orbContextLabel = formatOrbDecisionContext(entry.orb_decision_context);
 
               return (
                 <motion.div
@@ -107,9 +108,9 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
                       <Icon className="w-3 h-3" />
                       {style.label}
                     </div>
-                    {(entry.orb_decision_context?.active_label || entry.orb_decision_context?.signal_timeframe) && (
+                    {orbContextLabel && (
                       <span className="max-w-[112px] truncate text-[10px] leading-none text-gray-500 whitespace-nowrap">
-                        {entry.orb_decision_context?.active_label || 'ORB'} / {entry.orb_decision_context?.signal_timeframe || '15m'}
+                        {orbContextLabel}
                       </span>
                     )}
                   </div>
@@ -151,3 +152,16 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
     </div>
   );
 };
+
+function formatOrbDecisionContext(context?: OrbDecisionContext) {
+  if (!context) return '';
+  const sessionLabel = formatOrbSessionId(context.signal_session || context.active_session);
+  const timeframe = context.signal_timeframe || '15m';
+  const status = formatOrbSessionId(context.active_status);
+  return `${context.active_label || sessionLabel} / ${sessionLabel} ${timeframe} / ${status}`;
+}
+
+function formatOrbSessionId(value?: string) {
+  if (!value) return 'ORB';
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
