@@ -579,6 +579,12 @@ If the backend virtualenv is missing dev-test dependencies, install the declared
 .\scripts\verify-local.ps1 -InstallBackendDevDeps
 ```
 
+For a fresh checkout that also needs frontend dependencies installed:
+
+```powershell
+.\scripts\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps
+```
+
 The recent implementation has been checked with:
 
 ```bash

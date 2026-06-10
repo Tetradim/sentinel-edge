@@ -3,6 +3,7 @@
 
 param(
     [switch]$InstallBackendDevDeps,
+    [switch]$InstallFrontendDeps,
     [switch]$SkipBackend,
     [switch]$SkipFrontend,
     [switch]$SkipAudit
@@ -97,6 +98,19 @@ if (-not $SkipBackend) {
 if (-not $SkipFrontend) {
     $npm = Find-CommandPath -Names @("npm.cmd", "npm.exe", "npm")
     if (-not $npm) { throw "npm was not found on PATH." }
+
+    $frontendNodeModules = Join-Path $Frontend "node_modules"
+    if ($InstallFrontendDeps) {
+        $frontendInstallArgs = if (Test-Path (Join-Path $Frontend "node_modules")) { @("install") } else { @("ci") }
+        $frontendInstallCommand = if ($frontendInstallArgs[0] -eq "ci") { "npm ci" } else { "npm install" }
+        Invoke-ExternalCommand `
+            -Name "Install frontend dependencies: $frontendInstallCommand" `
+            -FilePath $npm `
+            -ArgumentList $frontendInstallArgs `
+            -WorkingDirectory $Frontend
+    } elseif (-not (Test-Path $frontendNodeModules)) {
+        throw "frontend node_modules are missing. Run .\scripts\verify-local.ps1 -InstallFrontendDeps, then rerun verification."
+    }
 
     Invoke-ExternalCommand `
         -Name "Frontend lint: npm run lint" `

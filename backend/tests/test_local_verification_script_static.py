@@ -14,6 +14,11 @@ class LocalVerificationScriptStaticTests(unittest.TestCase):
 
         self.assertIn("backend\\.venv\\Scripts\\python.exe", script)
         self.assertIn("requirements-dev.txt", script)
+        self.assertIn("[switch]$InstallFrontendDeps", script)
+        self.assertIn("npm ci", script)
+        self.assertIn("npm install", script)
+        self.assertIn("Test-Path (Join-Path $Frontend \"node_modules\")", script)
+        self.assertIn("frontend node_modules are missing", script)
         self.assertIn("-m unittest discover -s backend/tests", script)
         self.assertIn('-m unittest discover -s backend/tests -p "test_*static.py"', script)
         self.assertIn("npm run lint", script)
@@ -26,6 +31,7 @@ class LocalVerificationScriptStaticTests(unittest.TestCase):
 
         self.assertIn(".\\scripts\\verify-local.ps1", readme)
         self.assertIn(".\\scripts\\verify-local.ps1 -InstallBackendDevDeps", readme)
+        self.assertIn(".\\scripts\\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps", readme)
 
 
 if __name__ == "__main__":

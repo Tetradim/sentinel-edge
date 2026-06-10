@@ -52,12 +52,8 @@ jobs:
       - name: Create backend virtualenv
         run: python -m venv backend/.venv
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
       - name: Run local verification gate
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-local.ps1 -InstallBackendDevDeps
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps
 
   build:
     runs-on: windows-latest
