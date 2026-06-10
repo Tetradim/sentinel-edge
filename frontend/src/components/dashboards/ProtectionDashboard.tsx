@@ -15,7 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
-import { api, type EdgeReadiness, type EdgeReadinessCheckDetail } from '@/lib/api';
+import { api, type EdgeReadinessCheckDetail, type NormalizedEdgeReadiness } from '@/lib/api';
 
 interface ProtectionPosition {
   symbol: string;
@@ -42,7 +42,7 @@ interface ProtectionState {
   refreshedAt: string | null;
   health: any | null;
   stats: any | null;
-  ready: EdgeReadiness | null;
+  ready: NormalizedEdgeReadiness | null;
   pulse: any | null;
   killSwitch: any | null;
   automation: any | null;
@@ -154,12 +154,9 @@ export const ProtectionDashboard: React.FC = () => {
   const automationEnabled = Boolean(automationSettings.global_enabled);
   const queueSize = numberOrZero(state.queue?.size ?? state.queue?.pending ?? state.stats?.retry_queue?.size ?? state.stats?.retry_queue?.pending);
   const runtimeReady = Boolean(state.ready?.ready);
-  const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
-  const readinessDetails: Record<string, EdgeReadinessCheckDetail> =
-    state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
-  const failingReadinessDetails: EdgeReadinessCheckDetail[] = Array.isArray(state.ready?.failing_check_details)
-    ? state.ready.failing_check_details
-    : [];
+  const readinessChecks = state.ready?.checks ?? {};
+  const readinessDetails: Record<string, EdgeReadinessCheckDetail> = state.ready?.check_details ?? {};
+  const failingReadinessDetails: EdgeReadinessCheckDetail[] = state.ready?.failing_check_details ?? [];
   const handoffBlocked = state.ready ? !runtimeReady : true;
 
   const positionStats = useMemo(() => {

@@ -11,7 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
-import { api, type EdgeLiveness, type EdgeReadiness, type EdgeReadinessCheckDetail } from '@/lib/api';
+import { api, type EdgeLiveness, type EdgeReadinessCheckDetail, type NormalizedEdgeReadiness } from '@/lib/api';
 
 interface ProviderStatus {
   healthy: boolean;
@@ -33,7 +33,7 @@ interface HealthState {
   loading: boolean;
   error: string | null;
   live: EdgeLiveness | null;
-  ready: EdgeReadiness | null;
+  ready: NormalizedEdgeReadiness | null;
   health: any | null;
   stats: any | null;
   pulse: any | null;
@@ -157,12 +157,9 @@ export const AdvisorHealth: React.FC = () => {
 
   const pulseConnected = Boolean(state.pulse?.available || state.health?.pulse_available);
   const processAlive = state.live?.status === 'alive';
-  const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
-  const readinessDetails: Record<string, EdgeReadinessCheckDetail> =
-    state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
-  const failingReadinessDetails: EdgeReadinessCheckDetail[] = Array.isArray(state.ready?.failing_check_details)
-    ? state.ready.failing_check_details
-    : [];
+  const readinessChecks = state.ready?.checks ?? {};
+  const readinessDetails: Record<string, EdgeReadinessCheckDetail> = state.ready?.check_details ?? {};
+  const failingReadinessDetails: EdgeReadinessCheckDetail[] = state.ready?.failing_check_details ?? [];
   const runtimeReady = Boolean(state.ready?.ready);
   const paused = Boolean(state.health?.paused || state.stats?.paused);
   const running = Boolean(state.health?.running || state.stats?.running);

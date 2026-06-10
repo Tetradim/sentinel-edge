@@ -39,6 +39,12 @@ export interface EdgeReadiness {
   timestamp?: string;
 }
 
+export interface NormalizedEdgeReadiness extends EdgeReadiness {
+  check_details: Record<string, EdgeReadinessCheckDetail>;
+  failing_checks: string[];
+  failing_check_details: EdgeReadinessCheckDetail[];
+}
+
 export class ApiError extends Error {
   status: number;
   statusText: string;
@@ -98,7 +104,7 @@ class ApiClient {
     return fetchJSON<EdgeLiveness>('/api/live');
   }
 
-  async getReadiness() {
+  async getReadiness(): Promise<NormalizedEdgeReadiness> {
     try {
       return normalizeEdgeReadiness(await fetchJSON<EdgeReadiness>('/api/ready'));
     } catch (err) {
@@ -382,7 +388,7 @@ function isEdgeReadiness(value: unknown): value is EdgeReadiness {
   );
 }
 
-function normalizeEdgeReadiness(readiness: EdgeReadiness): EdgeReadiness {
+function normalizeEdgeReadiness(readiness: EdgeReadiness): NormalizedEdgeReadiness {
   const checkDetails =
     readiness.check_details && typeof readiness.check_details === 'object' ? readiness.check_details : {};
   const failingChecks = Array.isArray(readiness.failing_checks) ? readiness.failing_checks : [];
