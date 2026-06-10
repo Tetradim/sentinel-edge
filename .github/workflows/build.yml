@@ -5,7 +5,9 @@ on:
     branches: [consolidated, OC-Iteration]
     paths:
       - 'backend/**'
+      - 'backend/requirements-dev.txt'
       - 'frontend/**'
+      - 'frontend/package-lock.json'
       - 'scripts/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
@@ -26,10 +28,42 @@ env:
   NODE_VERSION: "20"
 
 jobs:
+  quality-gate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    name: Quality Gate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Create backend virtualenv
+        run: python -m venv backend/.venv
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run local verification gate
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-local.ps1 -InstallBackendDevDeps
+
   build:
     runs-on: windows-latest
     timeout-minutes: 90
     name: Build Windows Installer
+    needs: quality-gate
 
     steps:
       - name: Checkout
