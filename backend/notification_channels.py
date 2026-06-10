@@ -9,7 +9,10 @@ from typing import Any, Dict, Mapping, Sequence
 SCHEMA_VERSION = "edge.notifications.status.v1"
 CONFIRMATION_PREVIEW_SCHEMA_VERSION = "edge.notifications.confirmation_preview.v1"
 CONFIRMATION_FEEDBACK_SCHEMA_VERSION = "edge.notifications.confirmation_feedback.v1"
-CONFIRMATION_IDEMPOTENCY_PREFIX = "edge:notification-confirmation:"
+CONFIRMATION_IDEMPOTENCY_NAMESPACE = "edge:notification-confirmation"
+CONFIRMATION_IDEMPOTENCY_PREFIX = f"{CONFIRMATION_IDEMPOTENCY_NAMESPACE}:"
+CONFIRMATION_FEEDBACK_DECISIONS = ("approved", "rejected", "expired")
+CONFIRMATION_IDEMPOTENCY_FIELDS = ("namespace", "mode", "action_type", "target")
 _PLACEHOLDER_VALUES = {"", "0", "placeholder", "none", "null", "unset", "http://placeholder/no-slack"}
 _SENSITIVE_METADATA_FRAGMENTS = (
     "api_key",
@@ -132,6 +135,8 @@ def notification_channel_status(env: Mapping[str, str] | None = None) -> Dict:
             "notification_side_effect": "none",
             "pulse_side_effect": "none",
             "secret_values": "redacted",
+            "accepted_decisions": list(CONFIRMATION_FEEDBACK_DECISIONS),
+            "idempotency_fields": list(CONFIRMATION_IDEMPOTENCY_FIELDS),
         },
         "confirmation_actions": [_confirmation_action_status(action) for action in _CONFIRMATION_ACTIONS],
         "summary": {
@@ -217,6 +222,7 @@ def notification_confirmation_feedback(
 ) -> Dict:
     """Normalize a relay/operator confirmation response without side effects."""
     normalized_idempotency_key = _normalize_confirmation_idempotency_key(idempotency_key)
+    idempotency_scope = _parse_confirmation_idempotency_key(normalized_idempotency_key)
     action = _confirmation_action(action_type)
     _validate_confirmation_idempotency_action(normalized_idempotency_key, action["id"])
     normalized_decision = _normalize_confirmation_decision(decision)
@@ -228,10 +234,14 @@ def notification_confirmation_feedback(
         "schema_version": CONFIRMATION_FEEDBACK_SCHEMA_VERSION,
         "idempotency_key": normalized_idempotency_key,
         "action_type": action["id"],
+        "mode": idempotency_scope["mode"],
+        "target": idempotency_scope["target"],
         "channel_id": normalized_channel_id,
         "decision": normalized_decision,
         "accepted": accepted,
         "status": normalized_decision,
+        "paper_live_semantics": action["paper_live_semantics"],
+        "idempotency_scope": idempotency_scope,
         "operator_ref": str(operator_ref or "").strip(),
         "reason": normalized_reason,
         "safety": {
@@ -349,9 +359,37 @@ def _normalize_confirmation_idempotency_key(idempotency_key: str) -> str:
     return normalized
 
 
+def _parse_confirmation_idempotency_key(idempotency_key: str) -> Dict[str, str]:
+    parts = idempotency_key.split(":", 4)
+    if len(parts) != 5:
+        raise ValueError(
+            "Notification confirmation feedback idempotency_key must use "
+            "edge:notification-confirmation:{mode}:{action_type}:{target}."
+        )
+    namespace = f"{parts[0]}:{parts[1]}"
+    if namespace != CONFIRMATION_IDEMPOTENCY_NAMESPACE:
+        raise ValueError(
+            "Notification confirmation feedback idempotency_key must start with "
+            f"{CONFIRMATION_IDEMPOTENCY_PREFIX}."
+        )
+    mode = _normalize_mode(parts[2])
+    action_type = str(parts[3] or "").strip().lower()
+    if not action_type:
+        raise ValueError("Notification confirmation feedback idempotency_key action_type is required.")
+    target = _normalize_symbol(parts[4])
+    if not target:
+        raise ValueError("Notification confirmation feedback idempotency_key target is required.")
+    return {
+        "namespace": CONFIRMATION_IDEMPOTENCY_NAMESPACE,
+        "mode": mode,
+        "action_type": action_type,
+        "target": target,
+    }
+
+
 def _validate_confirmation_idempotency_action(idempotency_key: str, action_id: str) -> None:
-    parts = idempotency_key.split(":")
-    if len(parts) < 5 or parts[3] != action_id:
+    scope = _parse_confirmation_idempotency_key(idempotency_key)
+    if scope["action_type"] != action_id:
         raise ValueError("Notification confirmation feedback action_type must match the idempotency_key action.")
 
 

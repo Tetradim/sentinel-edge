@@ -112,6 +112,8 @@ interface NotificationConfirmationFeedback {
   notification_side_effect?: string;
   pulse_side_effect?: string;
   secret_values?: string;
+  accepted_decisions?: string[];
+  idempotency_fields?: string[];
 }
 
 interface NotificationConfirmationAction {
@@ -752,7 +754,7 @@ export function SettingsDashboard() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
                   <RuntimeDetail
                     label="Feedback contract"
                     value={notificationsStatus.confirmation_feedback?.schema_version || '--'}
@@ -764,6 +766,14 @@ export function SettingsDashboard() {
                   <RuntimeDetail
                     label="pulse_side_effect"
                     value={notificationsStatus.confirmation_feedback?.pulse_side_effect || 'none'}
+                  />
+                  <RuntimeDetail
+                    label="feedback_decisions"
+                    value={formatNotificationEnvList(notificationsStatus.confirmation_feedback?.accepted_decisions)}
+                  />
+                  <RuntimeDetail
+                    label="idempotency_fields"
+                    value={formatNotificationEnvList(notificationsStatus.confirmation_feedback?.idempotency_fields)}
                   />
                 </div>
 

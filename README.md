@@ -429,7 +429,7 @@ Edge includes both in-app observability and an external LGTM-style stack.
 - Settings metadata warnings when backend metadata is stale.
 - Settings operator notification channel discovery for Telegram, Discord/Echo, Slack, and WhatsApp-style paths without exposing secret values.
 - Settings notification confirmation preview contract discovery for live handoff, emergency-exit, risk-reduction, and trailing-stop review prompts. The preview contract is redacted and has no delivery side effects.
-- Settings notification confirmation feedback contract discovery for future operator approve/reject relay callbacks. The feedback contract is redacted and has no Pulse side effects.
+- Settings notification confirmation feedback contract discovery for future operator approve/reject relay callbacks. The feedback contract is redacted, has no Pulse side effects, and preserves mode/target idempotency scope for paper/live review paths.
 
 ### Metrics
 
@@ -812,7 +812,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/rate-limit/status` | Aggregate API rate-limit pressure/status. |
 | GET | `/notifications/status` | Redacted operator notification channel discovery for Settings. |
 | POST | `/notifications/confirmation/preview` | Build a redacted, preview-only operator confirmation payload for safety-sensitive notification workflows. |
-| POST | `/notifications/confirmation/feedback` | Normalize redacted operator confirmation feedback without sending notifications or Pulse commands. |
+| POST | `/notifications/confirmation/feedback` | Normalize redacted operator confirmation feedback, including parsed mode/target idempotency scope, without sending notifications or Pulse commands. |
 
 ### Non-API routes
 

@@ -40,9 +40,12 @@ class NotificationChannelStaticTests(unittest.TestCase):
         self.assertIn("confirmation_feedback", text)
         self.assertIn("Confirmation workflows", text)
         self.assertIn("Feedback contract", text)
+        self.assertIn("feedback_decisions", text)
+        self.assertIn("idempotency_fields", text)
         self.assertIn("operator notification channel discovery", readme)
         self.assertIn("notification confirmation preview contract", readme)
         self.assertIn("notification confirmation feedback contract", readme)
+        self.assertIn("mode/target idempotency scope", readme)
 
 
 if __name__ == "__main__":

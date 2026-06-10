@@ -69,6 +69,11 @@ class NotificationChannelStatusTests(unittest.TestCase):
             "edge.notifications.confirmation_feedback.v1",
         )
         self.assertEqual(status["confirmation_feedback"]["pulse_side_effect"], "none")
+        self.assertEqual(status["confirmation_feedback"]["accepted_decisions"], ["approved", "rejected", "expired"])
+        self.assertEqual(
+            status["confirmation_feedback"]["idempotency_fields"],
+            ["namespace", "mode", "action_type", "target"],
+        )
         self.assertIn("live_handoff", actions)
         self.assertIn("emergency_exit", actions)
         self.assertIn("trailing_stop", actions)
@@ -136,9 +141,15 @@ class NotificationChannelStatusTests(unittest.TestCase):
         self.assertEqual(feedback["schema_version"], "edge.notifications.confirmation_feedback.v1")
         self.assertEqual(feedback["idempotency_key"], "edge:notification-confirmation:live:live_handoff:spy")
         self.assertEqual(feedback["action_type"], "live_handoff")
+        self.assertEqual(feedback["mode"], "live")
+        self.assertEqual(feedback["target"], "SPY")
         self.assertEqual(feedback["channel_id"], "telegram")
         self.assertEqual(feedback["decision"], "approved")
         self.assertTrue(feedback["accepted"])
+        self.assertEqual(feedback["paper_live_semantics"], "Paper mode can rehearse the prompt; live mode must wait for an operator approval.")
+        self.assertEqual(feedback["idempotency_scope"]["mode"], "live")
+        self.assertEqual(feedback["idempotency_scope"]["action_type"], "live_handoff")
+        self.assertEqual(feedback["idempotency_scope"]["target"], "SPY")
         self.assertEqual(feedback["safety"]["pulse_side_effect"], "none")
         self.assertEqual(feedback["safety"]["notification_side_effect"], "none")
         self.assertEqual(feedback["context"]["metadata"]["webhook_secret"], "[redacted]")
@@ -165,6 +176,22 @@ class NotificationChannelStatusTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             notification_confirmation_feedback(
                 idempotency_key="edge:notification-confirmation:paper:trailing_stop:spy",
+                action_type="live_handoff",
+                decision="approve",
+                channel_id="telegram",
+            )
+
+        with self.assertRaises(ValueError):
+            notification_confirmation_feedback(
+                idempotency_key="edge:notification-confirmation:backtest:live_handoff:spy",
+                action_type="live_handoff",
+                decision="approve",
+                channel_id="telegram",
+            )
+
+        with self.assertRaises(ValueError):
+            notification_confirmation_feedback(
+                idempotency_key="edge:notification-confirmation:live:live_handoff:",
                 action_type="live_handoff",
                 decision="approve",
                 channel_id="telegram",
