@@ -20,7 +20,10 @@ export function MonitorPanel({
   const schedulerTone: Tone = runtime.schedulerPaused ? 'gold' : runtime.connected ? 'green' : 'red';
   const pulseTone: Tone = runtime.pulseAvailable ? 'green' : 'gold';
   const killSwitchTone: Tone = runtime.killSwitchActive ? 'red' : 'green';
+  const readinessTone: Tone = !runtime.connected ? 'red' : runtime.runtimeReady ? 'green' : 'gold';
   const schedulerValue = !runtime.connected ? 'Unknown' : runtime.schedulerPaused ? 'Paused' : 'Active';
+  const readinessValue = !runtime.connected ? 'Unknown' : runtime.runtimeReady ? 'Ready' : 'Not ready';
+  const readinessDetail = getReadinessDetail(runtime.readinessFailingChecks);
   const runtimePollAge = formatRuntimePollAge(runtime.updatedAt);
   const runtimeSignalRows = [
     [
@@ -34,6 +37,12 @@ export function MonitorPanel({
       !runtime.connected ? 'unknown' : runtime.schedulerPaused ? 'paused' : 'active',
       !runtime.connected ? 'backend unavailable' : runtime.schedulerPaused ? 'operator hold' : 'evaluation loop',
       'control',
+    ],
+    [
+      'Runtime readiness',
+      readinessValue.toLowerCase(),
+      !runtime.connected ? 'backend unavailable' : runtime.runtimeReady ? 'all required checks' : readinessDetail,
+      runtime.runtimeReady ? 'ready' : runtime.connected ? 'blocked' : 'unknown',
     ],
     [
       'Pulse bridge',
@@ -80,6 +89,12 @@ export function MonitorPanel({
           tone={schedulerTone}
         />
         <HealthCard
+          label="Readiness"
+          value={readinessValue}
+          detail={!runtime.connected ? 'Backend unavailable' : runtime.runtimeReady ? 'All required checks' : readinessDetail}
+          tone={readinessTone}
+        />
+        <HealthCard
           label="Pulse bridge"
           value={runtime.pulseAvailable ? 'Online' : 'Standalone'}
           detail={runtime.pulseAvailable ? 'Execution bridge detected' : 'Handoff suppressed'}
@@ -115,4 +130,12 @@ function formatRuntimePollAge(updatedAt?: string) {
 
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ago`;
+}
+
+function getReadinessDetail(failingChecks: string[]) {
+  if (!failingChecks.length) return 'No failing checks reported';
+
+  const visibleChecks = failingChecks.slice(0, 3).join(', ');
+  const overflowCount = failingChecks.length - 3;
+  return overflowCount > 0 ? `${visibleChecks} +${overflowCount} more failing` : `Failing: ${visibleChecks}`;
 }

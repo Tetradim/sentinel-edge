@@ -8,6 +8,8 @@ const initialRuntime: RuntimeState = {
   pulseAvailable: false,
   killSwitchActive: false,
   schedulerPaused: false,
+  runtimeReady: false,
+  readinessFailingChecks: [],
   updatedAt: undefined,
   error: undefined,
 };
@@ -19,13 +21,15 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
     let cancelled = false;
     const loadRuntime = async () => {
       try {
-        const [health, pulse, kill] = await Promise.allSettled([
+        const [health, readiness, pulse, kill] = await Promise.allSettled([
           api.getHealth(),
+          api.getReadiness(),
           api.getPulseStatus(),
           api.getKillSwitchStatus(),
         ]);
         if (cancelled) return;
         const healthValue = health.status === 'fulfilled' ? health.value : null;
+        const readinessValue = readiness.status === 'fulfilled' ? readiness.value : null;
         const pulseValue = pulse.status === 'fulfilled' ? pulse.value : null;
         const killValue = kill.status === 'fulfilled' ? kill.value : null;
         setRuntime({
@@ -34,6 +38,8 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
           pulseAvailable: Boolean(pulseValue?.available || healthValue?.pulse_available),
           killSwitchActive: Boolean(killValue?.kill_switch_active),
           schedulerPaused: Boolean(healthValue?.paused),
+          runtimeReady: Boolean(readinessValue?.ready),
+          readinessFailingChecks: readinessValue?.failing_checks || [],
           updatedAt: new Date().toISOString(),
           error: undefined,
         });
@@ -44,6 +50,8 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
             connected: false,
             loading: false,
             pulseAvailable: false,
+            runtimeReady: false,
+            readinessFailingChecks: [],
             updatedAt: new Date().toISOString(),
             error: 'Runtime status unavailable',
           }));

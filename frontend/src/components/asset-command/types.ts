@@ -44,6 +44,8 @@ export interface RuntimeState {
   pulseAvailable: boolean;
   killSwitchActive: boolean;
   schedulerPaused: boolean;
+  runtimeReady: boolean;
+  readinessFailingChecks: string[];
   updatedAt?: string;
   error?: string;
 }

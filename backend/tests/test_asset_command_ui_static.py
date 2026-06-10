@@ -85,6 +85,18 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("Last runtime poll", text)
         self.assertIn("runtime.updatedAt", text)
 
+    def test_monitor_panel_surfaces_runtime_readiness(self):
+        monitor_panel = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "MonitorPanel.tsx"
+        api_client = ROOT / "frontend" / "src" / "lib" / "api.ts"
+        text = read_existing(ASSET_COMMAND_TYPES, ASSET_COMMAND_RUNTIME_HOOK, monitor_panel, api_client)
+
+        self.assertIn("runtimeReady: boolean", text)
+        self.assertIn("readinessFailingChecks: string[]", text)
+        self.assertIn("api.getReadiness()", text)
+        self.assertIn("readinessValue?.failing_checks", text)
+        self.assertIn("Runtime readiness", text)
+        self.assertIn("readinessDetail", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 
