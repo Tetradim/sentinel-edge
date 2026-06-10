@@ -567,6 +567,18 @@ docker compose up -d
 
 ## Verification Used During Recent Work
 
+Run the full local verification gate from the repository root:
+
+```powershell
+.\scripts\verify-local.ps1
+```
+
+If the backend virtualenv is missing dev-test dependencies, install the declared stack through the same runner:
+
+```powershell
+.\scripts\verify-local.ps1 -InstallBackendDevDeps
+```
+
 The recent implementation has been checked with:
 
 ```bash
