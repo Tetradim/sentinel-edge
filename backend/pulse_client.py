@@ -159,7 +159,7 @@ class PulseClient:
         try:
             response = await self._client.post(url, json=payload)
             edge_api_latency.labels(endpoint=endpoint).observe(time.time() - start)
-            if response.status_code in (200, 201, 204):
+            if response.status_code in (200, 201, 202, 204):
                 edge_api_calls_total.labels(endpoint=endpoint, status="success").inc()
                 self._record_success()
                 return True
@@ -177,6 +177,159 @@ class PulseClient:
             self._record_failure()
             logger.error("Pulse %s error: %s", endpoint, exc)
             return False
+
+    @staticmethod
+    def _response_body(response: httpx.Response) -> Dict[str, Any]:
+        try:
+            body = response.json()
+        except ValueError:
+            return {}
+        return body if isinstance(body, dict) else {"value": body}
+
+    @staticmethod
+    def normalise_handoff_feedback(
+        endpoint: str,
+        status_code: Optional[int],
+        response_body: Optional[Dict[str, Any]] = None,
+        *,
+        legacy_fallback: bool = False,
+    ) -> Dict[str, Any]:
+        body = response_body if isinstance(response_body, dict) else {}
+        status_text = str(body.get("status") or body.get("result") or "").lower()
+        accepted_flag = body.get("accepted")
+        ok = status_code in (200, 201, 202, 204)
+        rejected_statuses = {"rejected", "denied", "declined", "ignored"}
+        failed_statuses = {"failed", "error"}
+
+        if ok and accepted_flag is not False and status_text not in rejected_statuses | failed_statuses:
+            return {
+                "sent": True,
+                "status": "accepted",
+                "reason": "pulse_accepted",
+                "endpoint": endpoint,
+                "status_code": status_code,
+                "response": body,
+                "legacy_fallback": legacy_fallback,
+            }
+
+        if ok and status_text in failed_statuses:
+            reason = body.get("error") or body.get("reason") or body.get("message") or "pulse_failed"
+            return {
+                "sent": False,
+                "status": "failed",
+                "reason": str(reason),
+                "endpoint": endpoint,
+                "status_code": status_code,
+                "response": body,
+                "legacy_fallback": legacy_fallback,
+            }
+
+        if ok:
+            reason = (
+                body.get("rejection_reason")
+                or body.get("reason")
+                or body.get("error")
+                or body.get("message")
+                or "pulse_rejected"
+            )
+            return {
+                "sent": False,
+                "status": "rejected",
+                "reason": str(reason),
+                "endpoint": endpoint,
+                "status_code": status_code,
+                "response": body,
+                "legacy_fallback": legacy_fallback,
+            }
+
+        reason = (
+            body.get("error")
+            or body.get("reason")
+            or (f"http_{status_code}" if status_code is not None else "pulse_send_failed")
+        )
+        return {
+            "sent": False,
+            "status": "failed",
+            "reason": str(reason),
+            "endpoint": endpoint,
+            "status_code": status_code,
+            "response": body,
+            "legacy_fallback": legacy_fallback,
+        }
+
+    @staticmethod
+    def suppressed_handoff_feedback(endpoint: str, reason: str) -> Dict[str, Any]:
+        return {
+            "sent": False,
+            "status": "suppressed",
+            "reason": reason,
+            "endpoint": endpoint,
+            "status_code": None,
+            "response": {},
+            "legacy_fallback": False,
+        }
+
+    @staticmethod
+    def legacy_handoff_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "reason": payload.get("reason", ""),
+            "confidence": payload.get("confidence", 0.0),
+            "idempotency_key": payload.get("idempotency_key"),
+            "source": payload.get("source", "sentinel_edge"),
+            "mode": payload.get("mode"),
+            "orb_session": payload.get("orb_session"),
+            "stop_type": payload.get("stop_type"),
+            "trailing_percent": payload.get("trailing_percent"),
+            "dca": payload.get("dca"),
+            "metadata": payload.get("metadata", {}),
+        }
+
+    async def _post_with_feedback(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not self._should_allow_request():
+            if self.pulse_available:
+                logger.debug("Circuit %s - POST %s suppressed", self.state.name, endpoint)
+                return self.suppressed_handoff_feedback(endpoint, "circuit_open")
+            logger.debug("Standalone mode - POST %s suppressed", endpoint)
+            return self.suppressed_handoff_feedback(endpoint, "pulse_unavailable")
+
+        url = f"{self.base_url}{endpoint}"
+        start = time.time()
+        try:
+            response = await self._client.post(url, json=payload)
+            edge_api_latency.labels(endpoint=endpoint).observe(time.time() - start)
+            if response.status_code in (200, 201, 202, 204):
+                edge_api_calls_total.labels(endpoint=endpoint, status="success").inc()
+                self._record_success()
+                return self.normalise_handoff_feedback(
+                    endpoint=endpoint,
+                    status_code=response.status_code,
+                    response_body=self._response_body(response),
+                )
+
+            edge_api_calls_total.labels(endpoint=endpoint, status="failure").inc()
+            self._record_failure()
+            logger.error("Pulse %s - HTTP %d", endpoint, response.status_code)
+            return self.normalise_handoff_feedback(
+                endpoint=endpoint,
+                status_code=response.status_code,
+                response_body=self._response_body(response),
+            )
+        except httpx.TimeoutException:
+            edge_api_calls_total.labels(endpoint=endpoint, status="timeout").inc()
+            self._record_failure()
+            logger.error("Pulse %s timed out", endpoint)
+            return {
+                **self.normalise_handoff_feedback(endpoint, None),
+                "reason": "pulse_timeout",
+            }
+        except Exception as exc:
+            edge_api_calls_total.labels(endpoint=endpoint, status="error").inc()
+            self._record_failure()
+            logger.error("Pulse %s error: %s", endpoint, exc)
+            return {
+                **self.normalise_handoff_feedback(endpoint, None),
+                "reason": exc.__class__.__name__,
+            }
 
     async def _get(self, endpoint: str) -> Optional[Dict[str, Any]]:
         if not self._should_allow_request():
@@ -232,7 +385,7 @@ class PulseClient:
             logger.info("STANDALONE: would have sent %s → %s", decision, symbol)
         return sent
 
-    async def send_handoff_command(self, payload: Dict[str, Any]) -> bool:
+    async def send_handoff_command(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Send a structured autonomous handoff command to Pulse.
 
         Pulse may implement the richer `/api/edge/handoff` contract later. Until
@@ -243,30 +396,35 @@ class PulseClient:
         action = str(payload.get("action", "hold"))
         if not symbol:
             logger.warning("Pulse handoff suppressed: missing symbol")
-            return False
+            return self.suppressed_handoff_feedback("/api/edge/handoff", "missing_symbol")
 
         if not self.pulse_available or self.state == CircuitState.OPEN:
             logger.debug("Pulse handoff suppressed: Pulse unavailable/circuit open")
-            return False
+            reason = "pulse_unavailable" if not self.pulse_available else "circuit_open"
+            return self.suppressed_handoff_feedback("/api/edge/handoff", reason)
 
-        handoff_endpoint = os.getenv("PULSE_HANDOFF_ENDPOINT")
+        handoff_endpoint = os.getenv("PULSE_HANDOFF_ENDPOINT", "").strip()
         if handoff_endpoint:
-            sent = await self._post(handoff_endpoint, payload)
-            if sent:
-                return True
+            if not handoff_endpoint.startswith("/"):
+                handoff_endpoint = f"/{handoff_endpoint}"
+            handoff_feedback = await self._post_with_feedback(handoff_endpoint, payload)
+            if handoff_feedback.get("status") != "failed":
+                return handoff_feedback
+        else:
+            handoff_feedback = None
 
-        legacy_payload = {
-            "reason": payload.get("reason", ""),
-            "confidence": payload.get("confidence", 0.0),
-            "idempotency_key": payload.get("idempotency_key"),
-            "source": payload.get("source", "sentinel_edge"),
-            "mode": payload.get("mode"),
-            "orb_session": payload.get("orb_session"),
-            "stop_type": payload.get("stop_type"),
-            "trailing_percent": payload.get("trailing_percent"),
-            "metadata": payload.get("metadata", {}),
-        }
-        return await self.send_decision(symbol, action, **legacy_payload)
+        legacy_endpoint = f"/api/tickers/{symbol}/decision"
+        legacy_payload = self.legacy_handoff_payload(payload)
+        legacy_sent = await self.send_decision(symbol, action, **legacy_payload)
+        legacy_feedback = self.normalise_handoff_feedback(
+            endpoint=legacy_endpoint,
+            status_code=200 if legacy_sent else None,
+            response_body={"accepted": legacy_sent},
+            legacy_fallback=bool(handoff_endpoint),
+        )
+        if handoff_feedback is not None:
+            legacy_feedback["primary_feedback"] = handoff_feedback
+        return legacy_feedback
 
     async def send_signal(
         self,

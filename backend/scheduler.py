@@ -678,11 +678,16 @@ class EvaluationScheduler:
             )
             return False
 
-        sent = await self.pulse.send_handoff_command(command.payload())
-        self.automation.record_sent(command, sent)
-        if sent:
+        handoff_result = await self.pulse.send_handoff_command(command.payload())
+        self.automation.record_sent(command, handoff_result)
+        handoff_sent = (
+            bool(handoff_result.get("sent", False))
+            if isinstance(handoff_result, dict)
+            else bool(handoff_result)
+        )
+        if handoff_sent:
             logger.info("Pulse handoff sent: %s %s conf=%.2f", symbol, action.value, confidence)
-        return sent
+        return handoff_sent
 
     async def evaluate_all(self):
         """Evaluate all active tickers concurrently."""

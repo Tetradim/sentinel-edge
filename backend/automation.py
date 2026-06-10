@@ -220,7 +220,26 @@ class AutomationController:
         self._last_action_at[key] = now
         return True, "allowed"
 
-    def record_sent(self, command: HandoffCommand, sent: bool) -> None:
+    def record_sent(self, command: HandoffCommand, sent: Any) -> None:
+        if isinstance(sent, dict):
+            feedback = sent
+            accepted = bool(feedback.get("sent", False))
+            status = str(feedback.get("status") or ("accepted" if accepted else "failed"))
+            reason = str(
+                feedback.get("reason")
+                or feedback.get("rejection_reason")
+                or ("pulse_accepted" if accepted else "pulse_send_failed")
+            )
+            metric_result = "sent" if status == "accepted" else status
+            self.last_handoff = {
+                **command.payload(),
+                "sent": accepted,
+                "handoff_status": status,
+                "pulse_feedback": feedback,
+            }
+            _record_handoff_metric(command, metric_result, reason)
+            return
+
         self.last_handoff = {**command.payload(), "sent": sent}
         if sent:
             _record_handoff_metric(command, "sent", "pulse_accepted")

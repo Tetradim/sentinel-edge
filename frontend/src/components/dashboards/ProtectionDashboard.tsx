@@ -573,9 +573,13 @@ const HandoffEventCard: React.FC<{ title: string; handoff: any | null; empty: st
   }
 
   const failed = handoff.sent === false;
+  const handoffStatus = handoff.handoff_status ? String(handoff.handoff_status) : null;
+  const pulse_feedback = handoff.pulse_feedback || null;
   const status = suppressed
     ? handoff.suppressed_reason || 'suppressed'
-    : failed
+    : handoffStatus
+      ? handoffStatus
+      : failed
       ? 'Delivery failed'
       : 'Delivered';
   const tone = failed || suppressed
@@ -593,6 +597,13 @@ const HandoffEventCard: React.FC<{ title: string; handoff: any | null; empty: st
         <span>{formatHandoffTime(handoff.created_at)}</span>
         {handoff.reason && <span className="break-words text-gray-300/80">{String(handoff.reason)}</span>}
         {handoff.suppressed_reason && <span className="break-words text-red-100/80">Blocked: {String(handoff.suppressed_reason)}</span>}
+        {handoffStatus && <span className="break-words text-gray-300/80">Pulse status: {handoffStatus}</span>}
+        {pulse_feedback && pulse_feedback.reason && (
+          <span className="break-words text-gray-300/80">Pulse: {String(pulse_feedback.reason)}</span>
+        )}
+        {pulse_feedback && pulse_feedback.endpoint && (
+          <span className="break-words text-gray-400">Endpoint: {String(pulse_feedback.endpoint)}</span>
+        )}
       </div>
     </div>
   );

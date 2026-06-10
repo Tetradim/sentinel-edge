@@ -58,6 +58,31 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
             metrics,
         )
 
+    def test_rejected_handoff_preserves_pulse_feedback(self):
+        controller = self._controller()
+
+        controller.record_sent(
+            self._command(),
+            {
+                "sent": False,
+                "status": "rejected",
+                "reason": "risk_limit",
+                "endpoint": "/api/edge/handoff",
+                "status_code": 200,
+                "response": {"accepted": False, "reason": "risk_limit"},
+            },
+        )
+
+        self.assertFalse(controller.last_handoff["sent"])
+        self.assertEqual(controller.last_handoff["handoff_status"], "rejected")
+        self.assertEqual(controller.last_handoff["pulse_feedback"]["reason"], "risk_limit")
+
+        metrics = generate_latest().decode("utf-8")
+        self.assertIn(
+            'edge_automation_handoffs_total{action="buy",mode="paper",reason="risk_limit",result="rejected"}',
+            metrics,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

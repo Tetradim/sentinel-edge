@@ -26,6 +26,14 @@ class ProtectionHandoffStatusStaticTests(unittest.TestCase):
         self.assertIn("Delivery failed", text)
         self.assertIn("border-red-500/30", text)
 
+    def test_pulse_feedback_is_visible_on_handoff_cards(self):
+        text = PROTECTION.read_text(encoding="utf-8")
+
+        self.assertIn("handoff.handoff_status", text)
+        self.assertIn("handoff.pulse_feedback", text)
+        self.assertIn("Pulse:", text)
+        self.assertIn("pulse_feedback.reason", text)
+
     def test_guarded_actions_surface_operator_errors(self):
         text = PROTECTION.read_text(encoding="utf-8")
 
