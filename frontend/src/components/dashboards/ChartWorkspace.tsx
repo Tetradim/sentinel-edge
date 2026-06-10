@@ -42,6 +42,7 @@ interface ChartWorkspacePreferencesState {
   chartType: ChartWorkspaceChartType;
   selectedIndicators: ChartWorkspaceIndicatorId[];
   barLimit: ChartWorkspaceBarLimit;
+  showOrbOverlays: boolean;
 }
 
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
@@ -63,6 +64,7 @@ const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
   chartType: 'candlestick',
   selectedIndicators: DEFAULT_INDICATORS,
   barLimit: 240,
+  showOrbOverlays: true,
 };
 
 const LAYOUT_OPTIONS: { id: ChartWorkspaceLayoutMode; label: string }[] = [
@@ -95,7 +97,7 @@ export const ChartWorkspace: React.FC = () => {
   const [labMessage, setLabMessage] = useState('');
   const [layoutMessage, setLayoutMessage] = useState('');
   const [viewMessage, setViewMessage] = useState('');
-  const { activeSymbol, chartType, selectedIndicators, barLimit } = workspacePreferences;
+  const { activeSymbol, chartType, selectedIndicators, barLimit, showOrbOverlays } = workspacePreferences;
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +125,10 @@ export const ChartWorkspace: React.FC = () => {
     };
   }, [activeSymbol, selectedIndicators, barLimit]);
 
-  const priceData = useMemo(() => buildPriceTraces(snapshot, chartType), [snapshot, chartType]);
+  const priceData = useMemo(
+    () => buildPriceTraces(snapshot, chartType, showOrbOverlays),
+    [snapshot, chartType, showOrbOverlays],
+  );
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
   const latestBar = snapshot?.bars[snapshot.bars.length - 1];
   const { layoutMode, panelVisibility } = workspaceLayout;
@@ -173,6 +178,13 @@ export const ChartWorkspace: React.FC = () => {
     updateWorkspacePreferences((current) => ({
       ...current,
       barLimit: nextBarLimit,
+    }));
+  };
+
+  const toggleOrbOverlays = (checked: boolean) => {
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      showOrbOverlays: checked,
     }));
   };
 
@@ -414,6 +426,15 @@ export const ChartWorkspace: React.FC = () => {
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={showOrbOverlays}
+                  onChange={(event) => toggleOrbOverlays(event.target.checked)}
+                  className="h-3.5 w-3.5 accent-cyan-400"
+                />
+                ORB overlays
+              </label>
               {INDICATOR_OPTIONS.map((option) => (
                 <label key={option.id} className="flex items-center gap-1.5 text-xs text-slate-300">
                   <input
@@ -480,7 +501,11 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function buildPriceTraces(snapshot: ChartWorkspaceSnapshot | null, chartType: 'candlestick' | 'line') {
+function buildPriceTraces(
+  snapshot: ChartWorkspaceSnapshot | null,
+  chartType: 'candlestick' | 'line',
+  includeOrbOverlays = true,
+) {
   if (!snapshot) return [];
   const x = snapshot.bars.map((bar) => bar.timestamp);
   const baseTrace = chartType === 'candlestick'
@@ -513,10 +538,12 @@ function buildPriceTraces(snapshot: ChartWorkspaceSnapshot | null, chartType: 'c
       name: indicator.label || id,
       line: { width: 1.5 },
     }));
-  const orbTraces = snapshot.orb_overlays.flatMap((overlay) => [
-    orbLineTrace(x, overlay.high, `${overlay.label} ${overlay.timeframe} high`, '#f59e0b'),
-    orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
-  ]);
+  const orbTraces = includeOrbOverlays
+    ? snapshot.orb_overlays.flatMap((overlay) => [
+        orbLineTrace(x, overlay.high, `${overlay.label} ${overlay.timeframe} high`, '#f59e0b'),
+        orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
+      ])
+    : [];
   return [baseTrace, ...indicatorTraces, ...orbTraces];
 }
 
@@ -658,6 +685,10 @@ function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePrefe
     chartType: isChartWorkspaceChartType(value.chartType) ? value.chartType : DEFAULT_PREFERENCES_STATE.chartType,
     selectedIndicators: normalizeChartWorkspaceIndicators(value.selectedIndicators),
     barLimit: isChartWorkspaceBarLimit(value.barLimit) ? value.barLimit : DEFAULT_PREFERENCES_STATE.barLimit,
+    showOrbOverlays:
+      typeof value.showOrbOverlays === 'boolean'
+        ? value.showOrbOverlays
+        : DEFAULT_PREFERENCES_STATE.showOrbOverlays,
   };
 }
 

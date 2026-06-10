@@ -87,6 +87,10 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("persistChartWorkspacePreferences", dashboard)
         self.assertIn("normalizeChartWorkspacePreferences", dashboard)
         self.assertIn("setBarLimit", dashboard)
+        self.assertIn("showOrbOverlays", dashboard)
+        self.assertIn("toggleOrbOverlays", dashboard)
+        self.assertIn("includeOrbOverlays", dashboard)
+        self.assertIn("ORB overlays", dashboard)
         self.assertIn('type="radio"', dashboard)
         self.assertIn('name="chart-type"', dashboard)
         self.assertIn("120 bars", dashboard)
@@ -101,6 +105,7 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("ORB overlays", text)
         self.assertIn("Analysis/Execution/Research layouts", text)
         self.assertIn("persistent symbol, chart-type, indicator, and range preferences", text)
+        self.assertIn("toggleable ORB overlays", text)
 
 
 if __name__ == "__main__":
