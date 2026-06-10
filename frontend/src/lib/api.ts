@@ -100,10 +100,10 @@ class ApiClient {
 
   async getReadiness() {
     try {
-      return await fetchJSON<EdgeReadiness>('/api/ready');
+      return normalizeEdgeReadiness(await fetchJSON<EdgeReadiness>('/api/ready'));
     } catch (err) {
       if (err instanceof ApiError && err.status === 503 && isEdgeReadiness(err.detail)) {
-        return err.detail;
+        return normalizeEdgeReadiness(err.detail);
       }
       throw err;
     }
@@ -380,6 +380,31 @@ function isEdgeReadiness(value: unknown): value is EdgeReadiness {
       value.checks &&
       typeof value.checks === 'object',
   );
+}
+
+function normalizeEdgeReadiness(readiness: EdgeReadiness): EdgeReadiness {
+  const checkDetails =
+    readiness.check_details && typeof readiness.check_details === 'object' ? readiness.check_details : {};
+  const failingChecks = Array.isArray(readiness.failing_checks) ? readiness.failing_checks : [];
+  const failingCheckDetails = Array.isArray(readiness.failing_check_details)
+    ? readiness.failing_check_details
+    : failingChecks.map((check) => {
+        const detail = checkDetails[check];
+        return {
+          name: detail?.name || check,
+          label: detail?.label || check,
+          description: detail?.description || check,
+          required: detail?.required ?? true,
+          ready: detail?.ready ?? false,
+        };
+      });
+
+  return {
+    ...readiness,
+    check_details: checkDetails,
+    failing_checks: failingChecks,
+    failing_check_details: failingCheckDetails,
+  };
 }
 
 function getApiErrorMessage(status: number, statusText: string, detail: unknown) {

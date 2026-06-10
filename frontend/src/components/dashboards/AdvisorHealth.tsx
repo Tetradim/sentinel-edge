@@ -160,19 +160,9 @@ export const AdvisorHealth: React.FC = () => {
   const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
   const readinessDetails: Record<string, EdgeReadinessCheckDetail> =
     state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
-  const readinessFailures: string[] = Array.isArray(state.ready?.failing_checks) ? state.ready.failing_checks : [];
   const failingReadinessDetails: EdgeReadinessCheckDetail[] = Array.isArray(state.ready?.failing_check_details)
     ? state.ready.failing_check_details
-    : readinessFailures.map((check) => {
-        const detail = readinessDetails[check];
-        return {
-          name: detail?.name || check,
-          label: detail?.label || check,
-          description: detail?.description || check,
-          required: detail?.required ?? true,
-          ready: detail?.ready ?? false,
-        };
-      });
+    : [];
   const runtimeReady = Boolean(state.ready?.ready);
   const paused = Boolean(state.health?.paused || state.stats?.paused);
   const running = Boolean(state.health?.running || state.stats?.running);
