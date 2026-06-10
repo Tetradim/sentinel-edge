@@ -21,6 +21,7 @@ export function MonitorPanel({
   const pulseTone: Tone = runtime.pulseAvailable ? 'green' : 'gold';
   const killSwitchTone: Tone = runtime.killSwitchActive ? 'red' : 'green';
   const schedulerValue = !runtime.connected ? 'Unknown' : runtime.schedulerPaused ? 'Paused' : 'Active';
+  const runtimePollAge = formatRuntimePollAge(runtime.updatedAt);
   const runtimeSignalRows = [
     [
       'Edge API',
@@ -45,6 +46,12 @@ export function MonitorPanel({
       runtime.killSwitchActive ? 'active' : 'clear',
       runtime.killSwitchActive ? 'global stop' : 'guard clear',
       'safety',
+    ],
+    [
+      'Last runtime poll',
+      runtimePollAge,
+      runtime.updatedAt ? 'runtime status freshness' : 'waiting for first poll',
+      runtime.updatedAt ? 'freshness' : 'pending',
     ],
   ];
 
@@ -95,4 +102,17 @@ export function MonitorPanel({
       </div>
     </section>
   );
+}
+
+function formatRuntimePollAge(updatedAt?: string) {
+  if (!updatedAt) return 'pending';
+
+  const ageMs = Date.now() - new Date(updatedAt).getTime();
+  if (!Number.isFinite(ageMs) || ageMs < 5000) return 'just now';
+
+  const seconds = Math.floor(ageMs / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ago`;
 }

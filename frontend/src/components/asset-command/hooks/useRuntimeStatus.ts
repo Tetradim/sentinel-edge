@@ -8,6 +8,7 @@ const initialRuntime: RuntimeState = {
   pulseAvailable: false,
   killSwitchActive: false,
   schedulerPaused: false,
+  updatedAt: undefined,
   error: undefined,
 };
 
@@ -33,6 +34,7 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
           pulseAvailable: Boolean(pulseValue?.available || healthValue?.pulse_available),
           killSwitchActive: Boolean(killValue?.kill_switch_active),
           schedulerPaused: Boolean(healthValue?.paused),
+          updatedAt: new Date().toISOString(),
           error: undefined,
         });
       } catch {
@@ -42,6 +44,7 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
             connected: false,
             loading: false,
             pulseAvailable: false,
+            updatedAt: new Date().toISOString(),
             error: 'Runtime status unavailable',
           }));
         }
