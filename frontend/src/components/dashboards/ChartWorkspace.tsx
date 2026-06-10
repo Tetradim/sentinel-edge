@@ -65,6 +65,7 @@ interface ChartWorkspaceSimulationLabExperiment {
   http_method?: string;
   endpoint_path?: string;
   result_schema_version?: string;
+  result_metadata_fields?: string[];
 }
 
 interface ChartWorkspaceSimulationLabStatus {
@@ -80,6 +81,9 @@ interface ChartWorkspaceSimulationLabResult {
   created_at?: string;
   result: Record<string, unknown> & {
     schema_version?: string;
+    run_id?: string;
+    input_fingerprint?: string;
+    input_fingerprint_algorithm?: string;
     summary?: Record<string, unknown>;
   };
 }
@@ -1111,6 +1115,14 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
       label: 'schema_version',
       value: result.result.schema_version || '--',
     },
+    {
+      label: 'run_id',
+      value: result.result.run_id || '--',
+    },
+    {
+      label: 'input_fp',
+      value: formatSimulationLabFingerprint(result.result.input_fingerprint),
+    },
   ];
 
   if (result.kind === 'orb_backtest') {
@@ -1155,6 +1167,11 @@ function formatSimulationLabResultMetric(value: unknown, mode: 'plain' | 'curren
   if (mode === 'ratio' && typeof value === 'number') return `${(value * 100).toFixed(2)}%`;
   if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
   return String(value).replace(/[_-]+/g, ' ');
+}
+
+function formatSimulationLabFingerprint(value: unknown) {
+  if (typeof value !== 'string' || !value) return '--';
+  return value.length > 12 ? `${value.slice(0, 12)}...` : value;
 }
 
 function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {

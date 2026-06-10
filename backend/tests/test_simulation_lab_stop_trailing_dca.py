@@ -38,6 +38,9 @@ class SimulationLabStopTrailingDcaTests(unittest.TestCase):
         plans = {plan["plan"]: plan for plan in result["plans"]}
 
         self.assertEqual(result["schema_version"], "edge.simulation_lab.stop_trailing_dca.v1")
+        self.assertRegex(result["input_fingerprint"], r"^[0-9a-f]{64}$")
+        self.assertEqual(result["input_fingerprint_algorithm"], "sha256.canonical_json.v1")
+        self.assertEqual(result["run_id"], f"simlab-stop-trailing-dca-{result['input_fingerprint'][:12]}")
         self.assertEqual(result["summary"]["plan_count"], 3)
         self.assertEqual(result["summary"]["best_plan"], "trailing_stop")
         self.assertEqual(result["summary"]["worst_plan"], "dca")

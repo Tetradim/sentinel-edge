@@ -32,6 +32,11 @@ class SimulationLabStatusTests(unittest.TestCase):
         self.assertEqual(experiments["orb_backtest"]["http_method"], "POST")
         self.assertEqual(experiments["orb_backtest"]["endpoint_path"], "/api/simulation-lab/orb/backtest")
         self.assertEqual(experiments["orb_backtest"]["result_schema_version"], "edge.simulation_lab.orb_backtest.v1")
+        for experiment in experiments.values():
+            self.assertEqual(
+                experiment["result_metadata_fields"],
+                ["run_id", "input_fingerprint", "input_fingerprint_algorithm"],
+            )
         self.assertEqual(
             experiments["buying_power_allocation"]["endpoint_path"],
             "/api/simulation-lab/buying-power/allocation",

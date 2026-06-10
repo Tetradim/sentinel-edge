@@ -1,5 +1,7 @@
 """Simulation Lab feature gate and experiment discovery contract."""
 from collections import defaultdict
+import hashlib
+import json
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -13,6 +15,8 @@ SIMULATION_LAB_STATUS_VERSION = "edge.simulation_lab.status.v1"
 SIMULATION_LAB_ORB_BACKTEST_VERSION = "edge.simulation_lab.orb_backtest.v1"
 SIMULATION_LAB_BUYING_POWER_VERSION = "edge.simulation_lab.buying_power_allocation.v1"
 SIMULATION_LAB_STOP_TRAILING_DCA_VERSION = "edge.simulation_lab.stop_trailing_dca.v1"
+SIMULATION_LAB_INPUT_FINGERPRINT_ALGORITHM = "sha256.canonical_json.v1"
+SIMULATION_LAB_RESULT_METADATA_FIELDS = ("run_id", "input_fingerprint", "input_fingerprint_algorithm")
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _BREAKOUT_SIDES = {"both", "long", "short"}
 _ALLOCATION_MODES = {"confidence_weighted", "equal_weight", "priority_fill"}
@@ -34,6 +38,7 @@ class SimulationLabExperiment:
     http_method: str = "POST"
     status: str = "planned"
     runnable_when_enabled: bool = False
+    result_metadata_fields: tuple[str, ...] = SIMULATION_LAB_RESULT_METADATA_FIELDS
 
     def to_status(self, lab_enabled: bool) -> Dict[str, Any]:
         return {
@@ -43,6 +48,7 @@ class SimulationLabExperiment:
             "http_method": self.http_method,
             "endpoint_path": self.endpoint_path,
             "result_schema_version": self.result_schema_version,
+            "result_metadata_fields": list(self.result_metadata_fields),
             "status": self.status,
             "state": "visible" if lab_enabled else "hidden",
             "runnable": lab_enabled and self.runnable_when_enabled,
@@ -105,6 +111,38 @@ def simulation_lab_status() -> Dict[str, Any]:
     }
 
 
+def _with_lab_result_metadata(kind: str, input_payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
+    fingerprint = _simulation_lab_input_fingerprint(input_payload)
+    return {
+        **result,
+        "run_id": f"simlab-{kind}-{fingerprint[:12]}",
+        "input_fingerprint": fingerprint,
+        "input_fingerprint_algorithm": SIMULATION_LAB_INPUT_FINGERPRINT_ALGORITHM,
+    }
+
+
+def _simulation_lab_input_fingerprint(input_payload: Dict[str, Any]) -> str:
+    canonical = json.dumps(
+        input_payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _fingerprint_float(value: float) -> float:
+    return round(float(value), 8)
+
+
+def _timestamped_fingerprint_bar(bar: Dict[str, Any], fields: Iterable[str]) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"timestamp": bar["timestamp"].isoformat()}
+    for field in fields:
+        payload[field] = _fingerprint_float(bar[field])
+    return payload
+
+
 def run_stop_trailing_dca_comparison(
     *,
     entry_price: float,
@@ -131,6 +169,17 @@ def run_stop_trailing_dca_comparison(
     )
     if not bars:
         raise ValueError("At least one price_path bar is required")
+
+    input_payload = {
+        "entry_price": _fingerprint_float(entry_price),
+        "quantity": _fingerprint_float(quantity),
+        "stop_loss_pct": _fingerprint_float(stop_loss_pct),
+        "trailing_pct": _fingerprint_float(trailing_pct),
+        "dca_steps": dca_steps,
+        "dca_drop_pct": _fingerprint_float(dca_drop_pct),
+        "dca_allocation_multiplier": _fingerprint_float(dca_allocation_multiplier),
+        "price_path": [_timestamped_fingerprint_bar(bar, ("high", "low", "close")) for bar in bars],
+    }
 
     plans = [
         _simulate_regular_stop_plan(
@@ -159,32 +208,36 @@ def run_stop_trailing_dca_comparison(
     best_pct_plan = max(plans, key=lambda plan: plan["pnl_pct"])
     worst_pct_plan = min(plans, key=lambda plan: plan["pnl_pct"])
 
-    return {
-        "schema_version": SIMULATION_LAB_STOP_TRAILING_DCA_VERSION,
-        "side": "long",
-        "entry_price": round(entry_price, 4),
-        "quantity": round(quantity, 4),
-        "price_points": len(bars),
-        "parameters": {
-            "stop_loss_pct": round(stop_loss_pct, 4),
-            "trailing_pct": round(trailing_pct, 4),
-            "dca_steps": dca_steps,
-            "dca_drop_pct": round(dca_drop_pct, 4),
-            "dca_allocation_multiplier": round(dca_allocation_multiplier, 4),
+    return _with_lab_result_metadata(
+        "stop-trailing-dca",
+        input_payload,
+        {
+            "schema_version": SIMULATION_LAB_STOP_TRAILING_DCA_VERSION,
+            "side": "long",
+            "entry_price": round(entry_price, 4),
+            "quantity": round(quantity, 4),
+            "price_points": len(bars),
+            "parameters": {
+                "stop_loss_pct": round(stop_loss_pct, 4),
+                "trailing_pct": round(trailing_pct, 4),
+                "dca_steps": dca_steps,
+                "dca_drop_pct": round(dca_drop_pct, 4),
+                "dca_allocation_multiplier": round(dca_allocation_multiplier, 4),
+            },
+            "summary": {
+                "plan_count": len(plans),
+                "best_plan": best_plan["plan"],
+                "best_pnl": best_plan["pnl"],
+                "worst_plan": worst_plan["plan"],
+                "worst_pnl": worst_plan["pnl"],
+                "best_pnl_pct_plan": best_pct_plan["plan"],
+                "best_pnl_pct": best_pct_plan["pnl_pct"],
+                "worst_pnl_pct_plan": worst_pct_plan["plan"],
+                "worst_pnl_pct": worst_pct_plan["pnl_pct"],
+            },
+            "plans": plans,
         },
-        "summary": {
-            "plan_count": len(plans),
-            "best_plan": best_plan["plan"],
-            "best_pnl": best_plan["pnl"],
-            "worst_plan": worst_plan["plan"],
-            "worst_pnl": worst_plan["pnl"],
-            "best_pnl_pct_plan": best_pct_plan["plan"],
-            "best_pnl_pct": best_pct_plan["pnl_pct"],
-            "worst_pnl_pct_plan": worst_pct_plan["plan"],
-            "worst_pnl_pct": worst_pct_plan["pnl_pct"],
-        },
-        "plans": plans,
-    }
+    )
 
 
 def _simulate_regular_stop_plan(
@@ -375,6 +428,22 @@ def run_buying_power_allocation_experiment(
     if not normalised:
         raise ValueError("At least one allocation candidate is required")
 
+    input_payload = {
+        "buying_power": _fingerprint_float(buying_power),
+        "cash_reserve_pct": _fingerprint_float(cash_reserve_pct),
+        "max_position_pct": _fingerprint_float(max_position_pct),
+        "mode": mode,
+        "candidates": [
+            {
+                "symbol": candidate["symbol"],
+                "confidence": _fingerprint_float(candidate["confidence"]),
+                "requested_notional": _fingerprint_float(candidate["requested_notional"]),
+                "current_exposure": _fingerprint_float(candidate["current_exposure"]),
+            }
+            for candidate in normalised
+        ],
+    }
+
     reserve_notional = buying_power * cash_reserve_pct
     allocatable_notional = buying_power - reserve_notional
     max_position_notional = buying_power * max_position_pct
@@ -413,41 +482,45 @@ def run_buying_power_allocation_experiment(
     candidate_capacity_notional = round(max(0.0, requested_notional - position_limited_notional), 2)
     post_cap_unfilled_notional = round(max(0.0, candidate_capacity_notional - allocated_notional), 2)
 
-    return {
-        "schema_version": SIMULATION_LAB_BUYING_POWER_VERSION,
-        "mode": mode,
-        "buying_power": round(buying_power, 2),
-        "cash_reserve_pct": round(cash_reserve_pct, 4),
-        "max_position_pct": round(max_position_pct, 4),
-        "cash_reserve_notional": round(reserve_notional, 2),
-        "allocatable_notional": round(allocatable_notional, 2),
-        "max_position_notional": round(max_position_notional, 2),
-        "summary": {
-            "candidate_count": len(normalised),
-            "allocated_count": len(allocations),
-            "skipped_count": len(skipped),
-            "allocated_notional": allocated_notional,
-            "unallocated_notional": unallocated_notional,
-            "requested_notional": requested_notional,
-            "unfilled_requested_notional": unfilled_requested_notional,
-            "fill_ratio": round(allocated_notional / requested_notional, 4) if requested_notional > 0 else 0.0,
-            "position_limited_count": sum(
-                1
-                for candidate in [*eligible, *skipped]
-                if candidate.get("position_limited_notional", 0.0) > 0
-            ),
-            "position_limited_notional": position_limited_notional,
-            "candidate_capacity_notional": candidate_capacity_notional,
-            "post_cap_unfilled_notional": post_cap_unfilled_notional,
-            "post_cap_fill_ratio": (
-                round(allocated_notional / candidate_capacity_notional, 4)
-                if candidate_capacity_notional > 0
-                else 0.0
-            ),
+    return _with_lab_result_metadata(
+        "buying-power-allocation",
+        input_payload,
+        {
+            "schema_version": SIMULATION_LAB_BUYING_POWER_VERSION,
+            "mode": mode,
+            "buying_power": round(buying_power, 2),
+            "cash_reserve_pct": round(cash_reserve_pct, 4),
+            "max_position_pct": round(max_position_pct, 4),
+            "cash_reserve_notional": round(reserve_notional, 2),
+            "allocatable_notional": round(allocatable_notional, 2),
+            "max_position_notional": round(max_position_notional, 2),
+            "summary": {
+                "candidate_count": len(normalised),
+                "allocated_count": len(allocations),
+                "skipped_count": len(skipped),
+                "allocated_notional": allocated_notional,
+                "unallocated_notional": unallocated_notional,
+                "requested_notional": requested_notional,
+                "unfilled_requested_notional": unfilled_requested_notional,
+                "fill_ratio": round(allocated_notional / requested_notional, 4) if requested_notional > 0 else 0.0,
+                "position_limited_count": sum(
+                    1
+                    for candidate in [*eligible, *skipped]
+                    if candidate.get("position_limited_notional", 0.0) > 0
+                ),
+                "position_limited_notional": position_limited_notional,
+                "candidate_capacity_notional": candidate_capacity_notional,
+                "post_cap_unfilled_notional": post_cap_unfilled_notional,
+                "post_cap_fill_ratio": (
+                    round(allocated_notional / candidate_capacity_notional, 4)
+                    if candidate_capacity_notional > 0
+                    else 0.0
+                ),
+            },
+            "allocations": allocations,
+            "skipped": skipped,
         },
-        "allocations": allocations,
-        "skipped": skipped,
-    }
+    )
 
 
 def _allocate_buying_power(
@@ -601,6 +674,16 @@ def run_orb_backtest_replay(
     normalised_bars = sorted((_normalise_orb_bar(bar) for bar in bars), key=lambda bar: bar["timestamp"])
     if not normalised_bars:
         raise ValueError("At least one OHLC bar is required for ORB replay")
+    symbol_upper = symbol.strip().upper()
+
+    input_payload = {
+        "symbol": symbol_upper,
+        "session_id": session_id,
+        "timeframe_minutes": timeframe_minutes,
+        "breakout_side": breakout_side,
+        "target_r_multiple": _fingerprint_float(target_r_multiple),
+        "bars": [_timestamped_fingerprint_bar(bar, ("high", "low", "close")) for bar in normalised_bars],
+    }
 
     grouped: Dict[date, List[Dict[str, Any]]] = defaultdict(list)
     for bar in normalised_bars:
@@ -630,35 +713,39 @@ def run_orb_backtest_replay(
         for breakout in breakouts
         if breakout.get("outcome") is not None
     ]
-    return {
-        "schema_version": SIMULATION_LAB_ORB_BACKTEST_VERSION,
-        "symbol": symbol.strip().upper(),
-        "session_id": session_id,
-        "timeframe_minutes": timeframe_minutes,
-        "breakout_side": breakout_side,
-        "parameters": {
-            "target_r_multiple": round(target_r_multiple, 4),
-            "stop_model": "opposite_orb_boundary",
+    return _with_lab_result_metadata(
+        "orb-backtest",
+        input_payload,
+        {
+            "schema_version": SIMULATION_LAB_ORB_BACKTEST_VERSION,
+            "symbol": symbol_upper,
+            "session_id": session_id,
+            "timeframe_minutes": timeframe_minutes,
+            "breakout_side": breakout_side,
+            "parameters": {
+                "target_r_multiple": round(target_r_multiple, 4),
+                "stop_model": "opposite_orb_boundary",
+            },
+            "summary": {
+                "sessions": len(days),
+                "completed_sessions": len(completed_days),
+                "breakouts": len(breakouts),
+                "bullish_breakouts": sum(1 for breakout in breakouts if breakout["direction"] == "bullish"),
+                "bearish_breakouts": sum(1 for breakout in breakouts if breakout["direction"] == "bearish"),
+                "no_breakout_sessions": sum(1 for day in completed_days if day["breakout"] is None),
+                "scored_breakouts": len(risk_reward_scores),
+                "avg_reward_r_multiple": _average_metric(risk_reward_scores, "reward_r_multiple"),
+                "max_risk_per_share": _max_metric(risk_reward_scores, "risk_per_share"),
+                "max_reward_per_share": _max_metric(risk_reward_scores, "reward_per_share"),
+                "outcome_scored_breakouts": len(outcome_scores),
+                "target_hits": _count_outcome_status(outcome_scores, "target_hit"),
+                "stop_hits": _count_outcome_status(outcome_scores, "stop_hit"),
+                "open_after_replay": _count_outcome_status(outcome_scores, "open_after_replay"),
+                "avg_realized_r_multiple": _average_metric(outcome_scores, "realized_r_multiple"),
+            },
+            "days": days,
         },
-        "summary": {
-            "sessions": len(days),
-            "completed_sessions": len(completed_days),
-            "breakouts": len(breakouts),
-            "bullish_breakouts": sum(1 for breakout in breakouts if breakout["direction"] == "bullish"),
-            "bearish_breakouts": sum(1 for breakout in breakouts if breakout["direction"] == "bearish"),
-            "no_breakout_sessions": sum(1 for day in completed_days if day["breakout"] is None),
-            "scored_breakouts": len(risk_reward_scores),
-            "avg_reward_r_multiple": _average_metric(risk_reward_scores, "reward_r_multiple"),
-            "max_risk_per_share": _max_metric(risk_reward_scores, "risk_per_share"),
-            "max_reward_per_share": _max_metric(risk_reward_scores, "reward_per_share"),
-            "outcome_scored_breakouts": len(outcome_scores),
-            "target_hits": _count_outcome_status(outcome_scores, "target_hit"),
-            "stop_hits": _count_outcome_status(outcome_scores, "stop_hit"),
-            "open_after_replay": _count_outcome_status(outcome_scores, "open_after_replay"),
-            "avg_realized_r_multiple": _average_metric(outcome_scores, "realized_r_multiple"),
-        },
-        "days": days,
-    }
+    )
 
 
 def _run_orb_backtest_day(

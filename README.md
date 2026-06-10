@@ -485,9 +485,9 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Monte Carlo chart listing and chart serving.
 - Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, chart-ready OHLCV bars, UI-ready context for persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last Simulation Lab result with symbol and timestamp context so operators can clear stale persisted Simulation Lab context. The workspace also guards duplicate Simulation Lab submissions while a replay or experiment request is in flight, with Lab run actions disabled until chart bars are loaded, flags persisted Simulation Lab results when their symbol differs from the active chart, and adds an operator-friendly result provenance badge.
 
-The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata for client-side discovery. The initial Lab roadmap covers:
+The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata, plus result metadata fields, for client-side discovery. Runnable lab results include a deterministic `run_id`, full `input_fingerprint`, and `input_fingerprint_algorithm` (`sha256.canonical_json.v1`) so operators can compare repeated replays and correlate saved UI context without implying live execution. The initial Lab roadmap covers:
 
-Simulation Lab status in Settings mirrors the same gate and experiment catalog read-only, so operators can confirm the backend lab posture without enabling experimental actions.
+Simulation Lab status in Settings mirrors the same gate, experiment catalog, and result metadata fields read-only, so operators can confirm the backend lab posture without enabling experimental actions.
 
 - ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint, including per-breakout risk/reward scoring from the opposite ORB boundary, target/stop/open outcome scoring, average realized R, and summary fields for scored breakouts, average reward R, maximum risk per share, and maximum reward per share.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`, including requested demand, unfilled demand, aggregate fill-ratio summaries, position-cap constraint attribution, and post-capacity fill ratios.
@@ -795,7 +795,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | POST | `/backtest/optimize` | Run strategy optimization. |
 | GET | `/backtest/monte-carlo/charts` | List Monte Carlo chart artifacts. |
 | GET | `/backtest/monte-carlo/charts/{run_id}/{chart_name}` | Fetch a Monte Carlo chart artifact. |
-| GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate and planned experiment catalog. |
+| GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate, planned experiment catalog, and result metadata field discovery. |
 | POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan with optional `target_r_multiple` risk/reward and target/stop/open outcome scoring. |
 | POST | `/simulation-lab/buying-power/allocation` | Compare gated buying-power allocation plans for candidate trades with requested, unfilled, fill-ratio, position-limit, and post-capacity fill summaries. |
 | POST | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path with absolute and percentage-normalized P&L summaries. |
@@ -970,6 +970,7 @@ Near-term priorities:
    - ORB strategy replay with risk/reward and outcome scoring
    - buying-power allocation experiments with demand-fill, position-limit, and post-capacity fill summaries
    - stop/trailing/DCA comparisons with normalized P&L percentage summaries
+   - deterministic `run_id` and `input_fingerprint` metadata for replay comparison
    - default-hidden until explicitly enabled
 
 4. Chart workspace

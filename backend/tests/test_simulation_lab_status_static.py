@@ -67,6 +67,8 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("formatSimulationLabResultMetric", text)
         self.assertIn("schema_version", text)
         self.assertIn("summary", text)
+        self.assertIn("run_id", text)
+        self.assertIn("input_fp", text)
         self.assertIn("breakouts", text)
         self.assertIn("scored_breakouts", text)
         self.assertIn("avg_reward_r", text)
@@ -118,7 +120,9 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("Experiment catalog", text)
         self.assertIn("formatSimulationLabBoolean", text)
         self.assertIn("formatSimulationLabExperimentEndpoint", text)
+        self.assertIn("formatSimulationLabResultMetadataFields", text)
         self.assertIn("result_schema_version", text)
+        self.assertIn("result_metadata_fields", text)
         self.assertIn("runnable", text)
         self.assertIn("Simulation Lab status in Settings", readme)
 

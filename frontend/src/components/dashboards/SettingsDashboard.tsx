@@ -77,6 +77,7 @@ interface SimulationLabExperiment {
   http_method?: string;
   endpoint_path?: string;
   result_schema_version?: string;
+  result_metadata_fields?: string[];
 }
 
 interface SimulationLabStatus {
@@ -886,6 +887,7 @@ export function SettingsDashboard() {
                       <div>runnable: {formatSimulationLabBoolean(experiment.runnable)}</div>
                       <div>{formatSimulationLabExperimentEndpoint(experiment)}</div>
                       <div>result_schema_version: {experiment.result_schema_version || '--'}</div>
+                      <div>result_metadata_fields: {formatSimulationLabResultMetadataFields(experiment.result_metadata_fields)}</div>
                       {experiment.capability && <div>{experiment.capability}</div>}
                     </div>
                   </div>
@@ -1076,6 +1078,10 @@ function formatSimulationLabExperimentEndpoint(experiment: SimulationLabExperime
   const method = experiment.http_method || 'POST';
   const endpoint = experiment.endpoint_path || 'endpoint unavailable';
   return `${method} ${endpoint}`;
+}
+
+function formatSimulationLabResultMetadataFields(fields?: string[]) {
+  return fields?.length ? fields.join(', ') : '--';
 }
 
 function formatNotificationEnvList(values?: string[]) {

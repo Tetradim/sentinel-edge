@@ -34,6 +34,9 @@ class SimulationLabOrbBacktestTests(unittest.TestCase):
         )
 
         self.assertEqual(result["schema_version"], "edge.simulation_lab.orb_backtest.v1")
+        self.assertRegex(result["input_fingerprint"], r"^[0-9a-f]{64}$")
+        self.assertEqual(result["input_fingerprint_algorithm"], "sha256.canonical_json.v1")
+        self.assertEqual(result["run_id"], f"simlab-orb-backtest-{result['input_fingerprint'][:12]}")
         self.assertEqual(result["symbol"], "SPY")
         self.assertEqual(result["session_id"], "market_open")
         self.assertEqual(result["timeframe_minutes"], 5)

@@ -33,6 +33,9 @@ class SimulationLabAllocationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["schema_version"], "edge.simulation_lab.buying_power_allocation.v1")
+        self.assertRegex(result["input_fingerprint"], r"^[0-9a-f]{64}$")
+        self.assertEqual(result["input_fingerprint_algorithm"], "sha256.canonical_json.v1")
+        self.assertEqual(result["run_id"], f"simlab-buying-power-allocation-{result['input_fingerprint'][:12]}")
         self.assertEqual(result["mode"], "confidence_weighted")
         self.assertEqual(result["summary"]["candidate_count"], 3)
         self.assertEqual(result["summary"]["allocated_count"], 3)
