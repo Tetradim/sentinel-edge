@@ -90,6 +90,22 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("panelVisibility.lab && simulationLabEnabled", dashboard)
         self.assertIn("option.id !== 'lab' || simulationLabEnabled", dashboard)
 
+    def test_chart_workspace_orb_replay_can_select_orb_session(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("ChartWorkspaceOrbReplaySession", dashboard)
+        self.assertIn("ORB_REPLAY_SESSION_OPTIONS", dashboard)
+        self.assertIn("premarket_30m", dashboard)
+        self.assertIn("market_open", dashboard)
+        self.assertIn("Premarket 30m", dashboard)
+        self.assertIn("Market open", dashboard)
+        self.assertIn("orbReplaySession", dashboard)
+        self.assertIn("setOrbReplaySession", dashboard)
+        self.assertIn('aria-label="ORB replay session"', dashboard)
+        self.assertIn("session_id: orbReplaySession", dashboard)
+        self.assertIn("timeframe_minutes: selectedOrbReplaySession.timeframeMinutes", dashboard)
+        self.assertNotIn("session_id: 'market_open'", dashboard)
+
     def test_chart_workspace_exposes_persistent_chart_preferences(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 

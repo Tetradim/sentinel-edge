@@ -25,6 +25,7 @@ type ChartWorkspaceLayoutMode = 'analysis' | 'execution' | 'research';
 type ChartWorkspacePanelId = 'snapshot' | 'lab' | 'oscillators';
 type ChartWorkspaceChartType = 'candlestick' | 'line';
 type ChartWorkspaceBarLimit = 120 | 240 | 390;
+type ChartWorkspaceOrbReplaySession = 'market_open' | 'premarket_30m';
 
 interface ChartWorkspacePanelVisibility {
   snapshot: boolean;
@@ -95,6 +96,15 @@ const BAR_LIMIT_OPTIONS: { value: ChartWorkspaceBarLimit; label: string }[] = [
   { value: 390, label: '390 bars' },
 ];
 
+const ORB_REPLAY_SESSION_OPTIONS: {
+  id: ChartWorkspaceOrbReplaySession;
+  label: string;
+  timeframeMinutes: 30;
+}[] = [
+  { id: 'market_open', label: 'Market open', timeframeMinutes: 30 },
+  { id: 'premarket_30m', label: 'Premarket 30m', timeframeMinutes: 30 },
+];
+
 export const ChartWorkspace: React.FC = () => {
   const [workspacePreferences, setWorkspacePreferences] =
     useState<ChartWorkspacePreferencesState>(readChartWorkspacePreferences);
@@ -103,6 +113,7 @@ export const ChartWorkspace: React.FC = () => {
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
   const [simulationLabStatus, setSimulationLabStatus] = useState<ChartWorkspaceSimulationLabStatus | null>(null);
+  const [orbReplaySession, setOrbReplaySession] = useState<ChartWorkspaceOrbReplaySession>('market_open');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [labMessage, setLabMessage] = useState('');
@@ -174,6 +185,8 @@ export const ChartWorkspace: React.FC = () => {
   const workspaceGridClass = getWorkspaceGridClass(layoutMode);
   const sidePanelClass = getSidePanelClass(layoutMode);
   const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? '2xl:order-last' : ''}`;
+  const selectedOrbReplaySession =
+    ORB_REPLAY_SESSION_OPTIONS.find((option) => option.id === orbReplaySession) || ORB_REPLAY_SESSION_OPTIONS[0];
   const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
   const priceChartHeight = layoutMode === 'research' ? 500 : 430;
 
@@ -276,16 +289,16 @@ export const ChartWorkspace: React.FC = () => {
 
   const runOrbReplay = async () => {
     if (!snapshot?.bars.length) return;
-    setLabMessage('Running ORB replay');
+    setLabMessage(`Running ${selectedOrbReplaySession.label} ORB replay`);
     try {
       const result = await api.runSimulationLabOrbBacktest({
         symbol: snapshot.symbol,
-        session_id: 'market_open',
-        timeframe_minutes: 30,
+        session_id: orbReplaySession,
+        timeframe_minutes: selectedOrbReplaySession.timeframeMinutes,
         breakout_side: 'both',
         bars: snapshot.bars,
       });
-      setLabMessage(`ORB replay: ${result.summary?.breakouts ?? 0} breakouts`);
+      setLabMessage(`${selectedOrbReplaySession.label} ORB replay: ${result.summary?.breakouts ?? 0} breakouts`);
     } catch (err) {
       setLabMessage(err instanceof Error ? err.message : 'ORB replay unavailable');
     }
@@ -355,6 +368,19 @@ export const ChartWorkspace: React.FC = () => {
             Simulation Lab
           </div>
           <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="ORB replay session">
+              {ORB_REPLAY_SESSION_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setOrbReplaySession(option.id)}
+                  className={orbReplaySession === option.id ? activeToolClass : inactiveToolClass}
+                  aria-pressed={orbReplaySession === option.id}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <button type="button" onClick={runOrbReplay} className={inactiveToolClass}>
               <BarChart3 className="h-4 w-4" />
               ORB Replay
