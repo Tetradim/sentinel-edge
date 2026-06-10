@@ -33,6 +33,14 @@ class TickerConfigModalErrorsStaticTests(unittest.TestCase):
         self.assertIn("setActionError('');\n      const result = await api.optimizeStrategy", text)
         self.assertIn("setBacktestResults(result.best_results)", text)
 
+    def test_config_load_failures_warn_that_defaults_are_shown(self):
+        text = TICKER_CONFIG_MODAL.read_text(encoding="utf-8")
+
+        self.assertIn("}).catch((error) =>", text)
+        self.assertIn("console.error('Failed to load ticker config:', error)", text)
+        self.assertIn("setActionError('Ticker configuration failed to load; defaults are shown.')", text)
+        self.assertIn("price_providers: DEFAULT_PROVIDERS", text)
+
 
 if __name__ == "__main__":
     unittest.main()

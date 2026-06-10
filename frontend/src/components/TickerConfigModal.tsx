@@ -95,7 +95,8 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
           },
         });
         setInitialLoad(false);
-      }).catch(() => {
+      }).catch((error) => {
+        console.error('Failed to load ticker config:', error);
         setLocalConfig({
           price_providers: DEFAULT_PROVIDERS,
           metrics: {
@@ -112,6 +113,7 @@ export const TickerConfigModal: React.FC<TickerConfigModalProps> = ({
             trailing_stop_profit_threshold: 2.0,
           },
         });
+        setActionError('Ticker configuration failed to load; defaults are shown.');
         setInitialLoad(false);
       });
     }
