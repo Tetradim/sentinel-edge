@@ -78,7 +78,7 @@ Edge is also designed to degrade safely:
 | Advisor health | Edge service state, readiness, Pulse status, provider health, kill-switch state, recommendation counts, handoff mode, and runtime details. |
 | Protection operations | Scheduler controls, kill switch controls, readiness guard, Pulse queue status, handoff status, synced positions, trailing-stop and emergency-exit bridges. |
 | Settings | Local non-secret config, backend validation, read-only provider metadata, global/per-ticker Pulse handoff controls, Simulation Lab status discovery, and runtime metadata warnings. |
-| Experience/RUM | Browser Web Vitals collection, backend RUM ingest, rate-limit status, copyable Prometheus text, and frontend performance visibility. |
+| Experience/RUM | Browser Web Vitals collection, backend RUM ingest, rate-limit status, Grafana-style observability panels inside Experience, copyable Prometheus text, and frontend performance visibility. |
 | Market coverage | Market-hours/session status across supported markets. |
 | Portfolio/P&L views | Pulse-backed account, portfolio, position, and P&L visibility when Pulse is available. |
 | Learning Center | In-app tutorials, learning paths, saved guides, notes, reading modes, progress tracking, import/export, and practice checklists. |
@@ -232,7 +232,7 @@ The current app entry point mounts `AssetCommandConsole`, not a generic landing 
 |--------|---------|
 | Trading Overview | Active ticker view, correlation clusters, recent decisions, add/remove ticker actions, metric toggles, and partial-refresh warnings. |
 | Advisor Health | Service liveness/readiness, Pulse state, provider health, fallback order, recommendation count, automation mode, kill switch, and runtime details. |
-| Experience | Browser Web Vitals, backend RUM ingest status, rate-limit pressure, copyable Prometheus output, and frontend telemetry freshness. |
+| Experience | Browser Web Vitals, backend RUM ingest status, rate-limit pressure, Grafana-style observability panels inside Experience, copyable Prometheus output, and frontend telemetry freshness. |
 | Protection Ops | Safety guardrails, readiness blockers, scheduler controls, kill switch control, Pulse queue, handoff status, positions, trailing stop, and emergency exit bridge. |
 | P&L Tracking | Pulse-backed account and P&L status when Pulse is available, with visible fallback errors. |
 | Market Coverage | Market session status and cached fallback messages when backend refresh fails. |
@@ -423,7 +423,7 @@ Edge includes both in-app observability and an external LGTM-style stack.
 ### In-app observability
 
 - Advisor Health dashboard for backend and automation health.
-- Experience dashboard for frontend Web Vitals and RUM ingest.
+- Experience dashboard for frontend Web Vitals, RUM ingest, API rate-limit pressure, and Grafana-style observability panels inside Experience.
 - Protection Ops dashboard for runtime safety controls.
 - Market Coverage dashboard for market-session visibility.
 - Settings metadata warnings when backend metadata is stale.

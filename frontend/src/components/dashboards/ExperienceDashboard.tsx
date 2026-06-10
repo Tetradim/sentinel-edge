@@ -39,6 +39,55 @@ const rateLimitPressureClasses = {
   warning: 'bg-amber-500/10 text-amber-300',
 };
 
+type ObservabilityPanelId = 'frontend_vitals' | 'rum_ingest' | 'api_rate_limits' | 'bucket_pressure';
+
+interface ObservabilityPanelCard {
+  id: ObservabilityPanelId;
+  title: string;
+  description: string;
+  prometheusExpr: string;
+  runbook: string;
+}
+
+interface FrontendRumBackendStatus {
+  status?: string;
+  last_route?: string;
+  seconds_since_last?: number | null;
+  sample_count?: number;
+  route_count?: number;
+}
+
+const OBSERVABILITY_PANEL_CARDS: ObservabilityPanelCard[] = [
+  {
+    id: 'frontend_vitals',
+    title: 'Frontend Web Vitals',
+    description: 'Current browser session quality from RUM samples.',
+    prometheusExpr: 'edge_frontend_web_vital_value',
+    runbook: 'docs/runbooks/frontend-core-web-vitals.md',
+  },
+  {
+    id: 'rum_ingest',
+    title: 'RUM Ingest Freshness',
+    description: 'Backend freshness for accepted browser telemetry.',
+    prometheusExpr: 'edge_frontend_rum_last_received_timestamp_seconds',
+    runbook: 'docs/runbooks/frontend-rum-ingest-missing.md',
+  },
+  {
+    id: 'api_rate_limits',
+    title: 'API Rate-Limit Rejections',
+    description: 'Operator-facing pressure state for rejected requests.',
+    prometheusExpr: 'edge_rate_limit_rejections_total',
+    runbook: 'docs/runbooks/api-rate-limit-rejections.md',
+  },
+  {
+    id: 'bucket_pressure',
+    title: 'API Bucket Pressure',
+    description: 'Tracked in-memory API limiter buckets.',
+    prometheusExpr: 'edge_rate_limit_active_buckets',
+    runbook: 'docs/runbooks/api-rate-limit-bucket-pressure.md',
+  },
+];
+
 const formatMetric = (item: WebVitalMetric) => {
   if (item.value === null) return 'Pending';
   if (item.unit === 'score') return item.value.toFixed(3);
@@ -66,7 +115,7 @@ export const ExperienceDashboard: React.FC = () => {
   const [copyFailed, setCopyFailed] = useState(false);
   const [ingestStatus, setIngestStatus] = useState<'idle' | 'sent' | 'failed' | 'rate-limited'>('idle');
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
-  const [backendStatus, setBackendStatus] = useState<any | null>(null);
+  const [backendStatus, setBackendStatus] = useState<FrontendRumBackendStatus | null>(null);
   const [rateLimitStatus, setRateLimitStatus] = useState<RateLimitStatus | null>(null);
   const lastPostAt = useRef(0);
   const nextRumPostAfter = useRef(0);
@@ -219,6 +268,32 @@ export const ExperienceDashboard: React.FC = () => {
           tone={rumFreshnessTone(backendStatus?.seconds_since_last)}
         />
       </div>
+
+      <section className="border-y border-gray-800 bg-gray-950/40 px-4 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <Gauge className="h-5 w-5 text-cyan-400" />
+              Observability Panels
+            </h3>
+            <p className="mt-1 text-sm text-gray-400">
+              Grafana-style observability panels inside Experience, mapped to Prometheus expressions and local runbooks.
+            </p>
+          </div>
+          <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-200">
+            /metrics
+          </span>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {OBSERVABILITY_PANEL_CARDS.map((panel) => (
+            <ObservabilityPanelTile
+              key={panel.id}
+              panel={panel}
+              value={formatObservabilityPanelValue(panel.id, webVitalScore, backendStatus, rateLimitStatus)}
+            />
+          ))}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
         {metrics.map((item) => (
@@ -398,6 +473,28 @@ const RumStatusTile: React.FC<{ label: string; value: string; detail: string; to
   </div>
 );
 
+const ObservabilityPanelTile: React.FC<{ panel: ObservabilityPanelCard; value: string }> = ({ panel, value }) => (
+  <div className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/60 p-4">
+    <div className="text-xs uppercase text-gray-500">{panel.title}</div>
+    <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
+    <p className="mt-1 text-xs text-gray-400">{panel.description}</p>
+    <div className="mt-3 space-y-2 border-t border-gray-800 pt-3 text-xs">
+      <div>
+        <div className="text-gray-500">Prometheus expression</div>
+        <code className="mt-1 block break-words rounded bg-gray-900 px-2 py-1 text-cyan-200">
+          {panel.prometheusExpr}
+        </code>
+      </div>
+      <div>
+        <div className="text-gray-500">Runbook</div>
+        <code className="mt-1 block break-words rounded bg-gray-900 px-2 py-1 text-amber-200">
+          {panel.runbook}
+        </code>
+      </div>
+    </div>
+  </div>
+);
+
 function ratingRank(rating: WebVitalMetric['rating']) {
   if (rating === 'poor') return 3;
   if (rating === 'needs-improvement') return 2;
@@ -437,6 +534,18 @@ function formatRumFreshness(value?: number | null) {
   if (value < 1) return 'just now';
   if (value < 60) return `${Math.round(value)}s ago`;
   return `${Math.round(value / 60)}m ago`;
+}
+
+function formatObservabilityPanelValue(
+  panelId: ObservabilityPanelId,
+  webVitalScore: number,
+  backendStatus: FrontendRumBackendStatus | null,
+  rateLimitStatus: RateLimitStatus | null,
+) {
+  if (panelId === 'frontend_vitals') return `${webVitalScore}/100`;
+  if (panelId === 'rum_ingest') return formatRumFreshness(backendStatus?.seconds_since_last);
+  if (panelId === 'api_rate_limits') return formatRateLimitPressure(rateLimitStatus?.pressure);
+  return String(rateLimitStatus?.tracked_clients ?? 'Pending');
 }
 
 function rumFreshnessTone(value?: number | null): keyof typeof rumStatusToneClasses {
