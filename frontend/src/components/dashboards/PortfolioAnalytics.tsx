@@ -47,7 +47,7 @@ export function PortfolioAnalytics() {
       const data = await response.json();
       if (data.status === 'unavailable' || data.error) {
         setAccount(null);
-        setError('Pulse portfolio data unavailable');
+        setError(typeof data.error === 'string' ? data.error : 'Pulse portfolio data unavailable');
       } else {
         setAccount(data);
         setError(null);
@@ -75,6 +75,11 @@ export function PortfolioAnalytics() {
           <Wallet className="w-5 h-5" />
           <span>Portfolio Analytics</span>
         </div>
+        {error && (
+          <p role="alert" className="text-red-300 mt-4 text-sm">
+            {error}
+          </p>
+        )}
         <p className="text-gray-500 mt-4 text-sm">
           Live portfolio analytics require Sentinel Pulse account data. No generated portfolio data is displayed.
         </p>

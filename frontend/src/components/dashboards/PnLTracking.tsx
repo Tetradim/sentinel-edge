@@ -4,6 +4,7 @@ import { MetricCard } from '../cards/MetricCard';
 
 interface PulseAccount {
   status?: string;
+  error?: string;
   equity?: number;
   total_equity?: number;
   buying_power?: number;
@@ -44,7 +45,7 @@ export const PnLTracking: React.FC = () => {
       const data = await response.json();
       if (data.status === 'unavailable' || data.error) {
         setAccount(null);
-        setError('Pulse account data unavailable');
+        setError(typeof data.error === 'string' ? data.error : 'Pulse account data unavailable');
       } else {
         setAccount(data);
         setError(null);
@@ -72,6 +73,11 @@ export const PnLTracking: React.FC = () => {
           <DollarSign className="w-5 h-5" />
           <span>P&L Tracking</span>
         </div>
+        {error && (
+          <p role="alert" className="text-red-300 mt-4 text-sm">
+            {error}
+          </p>
+        )}
         <p className="text-gray-500 mt-4 text-sm">
           Live P&L requires Sentinel Pulse account data. No generated P&L data is displayed.
         </p>
