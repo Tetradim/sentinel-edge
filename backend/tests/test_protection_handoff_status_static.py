@@ -5,6 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTECTION = ROOT / "frontend" / "src" / "components" / "dashboards" / "ProtectionDashboard.tsx"
+TYPES = ROOT / "frontend" / "src" / "types" / "index.ts"
 
 
 class ProtectionHandoffStatusStaticTests(unittest.TestCase):
@@ -28,19 +29,23 @@ class ProtectionHandoffStatusStaticTests(unittest.TestCase):
 
     def test_pulse_feedback_is_visible_on_handoff_cards(self):
         text = PROTECTION.read_text(encoding="utf-8")
+        types = TYPES.read_text(encoding="utf-8")
 
         self.assertIn("handoff.handoff_status", text)
         self.assertIn("handoff.pulse_feedback", text)
         self.assertIn("Pulse:", text)
         self.assertIn("pulse_feedback.reason", text)
+        self.assertIn("pulse_feedback.message", text)
         self.assertIn("Pulse handoff id", text)
+        self.assertIn("pulse_feedback.handoff_id", text)
         self.assertIn("HTTP status", text)
         self.assertIn("Legacy fallback", text)
         self.assertIn("Primary endpoint", text)
-        self.assertIn("pulse_feedback.response.handoff_id", text)
         self.assertIn("pulse_feedback.status_code", text)
         self.assertIn("pulse_feedback.legacy_fallback", text)
         self.assertIn("pulse_feedback.primary_feedback", text)
+        self.assertIn("handoff_id?: string", types)
+        self.assertIn("message?: string", types)
 
     def test_guarded_actions_surface_operator_errors(self):
         text = PROTECTION.read_text(encoding="utf-8")

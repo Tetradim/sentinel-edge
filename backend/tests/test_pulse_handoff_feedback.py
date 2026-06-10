@@ -145,6 +145,7 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
         self.assertEqual(result["reason"], "pulse_accepted")
         self.assertEqual(result["endpoint"], "/api/edge/handoff")
         self.assertEqual(result["status_code"], 202)
+        self.assertEqual(result["handoff_id"], "ph-123")
         self.assertEqual(result["response"]["handoff_id"], "ph-123")
 
     def test_rejection_feedback_preserves_rejection_reason(self):
@@ -157,7 +158,20 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
         self.assertFalse(result["sent"])
         self.assertEqual(result["status"], "rejected")
         self.assertEqual(result["reason"], "risk_limit")
+        self.assertEqual(result["message"], "Buying power exhausted")
         self.assertEqual(result["response"]["message"], "Buying power exhausted")
+
+    def test_failed_feedback_promotes_operator_message(self):
+        result = PulseClient.normalise_handoff_feedback(
+            endpoint="/api/edge/handoff",
+            status_code=422,
+            response_body={"error": "schema_mismatch", "message": "Pulse contract version is unsupported"},
+        )
+
+        self.assertFalse(result["sent"])
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["reason"], "schema_mismatch")
+        self.assertEqual(result["message"], "Pulse contract version is unsupported")
 
     def test_failed_status_is_not_treated_as_rejection(self):
         result = PulseClient.normalise_handoff_feedback(

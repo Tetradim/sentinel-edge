@@ -204,27 +204,31 @@ class PulseClient:
         failed_statuses = {"failed", "error"}
 
         if ok and accepted_flag is not False and status_text not in rejected_statuses | failed_statuses:
-            return {
-                "sent": True,
-                "status": "accepted",
-                "reason": "pulse_accepted",
-                "endpoint": endpoint,
-                "status_code": status_code,
-                "response": body,
-                "legacy_fallback": legacy_fallback,
-            }
+            return PulseClient._enrich_handoff_feedback(
+                {
+                    "sent": True,
+                    "status": "accepted",
+                    "reason": "pulse_accepted",
+                    "endpoint": endpoint,
+                    "status_code": status_code,
+                    "response": body,
+                    "legacy_fallback": legacy_fallback,
+                }
+            )
 
         if ok and status_text in failed_statuses:
             reason = body.get("error") or body.get("reason") or body.get("message") or "pulse_failed"
-            return {
-                "sent": False,
-                "status": "failed",
-                "reason": str(reason),
-                "endpoint": endpoint,
-                "status_code": status_code,
-                "response": body,
-                "legacy_fallback": legacy_fallback,
-            }
+            return PulseClient._enrich_handoff_feedback(
+                {
+                    "sent": False,
+                    "status": "failed",
+                    "reason": str(reason),
+                    "endpoint": endpoint,
+                    "status_code": status_code,
+                    "response": body,
+                    "legacy_fallback": legacy_fallback,
+                }
+            )
 
         if ok:
             reason = (
@@ -234,30 +238,50 @@ class PulseClient:
                 or body.get("message")
                 or "pulse_rejected"
             )
-            return {
-                "sent": False,
-                "status": "rejected",
-                "reason": str(reason),
-                "endpoint": endpoint,
-                "status_code": status_code,
-                "response": body,
-                "legacy_fallback": legacy_fallback,
-            }
+            return PulseClient._enrich_handoff_feedback(
+                {
+                    "sent": False,
+                    "status": "rejected",
+                    "reason": str(reason),
+                    "endpoint": endpoint,
+                    "status_code": status_code,
+                    "response": body,
+                    "legacy_fallback": legacy_fallback,
+                }
+            )
 
         reason = (
             body.get("error")
             or body.get("reason")
             or (f"http_{status_code}" if status_code is not None else "pulse_send_failed")
         )
-        return {
-            "sent": False,
-            "status": "failed",
-            "reason": str(reason),
-            "endpoint": endpoint,
-            "status_code": status_code,
-            "response": body,
-            "legacy_fallback": legacy_fallback,
-        }
+        return PulseClient._enrich_handoff_feedback(
+            {
+                "sent": False,
+                "status": "failed",
+                "reason": str(reason),
+                "endpoint": endpoint,
+                "status_code": status_code,
+                "response": body,
+                "legacy_fallback": legacy_fallback,
+            }
+        )
+
+    @staticmethod
+    def _enrich_handoff_feedback(feedback: Dict[str, Any]) -> Dict[str, Any]:
+        response = feedback.get("response")
+        if not isinstance(response, dict):
+            return feedback
+
+        handoff_id = response.get("handoff_id") if "handoff_id" in response else response.get("id")
+        if handoff_id is not None:
+            feedback["handoff_id"] = str(handoff_id)
+
+        message = response.get("message") if "message" in response else response.get("detail")
+        if message is not None:
+            feedback["message"] = str(message)
+
+        return feedback
 
     @staticmethod
     def suppressed_handoff_feedback(endpoint: str, reason: str) -> Dict[str, Any]:

@@ -575,9 +575,14 @@ const HandoffEventCard: React.FC<{ title: string; handoff: any | null; empty: st
   const failed = handoff.sent === false;
   const handoffStatus = handoff.handoff_status ? String(handoff.handoff_status) : null;
   const pulse_feedback = handoff.pulse_feedback || null;
-  const pulseHandoffId = pulse_feedback && pulse_feedback.response && pulse_feedback.response.handoff_id
-    ? String(pulse_feedback.response.handoff_id)
+  const pulseResponse = pulse_feedback && pulse_feedback.response && typeof pulse_feedback.response === 'object'
+    ? pulse_feedback.response
     : null;
+  const pulseHandoffId = pulse_feedback && pulse_feedback.handoff_id !== undefined && pulse_feedback.handoff_id !== null
+    ? String(pulse_feedback.handoff_id)
+    : pulseResponse && pulseResponse.handoff_id !== undefined && pulseResponse.handoff_id !== null
+      ? String(pulseResponse.handoff_id)
+      : null;
   const pulseHttpStatus = pulse_feedback && pulse_feedback.status_code !== undefined && pulse_feedback.status_code !== null
     ? String(pulse_feedback.status_code)
     : null;
@@ -613,6 +618,9 @@ const HandoffEventCard: React.FC<{ title: string; handoff: any | null; empty: st
         {handoffStatus && <span className="break-words text-gray-300/80">Pulse status: {handoffStatus}</span>}
         {pulse_feedback && pulse_feedback.reason && (
           <span className="break-words text-gray-300/80">Pulse: {String(pulse_feedback.reason)}</span>
+        )}
+        {pulse_feedback && pulse_feedback.message && (
+          <span className="break-words text-gray-300/80">Pulse message: {String(pulse_feedback.message)}</span>
         )}
         {pulseHandoffId && (
           <span className="break-words text-gray-300/80">Pulse handoff id: {pulseHandoffId}</span>

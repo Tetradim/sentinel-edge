@@ -250,6 +250,8 @@ export interface PulseFeedback {
   sent?: boolean;
   status?: string;
   reason?: string;
+  handoff_id?: string;
+  message?: string;
   endpoint?: string;
   status_code?: number;
   legacy_fallback?: boolean;
