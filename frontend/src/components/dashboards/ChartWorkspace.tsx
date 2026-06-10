@@ -253,6 +253,27 @@ export const ChartWorkspace: React.FC = () => {
     }
   };
 
+  const runAllocationExperiment = async () => {
+    if (!snapshot?.bars.length || !latestBar) return;
+    setLabMessage('Running buying-power allocation');
+    try {
+      const result = await api.runSimulationLabBuyingPowerAllocation({
+        buying_power: 10000,
+        cash_reserve_pct: 0.1,
+        max_position_pct: 0.4,
+        mode: 'confidence_weighted',
+        candidates: buildAllocationCandidates(snapshot.symbol, latestBar.close),
+      });
+      setLabMessage(
+        `Allocation: $${Number(result.summary?.allocated_notional ?? 0).toLocaleString()} across ${
+          result.summary?.allocated_count ?? 0
+        } candidates`,
+      );
+    } catch (err) {
+      setLabMessage(err instanceof Error ? err.message : 'Allocation experiment unavailable');
+    }
+  };
+
   const runExitComparison = async () => {
     if (!snapshot?.bars.length) return;
     setLabMessage('Running exit comparison');
@@ -299,6 +320,10 @@ export const ChartWorkspace: React.FC = () => {
             <button type="button" onClick={runOrbReplay} className={inactiveToolClass}>
               <BarChart3 className="h-4 w-4" />
               ORB Replay
+            </button>
+            <button type="button" onClick={runAllocationExperiment} className={inactiveToolClass}>
+              <Activity className="h-4 w-4" />
+              Buying Power
             </button>
             <button type="button" onClick={runExitComparison} className={inactiveToolClass}>
               <Activity className="h-4 w-4" />
@@ -499,6 +524,18 @@ function Metric({ label, value }: { label: string; value: string | number }) {
       <div className="mt-1 text-sm font-semibold text-slate-100">{value}</div>
     </div>
   );
+}
+
+function buildAllocationCandidates(symbol: string, lastClose: number) {
+  const fallbackSymbols = ['QQQ', 'AAPL'];
+  const symbols = Array.from(new Set([symbol.toUpperCase(), ...fallbackSymbols])).slice(0, 3);
+  const baseNotional = Math.max(1000, Math.round(lastClose * 5));
+  return symbols.map((candidateSymbol, index) => ({
+    symbol: candidateSymbol,
+    confidence: Math.max(0.35, 0.8 - index * 0.15),
+    requested_notional: baseNotional,
+    current_exposure: 0,
+  }));
 }
 
 function buildPriceTraces(

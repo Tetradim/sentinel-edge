@@ -54,7 +54,11 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("{ id: 'charts', label: 'Chart Workspace'", data)
         self.assertIn("'charts'", types)
         self.assertIn("runSimulationLabOrbBacktest", dashboard)
+        self.assertIn("runSimulationLabBuyingPowerAllocation", dashboard)
         self.assertIn("runSimulationLabStopTrailingDcaComparison", dashboard)
+        self.assertIn("runAllocationExperiment", dashboard)
+        self.assertIn("buildAllocationCandidates", dashboard)
+        self.assertIn("Buying Power", dashboard)
         self.assertIn("PlotlyChart", dashboard)
 
     def test_chart_workspace_exposes_custom_layout_persistence(self):
