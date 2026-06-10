@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SERVER = ROOT / "backend" / "server.py"
 API = ROOT / "frontend" / "src" / "lib" / "api.ts"
 CHART_WORKSPACE = ROOT / "frontend" / "src" / "components" / "dashboards" / "ChartWorkspace.tsx"
+SETTINGS = ROOT / "frontend" / "src" / "components" / "dashboards" / "SettingsDashboard.tsx"
 README = ROOT / "README.md"
 
 
@@ -82,6 +83,23 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("/api/simulation-lab/buying-power/allocation", text)
         self.assertIn("stop vs trailing-stop vs DCA comparisons", text)
         self.assertIn("/api/simulation-lab/stop-trailing-dca/compare", text)
+
+    def test_settings_dashboard_surfaces_simulation_lab_status(self):
+        text = SETTINGS.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+
+        self.assertIn("SimulationLabStatus", text)
+        self.assertIn("simulationLabStatus", text)
+        self.assertIn("fetch('/api/simulation-lab/status')", text)
+        self.assertIn("Simulation Lab status", text)
+        self.assertIn("EDGE_SIMULATION_LAB_ENABLED", text)
+        self.assertIn("default_hidden", text)
+        self.assertIn("Experiment catalog", text)
+        self.assertIn("formatSimulationLabBoolean", text)
+        self.assertIn("formatSimulationLabExperimentEndpoint", text)
+        self.assertIn("result_schema_version", text)
+        self.assertIn("runnable", text)
+        self.assertIn("Simulation Lab status in Settings", readme)
 
 
 if __name__ == "__main__":

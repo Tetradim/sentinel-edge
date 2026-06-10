@@ -3,7 +3,7 @@
  * Configuration management for Edge
  */
 import React, { useEffect, useState } from 'react';
-import { Settings, Save, RefreshCw, Database, Zap, Shield, Globe, AlertCircle, TrendingUp, ShieldAlert, BarChart3, CheckCircle, XCircle } from 'lucide-react';
+import { Settings, Save, RefreshCw, Database, Zap, Shield, Globe, AlertCircle, TrendingUp, ShieldAlert, BarChart3, CheckCircle, XCircle, FlaskConical } from 'lucide-react';
 
 interface ConfigSection {
   name: string;
@@ -64,6 +64,26 @@ interface PulseFeedbackSemantic {
   edge_sent?: boolean;
   pulse_side_effect?: string;
   expected_fields?: string[];
+}
+
+interface SimulationLabExperiment {
+  id?: string;
+  label?: string;
+  capability?: string;
+  runnable?: boolean;
+  status?: string;
+  state?: string;
+  http_method?: string;
+  endpoint_path?: string;
+  result_schema_version?: string;
+}
+
+interface SimulationLabStatus {
+  schema_version?: string;
+  enabled?: boolean;
+  default_hidden?: boolean;
+  env_flag?: string;
+  experiments?: SimulationLabExperiment[];
 }
 
 const MARKET_DATA_OPTIONS = [
@@ -149,6 +169,7 @@ export function SettingsDashboard() {
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
   const [automation, setAutomation] = useState<AutomationSettings | null>(null);
   const [pulseHandoffContract, setPulseHandoffContract] = useState<PulseHandoffContract | null>(null);
+  const [simulationLabStatus, setSimulationLabStatus] = useState<SimulationLabStatus | null>(null);
   const [tickers, setTickers] = useState<string[]>([]);
   const [settingsError, setSettingsError] = useState('');
   const [runtimeSettingsError, setRuntimeSettingsError] = useState('');
@@ -190,11 +211,12 @@ export function SettingsDashboard() {
     let cancelled = false;
     const loadRuntimeSettings = async () => {
       try {
-        const [providerResponse, automationResponse, tickersResponse, pulseContractResponse] = await Promise.allSettled([
+        const [providerResponse, automationResponse, tickersResponse, pulseContractResponse, simulationLabResponse] = await Promise.allSettled([
           fetch('/api/market-data/providers'),
           fetch('/api/automation'),
           fetch('/api/tickers'),
           fetch('/api/pulse/handoff/schema'),
+          fetch('/api/simulation-lab/status'),
         ]);
         if (cancelled) return;
 
@@ -203,6 +225,7 @@ export function SettingsDashboard() {
           automationResponse.status === 'rejected' || !automationResponse.value.ok,
           tickersResponse.status === 'rejected' || !tickersResponse.value.ok,
           pulseContractResponse.status === 'rejected' || !pulseContractResponse.value.ok,
+          simulationLabResponse.status === 'rejected' || !simulationLabResponse.value.ok,
         ].filter(Boolean);
         setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '');
 
@@ -222,6 +245,10 @@ export function SettingsDashboard() {
         if (pulseContractResponse.status === 'fulfilled' && pulseContractResponse.value.ok) {
           const data = await pulseContractResponse.value.json();
           setPulseHandoffContract(data);
+        }
+        if (simulationLabResponse.status === 'fulfilled' && simulationLabResponse.value.ok) {
+          const data = await simulationLabResponse.value.json();
+          setSimulationLabStatus(data);
         }
       } catch (e) {
         if (!cancelled) {
@@ -579,6 +606,54 @@ export function SettingsDashboard() {
         )}
       </div>
 
+      {/* Simulation Lab Status */}
+      <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <FlaskConical className="w-5 h-5 text-amber-400" />
+          Simulation Lab status
+        </h3>
+        <p className="text-sm text-gray-400 mb-4">
+          Read-only discovery for the default-hidden Simulation Lab gate. Lab actions stay hidden unless EDGE_SIMULATION_LAB_ENABLED is enabled on the backend.
+        </p>
+
+        {!simulationLabStatus ? (
+          <div className="text-sm text-gray-500">Simulation Lab status unavailable until the backend status endpoint responds.</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <RuntimeDetail label="schema_version" value={simulationLabStatus.schema_version || '--'} />
+              <RuntimeDetail label="env_flag" value={simulationLabStatus.env_flag || 'EDGE_SIMULATION_LAB_ENABLED'} />
+              <RuntimeDetail label="enabled" value={formatSimulationLabBoolean(simulationLabStatus.enabled)} />
+              <RuntimeDetail label="default_hidden" value={formatSimulationLabBoolean(simulationLabStatus.default_hidden)} />
+            </div>
+
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+              <div className="text-sm font-medium text-gray-300">Experiment catalog</div>
+              <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+                {(simulationLabStatus.experiments || []).map((experiment, index) => (
+                  <div key={experiment.id || experiment.endpoint_path || experiment.label || `simulation-lab-experiment-${index}`} className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+                    <div className="truncate text-xs font-semibold text-amber-200">
+                      {experiment.label || formatSimulationLabExperimentId(experiment.id)}
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-500">
+                      <div>state: {experiment.state || '--'}</div>
+                      <div>status: {experiment.status || '--'}</div>
+                      <div>runnable: {formatSimulationLabBoolean(experiment.runnable)}</div>
+                      <div>{formatSimulationLabExperimentEndpoint(experiment)}</div>
+                      <div>result_schema_version: {experiment.result_schema_version || '--'}</div>
+                      {experiment.capability && <div>{experiment.capability}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(simulationLabStatus.experiments || []).length === 0 && (
+                <div className="mt-3 text-xs text-amber-300">No Simulation Lab experiments discovered.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Market Data Providers */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -722,4 +797,20 @@ function formatPulseContractBoolean(value?: boolean) {
 
 function formatPulseExpectedFields(fields?: string[]) {
   return fields?.length ? fields.join(', ') : '--';
+}
+
+function formatSimulationLabBoolean(value?: boolean) {
+  if (value === undefined) return '--';
+  return value ? 'true' : 'false';
+}
+
+function formatSimulationLabExperimentEndpoint(experiment: SimulationLabExperiment) {
+  const method = experiment.http_method || 'POST';
+  const endpoint = experiment.endpoint_path || 'endpoint unavailable';
+  return `${method} ${endpoint}`;
+}
+
+function formatSimulationLabExperimentId(id?: string) {
+  if (!id) return 'Experiment';
+  return id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }

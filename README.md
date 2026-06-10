@@ -77,7 +77,7 @@ Edge is also designed to degrade safely:
 | Trading overview | Active tickers, runtime stats, correlation clusters, decisions, add/remove ticker actions, metric toggles, and refresh-failure warnings. |
 | Advisor health | Edge service state, readiness, Pulse status, provider health, kill-switch state, recommendation counts, handoff mode, and runtime details. |
 | Protection operations | Scheduler controls, kill switch controls, readiness guard, Pulse queue status, handoff status, synced positions, trailing-stop and emergency-exit bridges. |
-| Settings | Local non-secret config, backend validation, read-only provider metadata, global/per-ticker Pulse handoff controls, and runtime metadata warnings. |
+| Settings | Local non-secret config, backend validation, read-only provider metadata, global/per-ticker Pulse handoff controls, Simulation Lab status discovery, and runtime metadata warnings. |
 | Experience/RUM | Browser Web Vitals collection, backend RUM ingest, rate-limit status, copyable Prometheus text, and frontend performance visibility. |
 | Market coverage | Market-hours/session status across supported markets. |
 | Portfolio/P&L views | Pulse-backed account, portfolio, position, and P&L visibility when Pulse is available. |
@@ -482,6 +482,8 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, chart-ready OHLCV bars, UI-ready context for persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences.
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata for client-side discovery. The initial Lab roadmap covers:
+
+Simulation Lab status in Settings mirrors the same gate and experiment catalog read-only, so operators can confirm the backend lab posture without enabling experimental actions.
 
 - ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`.
