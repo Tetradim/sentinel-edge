@@ -21,6 +21,7 @@ backend/.venv/
 
 # Local verification artifacts
 test_reports/
+verification-summary.json
 
 # Local runtime state
 /data/automation_settings.json

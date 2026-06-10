@@ -4,6 +4,7 @@
 param(
     [switch]$InstallBackendDevDeps,
     [switch]$InstallFrontendDeps,
+    [string]$SummaryPath,
     [switch]$SkipBackend,
     [switch]$SkipFrontend,
     [switch]$SkipAudit
@@ -18,6 +19,8 @@ $Backend = Join-Path $ProjectRoot "backend"
 $Frontend = Join-Path $ProjectRoot "frontend"
 $BackendPythonRelative = "backend\.venv\Scripts\python.exe"
 $BackendPython = Join-Path $ProjectRoot $BackendPythonRelative
+$VerificationStartedAt = Get-Date
+$VerificationResults = New-Object System.Collections.Generic.List[object]
 
 function Write-Status {
     param([string]$Message, [string]$Level = "INFO")
@@ -39,6 +42,58 @@ function Find-CommandPath {
     return $null
 }
 
+function Add-VerificationResult {
+    param(
+        [string]$Name,
+        [string]$Status,
+        [object]$ExitCode,
+        [string]$WorkingDirectory,
+        [double]$DurationSeconds,
+        [object]$ErrorMessage = $null
+    )
+    $VerificationResults.Add([pscustomobject]@{
+        name = $Name
+        status = $Status
+        exit_code = $ExitCode
+        duration_seconds = [math]::Round($DurationSeconds, 3)
+        working_directory = $WorkingDirectory
+        error = $ErrorMessage
+    })
+}
+
+function Test-VerificationFailed {
+    foreach ($result in $VerificationResults) {
+        if ($result.status -eq "failed") { return $true }
+    }
+    return $false
+}
+
+function Write-VerificationSummary {
+    if ([string]::IsNullOrWhiteSpace($SummaryPath)) { return }
+
+    $summaryTarget = if ([System.IO.Path]::IsPathRooted($SummaryPath)) {
+        $SummaryPath
+    } else {
+        Join-Path $ProjectRoot $SummaryPath
+    }
+    $summaryDirectory = Split-Path -Parent $summaryTarget
+    if ($summaryDirectory -and -not (Test-Path $summaryDirectory)) {
+        New-Item -ItemType Directory -Path $summaryDirectory -Force | Out-Null
+    }
+
+    $endedAt = Get-Date
+    $summary = [pscustomobject]@{
+        status = if (Test-VerificationFailed) { "failed" } else { "passed" }
+        started_at = $VerificationStartedAt.ToUniversalTime().ToString("o")
+        ended_at = $endedAt.ToUniversalTime().ToString("o")
+        duration_seconds = [math]::Round(($endedAt - $VerificationStartedAt).TotalSeconds, 3)
+        project_root = $ProjectRoot
+        results = @($VerificationResults.ToArray())
+    }
+    $summary | ConvertTo-Json -Depth 5 | Set-Content -Path $summaryTarget -Encoding UTF8
+    Write-Status "verification summary written: $summaryTarget" "OK"
+}
+
 function Invoke-ExternalCommand {
     param(
         [string]$Name,
@@ -46,19 +101,39 @@ function Invoke-ExternalCommand {
         [string[]]$ArgumentList,
         [string]$WorkingDirectory
     )
+    $startedAt = Get-Date
+    $status = "passed"
+    [object]$exitCode = $null
+    [object]$errorMessage = $null
     Write-Status $Name
     Push-Location $WorkingDirectory
     try {
         & $FilePath @ArgumentList
+        $exitCode = $LASTEXITCODE
         if ($LASTEXITCODE -ne 0) {
             throw "$Name failed with exit code $LASTEXITCODE"
         }
         Write-Status "$Name passed" "OK"
+    } catch {
+        $status = "failed"
+        if ($null -eq $exitCode) {
+            $exitCode = Get-Variable -Name LASTEXITCODE -ValueOnly -ErrorAction SilentlyContinue
+        }
+        $errorMessage = $_.Exception.Message
+        throw
     } finally {
         Pop-Location
+        Add-VerificationResult `
+            -Name $Name `
+            -Status $status `
+            -ExitCode $exitCode `
+            -WorkingDirectory $WorkingDirectory `
+            -DurationSeconds ((Get-Date) - $startedAt).TotalSeconds `
+            -ErrorMessage $errorMessage
     }
 }
 
+try {
 if (-not (Test-Path $Backend)) { throw "Backend folder not found: $Backend" }
 if (-not (Test-Path $Frontend)) { throw "Frontend folder not found: $Frontend" }
 if ((-not $SkipBackend -or $InstallBackendDevDeps) -and -not (Test-Path $BackendPython)) {
@@ -140,3 +215,17 @@ Invoke-ExternalCommand `
     -WorkingDirectory $ProjectRoot
 
 Write-Status "Local verification completed" "OK"
+} catch {
+    if (-not (Test-VerificationFailed)) {
+        Add-VerificationResult `
+            -Name "Local verification" `
+            -Status "failed" `
+            -ExitCode (Get-Variable -Name LASTEXITCODE -ValueOnly -ErrorAction SilentlyContinue) `
+            -WorkingDirectory $ProjectRoot `
+            -DurationSeconds ((Get-Date) - $VerificationStartedAt).TotalSeconds `
+            -ErrorMessage $_.Exception.Message
+    }
+    throw
+} finally {
+    Write-VerificationSummary
+}

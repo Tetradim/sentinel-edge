@@ -15,7 +15,13 @@ class BuildWorkflowQualityGateStaticTests(unittest.TestCase):
         self.assertIn("name: Quality Gate", text)
         self.assertIn("runs-on: windows-latest", text)
         self.assertIn("python -m venv backend/.venv", text)
-        self.assertIn("scripts\\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps", text)
+        self.assertIn(
+            "scripts\\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps -SummaryPath verification-summary.json",
+            text,
+        )
+        self.assertIn("Upload local verification summary", text)
+        self.assertIn("actions/upload-artifact@v4", text)
+        self.assertIn("verification-summary.json", text)
         self.assertIn("needs: quality-gate", text)
         self.assertLess(text.index("quality-gate:"), text.index("build:"))
 

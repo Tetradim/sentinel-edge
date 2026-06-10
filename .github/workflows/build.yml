@@ -53,7 +53,16 @@ jobs:
         run: python -m venv backend/.venv
 
       - name: Run local verification gate
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps -SummaryPath verification-summary.json
+
+      - name: Upload local verification summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-verification-summary
+          path: verification-summary.json
+          if-no-files-found: warn
+          retention-days: 14
 
   build:
     runs-on: windows-latest

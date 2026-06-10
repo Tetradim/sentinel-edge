@@ -585,6 +585,12 @@ For a fresh checkout that also needs frontend dependencies installed:
 .\scripts\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps
 ```
 
+To capture a JSON summary for CI artifacts or local debugging:
+
+```powershell
+.\scripts\verify-local.ps1 -SummaryPath .\verification-summary.json
+```
+
 The recent implementation has been checked with:
 
 ```bash
