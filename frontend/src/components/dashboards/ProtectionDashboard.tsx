@@ -101,6 +101,7 @@ const formatHandoffTime = (createdAt: unknown) => {
 export const ProtectionDashboard: React.FC = () => {
   const [state, setState] = useState<ProtectionState>(emptyState);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [trailingPercent, setTrailingPercent] = useState(1.5);
 
   const load = async () => {
@@ -175,9 +176,12 @@ export const ProtectionDashboard: React.FC = () => {
 
   const runGuardedAction = async (key: string, action: () => Promise<unknown>) => {
     setBusyAction(key);
+    setActionError(null);
     try {
       await action();
       await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Protection action failed');
     } finally {
       setBusyAction(null);
     }
@@ -250,6 +254,7 @@ export const ProtectionDashboard: React.FC = () => {
           <span>Mode: {automationSettings.mode || 'recommend_only'}</span>
         </div>
         {state.error && <p className="mt-3 text-sm text-red-300">{state.error}</p>}
+        {actionError && <p className="mt-3 text-sm text-red-300">{actionError}</p>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">

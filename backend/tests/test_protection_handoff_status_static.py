@@ -26,6 +26,16 @@ class ProtectionHandoffStatusStaticTests(unittest.TestCase):
         self.assertIn("Delivery failed", text)
         self.assertIn("border-red-500/30", text)
 
+    def test_guarded_actions_surface_operator_errors(self):
+        text = PROTECTION.read_text(encoding="utf-8")
+
+        self.assertIn("const [actionError, setActionError] = useState<string | null>(null)", text)
+        self.assertIn("setActionError(null)", text)
+        self.assertIn("catch (err)", text)
+        self.assertIn("setActionError(err instanceof Error ? err.message : 'Protection action failed')", text)
+        self.assertIn("{actionError &&", text)
+        self.assertIn("{actionError}", text)
+
 
 if __name__ == "__main__":
     unittest.main()
