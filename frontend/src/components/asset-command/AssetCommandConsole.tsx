@@ -144,7 +144,13 @@ export default function AssetCommandConsole() {
           )}
 
           {mode === 'monitor' && (
-            <MonitorPanel feedPaused={feedPaused} tickers={tickers} onAction={runMonitorAction} onSelect={selectSymbol} />
+            <MonitorPanel
+              runtime={runtime}
+              feedPaused={feedPaused}
+              tickers={tickers}
+              onAction={runMonitorAction}
+              onSelect={selectSymbol}
+            />
           )}
 
           {mode === 'protect' && (

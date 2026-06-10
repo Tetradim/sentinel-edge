@@ -58,6 +58,23 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("runtime.error &&", text)
         self.assertIn("{runtime.error}", text)
 
+    def test_monitor_panel_uses_live_runtime_observability(self):
+        monitor_panel = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "MonitorPanel.tsx"
+        text = read_existing(ASSET_COMMAND, ASSET_COMMAND_TYPES, ASSET_COMMAND_RUNTIME_HOOK, monitor_panel)
+
+        self.assertIn("runtime={runtime}", text)
+        self.assertIn("runtime: RuntimeState", text)
+        self.assertIn("const runtimeSignalRows", text)
+        self.assertIn("Runtime signals", text)
+        self.assertIn("Edge API", text)
+        self.assertIn("Scheduler", text)
+        self.assertIn("Pulse bridge", text)
+        self.assertIn("Kill switch", text)
+        self.assertIn("runtime.connected", text)
+        self.assertIn("runtime.pulseAvailable", text)
+        self.assertIn("runtime.killSwitchActive", text)
+        self.assertIn("runtime.schedulerPaused", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 
