@@ -123,6 +123,7 @@ export function SettingsDashboard() {
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
   const [automation, setAutomation] = useState<AutomationSettings | null>(null);
   const [tickers, setTickers] = useState<string[]>([]);
+  const [settingsError, setSettingsError] = useState('');
 
   // Load saved config from localStorage
   useEffect(() => {
@@ -205,30 +206,42 @@ export function SettingsDashboard() {
   };
 
   const saveAutomation = async (patch: Partial<AutomationSettings>) => {
+    const previous = automation;
     const next = { ...(automation || {} as AutomationSettings), ...patch } as AutomationSettings;
+    setSettingsError('');
     setAutomation(next);
-    const response = await fetch('/api/automation', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    });
-    if (response.ok) {
+    try {
+      const response = await fetch('/api/automation', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!response.ok) throw new Error('Automation settings failed to save');
       const data = await response.json();
       setAutomation(data.settings || next);
+    } catch (error) {
+      setAutomation(previous);
+      setSettingsError(error instanceof Error ? error.message : 'Automation settings failed to save');
     }
   };
 
   const saveTickerAutomation = async (symbol: string, enabled: boolean) => {
+    const previous = automation;
     const perTicker = { ...(automation?.per_ticker_enabled || {}), [symbol]: enabled };
+    setSettingsError('');
     setAutomation((prev) => prev ? { ...prev, per_ticker_enabled: perTicker } : prev);
-    const response = await fetch(`/api/automation/tickers/${symbol}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    if (response.ok) {
+    try {
+      const response = await fetch(`/api/automation/tickers/${symbol}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) throw new Error(`Failed to save ${symbol} handoff setting`);
       const data = await response.json();
       setAutomation(data.settings || null);
+    } catch (error) {
+      setAutomation(previous);
+      setSettingsError(error instanceof Error ? error.message : `Failed to save ${symbol} handoff setting`);
     }
   };
 
@@ -322,6 +335,12 @@ export function SettingsDashboard() {
           <p className="text-blue-400/70">Your non-secret configuration is saved to your browser and persists across sessions. API keys are not saved here; configure them as backend environment variables.</p>
         </div>
       </div>
+
+      {settingsError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {settingsError}
+        </div>
+      )}
 
       {/* Autonomous Pulse Handoff */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
