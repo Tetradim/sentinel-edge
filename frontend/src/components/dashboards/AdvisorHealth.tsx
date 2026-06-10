@@ -164,6 +164,7 @@ export const AdvisorHealth: React.FC = () => {
   const readinessSubtitle = state.ready
     ? `${failingReadinessDetails.length} failing readiness checks`
     : 'Readiness unavailable';
+  const readinessCheckedAt = formatAge(state.ready?.timestamp || null);
   const paused = Boolean(state.health?.paused || state.stats?.paused);
   const running = Boolean(state.health?.running || state.stats?.running);
   const killSwitchActive = Boolean(state.killSwitch?.kill_switch_active);
@@ -292,6 +293,10 @@ export const AdvisorHealth: React.FC = () => {
             <div className="flex justify-between gap-3 border-b border-gray-800 pb-3">
               <dt className="text-gray-500">Readiness</dt>
               <dd className="font-medium text-white">{state.ready ? (runtimeReady ? 'Ready' : 'Blocked') : 'Unknown'}</dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-gray-800 pb-3">
+              <dt className="text-gray-500">Readiness checked</dt>
+              <dd className="font-medium text-white">{readinessCheckedAt}</dd>
             </div>
             <div className="flex justify-between gap-3 border-b border-gray-800 pb-3">
               <dt className="text-gray-500">Scheduler</dt>
