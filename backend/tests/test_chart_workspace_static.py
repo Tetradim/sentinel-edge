@@ -110,10 +110,14 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("formatSelectedIndicators", dashboard)
         self.assertIn("formatOrbOverlaySessionSummary", dashboard)
         self.assertIn("formatSimulationLabGate", dashboard)
+        self.assertIn("formatSimulationLabDisabledReason", dashboard)
+        self.assertIn("disabled_reason", dashboard)
         self.assertIn("Metric label=\"Preset\"", dashboard)
         self.assertIn("Metric label=\"ORB overlays\"", dashboard)
         self.assertIn("Metric label=\"Lab gate\"", dashboard)
+        self.assertIn("Metric label=\"Lab reason\"", dashboard)
         self.assertIn("strategy context panels", text)
+        self.assertIn("Simulation Lab disabled reason", text)
 
     def test_chart_workspace_hides_simulation_lab_until_enabled(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")

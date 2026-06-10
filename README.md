@@ -87,7 +87,7 @@ Edge is also designed to degrade safely:
 | Readiness | `/api/live` for process liveness, `/api/ready` for dependency readiness, readiness metrics, Grafana panels, alerts, and runbooks. |
 | Observability | Prometheus metrics, frontend RUM metrics, rate-limit metrics, OpenTelemetry traces, Loki/Promtail/Grafana/Tempo/Alertmanager Docker stack. |
 | Backtesting | Backtest execution, run reports, strategy optimization, Monte Carlo chart endpoints, dry-run status, and strategy catalog endpoints. |
-| Chart workspace | Chart-ready OHLCV snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, chart replay actions, crosshair-style hover context, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
+| Chart workspace | Chart-ready OHLCV snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels with Simulation Lab disabled reason visibility, chart replay actions, crosshair-style hover context, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
 | Safety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
 
 ---

@@ -77,6 +77,7 @@ interface ChartWorkspaceSimulationLabExperiment {
 interface ChartWorkspaceSimulationLabStatus {
   enabled?: boolean;
   default_hidden?: boolean;
+  disabled_reason?: string | null;
   experiments?: ChartWorkspaceSimulationLabExperiment[];
 }
 
@@ -579,6 +580,7 @@ export const ChartWorkspace: React.FC = () => {
             <Metric label="ORB overlays" value={formatOrbOverlaySessionSummary(showOrbOverlays, orbOverlaySessions)} />
             <Metric label="Volume" value={formatVolumeOverlay(showVolume)} />
             <Metric label="Lab gate" value={formatSimulationLabGate(simulationLabStatus, simulationLabEnabled)} />
+            <Metric label="Lab reason" value={formatSimulationLabDisabledReason(simulationLabStatus)} />
           </div>
           <div className="mt-3 space-y-1 border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
             <div className="font-semibold uppercase text-slate-500">Workspace posture</div>
@@ -1192,6 +1194,10 @@ function formatSimulationLabGate(
 ) {
   if (!simulationLabStatus) return 'Unknown';
   return simulationLabEnabled ? 'Enabled' : 'Hidden';
+}
+
+function formatSimulationLabDisabledReason(simulationLabStatus: ChartWorkspaceSimulationLabStatus | null) {
+  return simulationLabStatus?.disabled_reason || '--';
 }
 
 function formatChartType(chartType: ChartWorkspaceChartType) {
