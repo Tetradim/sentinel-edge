@@ -568,6 +568,7 @@ class SimulationLabOrbBacktestRequest(BaseModel):
     session_id: str = Field("market_open", pattern="^(premarket_30m|market_open)$")
     timeframe_minutes: int = Field(30, ge=1, le=390)
     breakout_side: str = Field("both", pattern="^(both|long|short)$")
+    target_r_multiple: float = Field(2.0, gt=0.0, le=100.0)
     bars: List[SimulationLabOrbBar] = Field(..., min_length=1, max_length=50000)
 
 
@@ -1413,6 +1414,7 @@ async def run_simulation_lab_orb_backtest(request: SimulationLabOrbBacktestReque
             session_id=request.session_id,
             timeframe_minutes=request.timeframe_minutes,
             breakout_side=request.breakout_side,
+            target_r_multiple=request.target_r_multiple,
             bars=bars,
         )
     except SimulationLabDisabledError as exc:

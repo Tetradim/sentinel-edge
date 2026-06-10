@@ -47,6 +47,48 @@ class SimulationLabOrbBacktestTests(unittest.TestCase):
         self.assertEqual(result["days"][0]["breakout"]["direction"], "bullish")
         self.assertEqual(result["days"][0]["breakout"]["price"], 101.5)
 
+    def test_orb_replay_scores_breakout_risk_reward_from_opposite_orb_boundary(self):
+        result = run_orb_backtest_replay(
+            symbol="spy",
+            session_id="market_open",
+            timeframe_minutes=5,
+            target_r_multiple=2.0,
+            bars=[
+                {"timestamp": "2026-06-10T09:30:00-04:00", "high": 100.0, "low": 99.0, "close": 99.5},
+                {"timestamp": "2026-06-10T09:31:00-04:00", "high": 101.0, "low": 99.5, "close": 100.5},
+                {"timestamp": "2026-06-10T09:34:00-04:00", "high": 100.8, "low": 100.0, "close": 100.7},
+                {"timestamp": "2026-06-10T09:35:00-04:00", "high": 101.5, "low": 100.8, "close": 101.4},
+            ],
+        )
+
+        risk_reward = result["days"][0]["breakout"]["risk_reward"]
+        self.assertEqual(result["parameters"]["target_r_multiple"], 2.0)
+        self.assertEqual(result["parameters"]["stop_model"], "opposite_orb_boundary")
+        self.assertEqual(result["summary"]["scored_breakouts"], 1)
+        self.assertEqual(result["summary"]["avg_reward_r_multiple"], 2.0)
+        self.assertEqual(result["summary"]["max_risk_per_share"], 2.5)
+        self.assertEqual(result["summary"]["max_reward_per_share"], 5.0)
+        self.assertEqual(risk_reward["entry_price"], 101.5)
+        self.assertEqual(risk_reward["stop_price"], 99.0)
+        self.assertEqual(risk_reward["target_price"], 106.5)
+        self.assertEqual(risk_reward["risk_per_share"], 2.5)
+        self.assertEqual(risk_reward["reward_per_share"], 5.0)
+        self.assertEqual(risk_reward["reward_r_multiple"], 2.0)
+        self.assertEqual(risk_reward["stop_source"], "orb_low")
+
+    def test_orb_replay_rejects_non_positive_target_r_multiple(self):
+        with self.assertRaisesRegex(ValueError, "target_r_multiple must be greater than 0"):
+            run_orb_backtest_replay(
+                symbol="spy",
+                session_id="market_open",
+                timeframe_minutes=5,
+                target_r_multiple=0,
+                bars=[
+                    {"timestamp": "2026-06-10T09:30:00-04:00", "high": 100.0, "low": 99.0, "close": 99.5},
+                    {"timestamp": "2026-06-10T09:35:00-04:00", "high": 101.5, "low": 100.8, "close": 101.4},
+                ],
+            )
+
     def test_orb_replay_supports_premarket_30m_session(self):
         result = run_orb_backtest_replay(
             symbol="qqq",

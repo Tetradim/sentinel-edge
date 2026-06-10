@@ -541,6 +541,7 @@ def run_orb_backtest_replay(
     session_id: str = "market_open",
     timeframe_minutes: int = 30,
     breakout_side: str = "both",
+    target_r_multiple: float = 2.0,
 ) -> Dict[str, Any]:
     """Replay explicit OHLC bars through a deterministic ORB breakout scan."""
     session = ORB_SESSIONS.get(session_id)
@@ -550,6 +551,7 @@ def run_orb_backtest_replay(
         raise ValueError(f"Timeframe {timeframe_minutes}m is not valid for ORB session {session_id}")
     if breakout_side not in _BREAKOUT_SIDES:
         raise ValueError("breakout_side must be one of: both, long, short")
+    target_r_multiple = _positive_float(target_r_multiple, "target_r_multiple")
 
     normalised_bars = sorted((_normalise_orb_bar(bar) for bar in bars), key=lambda bar: bar["timestamp"])
     if not normalised_bars:
@@ -566,18 +568,28 @@ def run_orb_backtest_replay(
             session_id=session_id,
             timeframe_minutes=timeframe_minutes,
             breakout_side=breakout_side,
+            target_r_multiple=target_r_multiple,
         )
         for et_date, day_bars in sorted(grouped.items(), key=lambda item: item[0])
     ]
 
     completed_days = [day for day in days if day["status"] == "completed"]
     breakouts = [day["breakout"] for day in completed_days if day["breakout"] is not None]
+    risk_reward_scores = [
+        breakout["risk_reward"]
+        for breakout in breakouts
+        if breakout.get("risk_reward") is not None
+    ]
     return {
         "schema_version": SIMULATION_LAB_ORB_BACKTEST_VERSION,
         "symbol": symbol.strip().upper(),
         "session_id": session_id,
         "timeframe_minutes": timeframe_minutes,
         "breakout_side": breakout_side,
+        "parameters": {
+            "target_r_multiple": round(target_r_multiple, 4),
+            "stop_model": "opposite_orb_boundary",
+        },
         "summary": {
             "sessions": len(days),
             "completed_sessions": len(completed_days),
@@ -585,6 +597,10 @@ def run_orb_backtest_replay(
             "bullish_breakouts": sum(1 for breakout in breakouts if breakout["direction"] == "bullish"),
             "bearish_breakouts": sum(1 for breakout in breakouts if breakout["direction"] == "bearish"),
             "no_breakout_sessions": sum(1 for day in completed_days if day["breakout"] is None),
+            "scored_breakouts": len(risk_reward_scores),
+            "avg_reward_r_multiple": _average_metric(risk_reward_scores, "reward_r_multiple"),
+            "max_risk_per_share": _max_metric(risk_reward_scores, "risk_per_share"),
+            "max_reward_per_share": _max_metric(risk_reward_scores, "reward_per_share"),
         },
         "days": days,
     }
@@ -597,6 +613,7 @@ def _run_orb_backtest_day(
     session_id: str,
     timeframe_minutes: int,
     breakout_side: str,
+    target_r_multiple: float,
 ) -> Dict[str, Any]:
     if not _is_trading_day(et_date):
         return {
@@ -628,7 +645,7 @@ def _run_orb_backtest_day(
     orb_high = max(bar["high"] for bar in range_bars)
     orb_low = min(bar["low"] for bar in range_bars)
     replay_bars = [bar for bar in bars if lock_time <= bar["timestamp"] <= market_close]
-    breakout = _first_orb_breakout(replay_bars, orb_high, orb_low, breakout_side)
+    breakout = _first_orb_breakout(replay_bars, orb_high, orb_low, breakout_side, target_r_multiple)
     return {
         "date": et_date.isoformat(),
         "status": "completed",
@@ -648,12 +665,13 @@ def _first_orb_breakout(
     orb_high: float,
     orb_low: float,
     breakout_side: str,
+    target_r_multiple: float,
 ) -> Dict[str, Any] | None:
     for bar in bars:
         if breakout_side in {"both", "long"} and bar["high"] > orb_high:
-            return _breakout_payload("bullish", bar, bar["high"], orb_high, orb_low)
+            return _breakout_payload("bullish", bar, bar["high"], orb_high, orb_low, target_r_multiple)
         if breakout_side in {"both", "short"} and bar["low"] < orb_low:
-            return _breakout_payload("bearish", bar, bar["low"], orb_high, orb_low)
+            return _breakout_payload("bearish", bar, bar["low"], orb_high, orb_low, target_r_multiple)
     return None
 
 
@@ -663,6 +681,7 @@ def _breakout_payload(
     price: float,
     orb_high: float,
     orb_low: float,
+    target_r_multiple: float,
 ) -> Dict[str, Any]:
     return {
         "direction": direction,
@@ -671,7 +690,50 @@ def _breakout_payload(
         "close": round(bar["close"], 4),
         "orb_high": round(orb_high, 4),
         "orb_low": round(orb_low, 4),
+        "risk_reward": _orb_risk_reward_payload(direction, price, orb_high, orb_low, target_r_multiple),
     }
+
+
+def _orb_risk_reward_payload(
+    direction: str,
+    entry_price: float,
+    orb_high: float,
+    orb_low: float,
+    target_r_multiple: float,
+) -> Dict[str, Any]:
+    if direction == "bullish":
+        stop_price = orb_low
+        stop_source = "orb_low"
+        risk_per_share = entry_price - stop_price
+        target_price = entry_price + (risk_per_share * target_r_multiple)
+    else:
+        stop_price = orb_high
+        stop_source = "orb_high"
+        risk_per_share = stop_price - entry_price
+        target_price = entry_price - (risk_per_share * target_r_multiple)
+
+    reward_per_share = abs(target_price - entry_price)
+    return {
+        "entry_price": round(entry_price, 4),
+        "stop_price": round(stop_price, 4),
+        "stop_source": stop_source,
+        "target_price": round(target_price, 4),
+        "risk_per_share": round(risk_per_share, 4),
+        "reward_per_share": round(reward_per_share, 4),
+        "reward_r_multiple": round(reward_per_share / risk_per_share, 4) if risk_per_share > 0 else 0.0,
+    }
+
+
+def _average_metric(items: List[Dict[str, Any]], field: str) -> float:
+    if not items:
+        return 0.0
+    return round(sum(float(item[field]) for item in items) / len(items), 4)
+
+
+def _max_metric(items: List[Dict[str, Any]], field: str) -> float:
+    if not items:
+        return 0.0
+    return round(max(float(item[field]) for item in items), 4)
 
 
 def _normalise_orb_bar(bar: Dict[str, Any]) -> Dict[str, Any]:

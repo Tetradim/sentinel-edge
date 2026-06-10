@@ -489,7 +489,7 @@ The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_
 
 Simulation Lab status in Settings mirrors the same gate and experiment catalog read-only, so operators can confirm the backend lab posture without enabling experimental actions.
 
-- ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint.
+- ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint, including per-breakout risk/reward scoring from the opposite ORB boundary and summary fields for scored breakouts, average reward R, maximum risk per share, and maximum reward per share.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`.
 - Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions.
 
@@ -796,7 +796,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/backtest/monte-carlo/charts` | List Monte Carlo chart artifacts. |
 | GET | `/backtest/monte-carlo/charts/{run_id}/{chart_name}` | Fetch a Monte Carlo chart artifact. |
 | GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate and planned experiment catalog. |
-| POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan. |
+| POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan with optional `target_r_multiple` risk/reward scoring. |
 | POST | `/simulation-lab/buying-power/allocation` | Compare gated buying-power allocation plans for candidate trades. |
 | POST | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path. |
 | GET | `/strategies` | Strategy catalog. |
@@ -967,7 +967,7 @@ Near-term priorities:
    - preserve idempotency and paper/live semantics
 
 3. Simulation Lab foundation
-   - ORB strategy replay
+   - ORB strategy replay with risk/reward scoring
    - buying-power allocation experiments
    - stop/trailing/DCA comparisons
    - default-hidden until explicitly enabled

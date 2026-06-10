@@ -365,6 +365,7 @@ export const ChartWorkspace: React.FC = () => {
         session_id: orbReplaySession,
         timeframe_minutes: selectedOrbReplaySession.timeframeMinutes,
         breakout_side: 'both',
+        target_r_multiple: 2,
         bars: snapshot.bars,
       });
       setSimulationLabResult({
@@ -985,6 +986,8 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
     metrics.push(
       { label: 'breakouts', value: formatSimulationLabResultMetric(summary.breakouts) },
       { label: 'sessions', value: formatSimulationLabResultMetric(summary.sessions) },
+      { label: 'scored_breakouts', value: formatSimulationLabResultMetric(summary.scored_breakouts) },
+      { label: 'avg_reward_r', value: formatSimulationLabResultMetric(summary.avg_reward_r_multiple) },
     );
   }
 

@@ -26,6 +26,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("SimulationLabOrbBacktestRequest", text)
         self.assertIn("require_simulation_lab_enabled()", text)
         self.assertIn("run_orb_backtest_replay", text)
+        self.assertIn("target_r_multiple", text)
         self.assertIn('@api_router.post("/simulation-lab/orb/backtest")', text)
 
     def test_server_exposes_gated_buying_power_allocation_route(self):
@@ -67,6 +68,8 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("schema_version", text)
         self.assertIn("summary", text)
         self.assertIn("breakouts", text)
+        self.assertIn("scored_breakouts", text)
+        self.assertIn("avg_reward_r", text)
         self.assertIn("allocated_notional", text)
         self.assertIn("best_plan", text)
 
@@ -79,6 +82,8 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("default-hidden", text)
         self.assertIn("ORB backtesting", text)
         self.assertIn("/api/simulation-lab/orb/backtest", text)
+        self.assertIn("risk/reward scoring", text)
+        self.assertIn("target_r_multiple", text)
         self.assertIn("buying-power allocation experiments", text)
         self.assertIn("/api/simulation-lab/buying-power/allocation", text)
         self.assertIn("stop vs trailing-stop vs DCA comparisons", text)
