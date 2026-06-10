@@ -33,7 +33,7 @@ Branch: OC-Iteration
 - [x] Backend Python compile check over `backend/**/*.py`
 - [x] `npm.cmd run build` from `frontend`
 - [x] `git diff --check`
-- [ ] Full `python -m unittest discover backend\tests` remains blocked locally by missing `pytest` and legacy backend-relative import assumptions in older tests.
+- [x] Full `backend\.venv\Scripts\python.exe -m unittest discover -s backend/tests` passes after installing the declared dev-test dependency (`pytest==9.0.2`) into the backend virtualenv.
 
 ## Intentionally Kept
 

@@ -583,13 +583,24 @@ Frontend build:
 
 ```bash
 cd frontend
-npm.cmd run build
+npm run lint
+npm run build
+npm audit --audit-level=moderate
 ```
 
-Known current local limitation:
+Backend test discovery from the repository root:
 
-- `pytest` is not installed in the current local environment (`No module named pytest`). Existing provider tests are present but were not run in that environment.
-- Vite build currently succeeds without the previous mixed static/dynamic import warning after runtime mock data cleanup.
+```bash
+backend\.venv\Scripts\python.exe -m unittest discover -s backend/tests
+python -m unittest discover -s backend/tests -p "test_*static.py"
+```
+
+If the backend virtualenv is missing test dependencies, install the declared dev stack first:
+
+```bash
+cd backend
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
 
 ---
 
