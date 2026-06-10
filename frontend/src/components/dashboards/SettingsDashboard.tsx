@@ -42,6 +42,13 @@ interface AutomationSettings {
   quiet_when_pulse_absent: boolean;
 }
 
+interface PulseHandoffContract {
+  contract_version: string;
+  endpoint_env: string;
+  recommended_endpoint?: string;
+  transport_headers?: Record<string, string>;
+}
+
 const MARKET_DATA_OPTIONS = [
   'yfinance',
   'finnhub',
@@ -122,6 +129,7 @@ export function SettingsDashboard() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
   const [automation, setAutomation] = useState<AutomationSettings | null>(null);
+  const [pulseHandoffContract, setPulseHandoffContract] = useState<PulseHandoffContract | null>(null);
   const [tickers, setTickers] = useState<string[]>([]);
   const [settingsError, setSettingsError] = useState('');
   const [runtimeSettingsError, setRuntimeSettingsError] = useState('');
@@ -163,10 +171,11 @@ export function SettingsDashboard() {
     let cancelled = false;
     const loadRuntimeSettings = async () => {
       try {
-        const [providerResponse, automationResponse, tickersResponse] = await Promise.allSettled([
+        const [providerResponse, automationResponse, tickersResponse, pulseContractResponse] = await Promise.allSettled([
           fetch('/api/market-data/providers'),
           fetch('/api/automation'),
           fetch('/api/tickers'),
+          fetch('/api/pulse/handoff/schema'),
         ]);
         if (cancelled) return;
 
@@ -174,6 +183,7 @@ export function SettingsDashboard() {
           providerResponse.status === 'rejected' || !providerResponse.value.ok,
           automationResponse.status === 'rejected' || !automationResponse.value.ok,
           tickersResponse.status === 'rejected' || !tickersResponse.value.ok,
+          pulseContractResponse.status === 'rejected' || !pulseContractResponse.value.ok,
         ].filter(Boolean);
         setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '');
 
@@ -189,6 +199,10 @@ export function SettingsDashboard() {
         if (tickersResponse.status === 'fulfilled' && tickersResponse.value.ok) {
           const data = await tickersResponse.value.json();
           setTickers((data.tickers || []).map((ticker: any) => ticker.symbol).filter(Boolean));
+        }
+        if (pulseContractResponse.status === 'fulfilled' && pulseContractResponse.value.ok) {
+          const data = await pulseContractResponse.value.json();
+          setPulseHandoffContract(data);
         }
       } catch (e) {
         if (!cancelled) {
@@ -462,6 +476,42 @@ export function SettingsDashboard() {
         )}
       </div>
 
+      {/* Pulse Handoff Contract */}
+      <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <ShieldAlert className="w-5 h-5 text-cyan-400" />
+          Pulse handoff contract
+        </h3>
+        <p className="text-sm text-gray-400 mb-4">
+          Read-only discovery for PULSE_HANDOFF_ENDPOINT so Edge and Pulse agree on the structured handoff envelope before paper or live automation runs.
+        </p>
+
+        {!pulseHandoffContract ? (
+          <div className="text-sm text-gray-500">Pulse handoff contract unavailable until the backend schema endpoint responds.</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <RuntimeDetail label="contract_version" value={pulseHandoffContract.contract_version} />
+            <RuntimeDetail label="endpoint_env" value={pulseHandoffContract.endpoint_env} />
+            <RuntimeDetail label="recommended_endpoint" value={pulseHandoffContract.recommended_endpoint || '--'} />
+
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 md:col-span-3">
+              <div className="text-sm font-medium text-gray-300">transport_headers</div>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                {Object.entries(pulseHandoffContract.transport_headers || {}).map(([name, detail]) => (
+                  <div key={name} className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+                    <div className="truncate text-xs font-semibold text-cyan-200">{name}</div>
+                    <div className="mt-1 text-xs text-gray-500">{detail}</div>
+                  </div>
+                ))}
+              </div>
+              {!pulseHandoffContract.transport_headers?.['Idempotency-Key'] && (
+                <div className="mt-3 text-xs text-amber-300">Idempotency-Key header missing from contract discovery.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Market Data Providers */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -586,3 +636,10 @@ export function SettingsDashboard() {
     </div>
   );
 }
+
+const RuntimeDetail: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+    <div className="text-sm font-medium text-gray-300">{label}</div>
+    <div className="mt-2 break-words text-sm text-white">{value || '--'}</div>
+  </div>
+);
