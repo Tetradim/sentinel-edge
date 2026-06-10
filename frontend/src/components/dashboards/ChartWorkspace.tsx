@@ -75,6 +75,8 @@ interface ChartWorkspaceSimulationLabStatus {
 interface ChartWorkspaceSimulationLabResult {
   kind: 'orb_backtest' | 'buying_power_allocation' | 'stop_trailing_dca';
   label: string;
+  symbol?: string;
+  created_at?: string;
   result: Record<string, unknown> & {
     schema_version?: string;
     summary?: Record<string, unknown>;
@@ -335,8 +337,13 @@ export const ChartWorkspace: React.FC = () => {
   };
 
   const rememberSimulationLabResult = (nextResult: ChartWorkspaceSimulationLabResult) => {
-    setSimulationLabResult(nextResult);
-    return persistChartWorkspaceLabResult(nextResult);
+    const enrichedResult: ChartWorkspaceSimulationLabResult = {
+      ...nextResult,
+      symbol: snapshot?.symbol || activeSymbol,
+      created_at: new Date().toISOString(),
+    };
+    setSimulationLabResult(enrichedResult);
+    return persistChartWorkspaceLabResult(enrichedResult);
   };
 
   const selectLayoutMode = (nextLayoutMode: ChartWorkspaceLayoutMode) => {
@@ -550,6 +557,9 @@ export const ChartWorkspace: React.FC = () => {
               <div className="text-[11px] font-semibold uppercase text-slate-500">Last lab result</div>
               <div className="mt-1 truncate text-xs font-semibold text-slate-200">
                 {formatSimulationLabResultTitle(simulationLabResult)}
+              </div>
+              <div className="mt-1 truncate text-[11px] text-slate-500">
+                {formatSimulationLabResultMeta(simulationLabResult)}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {buildSimulationLabResultMetrics(simulationLabResult).map((metric) => (
@@ -979,6 +989,24 @@ function formatSimulationLabResultTitle(result: ChartWorkspaceSimulationLabResul
   return `${result.label} / ${schemaVersion}`;
 }
 
+function formatSimulationLabResultMeta(result: ChartWorkspaceSimulationLabResult) {
+  const parts: string[] = [];
+  if (result.symbol) parts.push(result.symbol);
+  if (result.created_at) parts.push(formatSimulationLabResultTimestamp(result.created_at));
+  return parts.length ? parts.join(' / ') : 'Session context unavailable';
+}
+
+function formatSimulationLabResultTimestamp(value: string) {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return value;
+  return timestamp.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResult) {
   const summary = result.result.summary ?? {};
   const metrics = [
@@ -1156,15 +1184,31 @@ function normalizeChartWorkspaceLabResult(value: unknown): ChartWorkspaceSimulat
   if (!isChartWorkspaceSimulationLabResultKind(kind) || !label || !storedResult) return null;
 
   const summary = isRecord(storedResult.summary) ? storedResult.summary : undefined;
+  const symbol = normalizeChartWorkspaceLabResultSymbol(value.symbol);
+  const createdAt = normalizeChartWorkspaceLabResultTimestamp(value.created_at);
   return {
     kind,
     label,
+    symbol,
+    created_at: createdAt,
     result: {
       ...storedResult,
       schema_version: typeof storedResult.schema_version === 'string' ? storedResult.schema_version : undefined,
       summary,
     },
   };
+}
+
+function normalizeChartWorkspaceLabResultSymbol(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+  const symbol = value.trim().toUpperCase();
+  return /^[A-Z0-9.-]{1,10}$/.test(symbol) ? symbol : undefined;
+}
+
+function normalizeChartWorkspaceLabResultTimestamp(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+  const timestamp = value.trim();
+  return timestamp && !Number.isNaN(Date.parse(timestamp)) ? timestamp : undefined;
 }
 
 function cloneDefaultLayoutState(): ChartWorkspaceLayoutState {

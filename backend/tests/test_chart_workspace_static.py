@@ -148,6 +148,19 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("useState<ChartWorkspaceSimulationLabResult | null>(readChartWorkspaceLabResult)", dashboard)
         self.assertIn("last Simulation Lab result", text)
 
+    def test_chart_workspace_lab_result_includes_symbol_and_timestamp_context(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("symbol?: string", dashboard)
+        self.assertIn("created_at?: string", dashboard)
+        self.assertIn("symbol: snapshot?.symbol || activeSymbol", dashboard)
+        self.assertIn("created_at: new Date().toISOString()", dashboard)
+        self.assertIn("formatSimulationLabResultMeta", dashboard)
+        self.assertIn("normalizeChartWorkspaceLabResultTimestamp", dashboard)
+        self.assertIn("toLocaleString", dashboard)
+        self.assertIn("symbol and timestamp context", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 
