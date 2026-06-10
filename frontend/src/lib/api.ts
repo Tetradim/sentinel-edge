@@ -266,6 +266,13 @@ class ApiClient {
     });
   }
 
+  async runSimulationLabStopTrailingDcaComparison(payload: any) {
+    return fetchJSON('/api/simulation-lab/stop-trailing-dca/compare', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async pauseScheduler() {
     return fetchJSON('/api/control/pause', { method: 'POST' });
   }

@@ -482,7 +482,7 @@ The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_
 
 - ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`.
-- Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons` roadmap slice).
+- Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions.
 
 These capabilities are intended for research, replay, and validation. They should remain clearly separated from live automation unless an operator deliberately promotes a tested workflow into a gated automation path.
 
@@ -786,6 +786,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate and planned experiment catalog. |
 | POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan. |
 | POST | `/simulation-lab/buying-power/allocation` | Compare gated buying-power allocation plans for candidate trades. |
+| POST | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path. |
 | GET | `/strategies` | Strategy catalog. |
 | GET | `/strategies/puzzle-key/status` | Puzzle Key strategy status. |
 | GET | `/strategies/{strategy_name}` | Strategy details. |

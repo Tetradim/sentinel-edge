@@ -34,6 +34,14 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("run_buying_power_allocation_experiment", text)
         self.assertIn('@api_router.post("/simulation-lab/buying-power/allocation")', text)
 
+    def test_server_exposes_gated_stop_trailing_dca_route(self):
+        text = SERVER.read_text(encoding="utf-8")
+
+        self.assertIn("SimulationLabStopTrailingDcaRequest", text)
+        self.assertIn("SimulationLabStopTrailingDcaBar", text)
+        self.assertIn("run_stop_trailing_dca_comparison", text)
+        self.assertIn('@api_router.post("/simulation-lab/stop-trailing-dca/compare")', text)
+
     def test_frontend_api_can_fetch_simulation_lab_status(self):
         text = API.read_text(encoding="utf-8")
 
@@ -43,6 +51,8 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("fetchJSON('/api/simulation-lab/orb/backtest'", text)
         self.assertIn("async runSimulationLabBuyingPowerAllocation", text)
         self.assertIn("fetchJSON('/api/simulation-lab/buying-power/allocation'", text)
+        self.assertIn("async runSimulationLabStopTrailingDcaComparison", text)
+        self.assertIn("fetchJSON('/api/simulation-lab/stop-trailing-dca/compare'", text)
 
     def test_readme_documents_default_off_simulation_lab_gate(self):
         text = README.read_text(encoding="utf-8")
@@ -55,6 +65,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("buying-power allocation experiments", text)
         self.assertIn("/api/simulation-lab/buying-power/allocation", text)
         self.assertIn("stop vs trailing-stop vs DCA comparisons", text)
+        self.assertIn("/api/simulation-lab/stop-trailing-dca/compare", text)
 
 
 if __name__ == "__main__":

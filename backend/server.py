@@ -39,6 +39,7 @@ from simulation_lab import (
     require_simulation_lab_enabled,
     run_buying_power_allocation_experiment,
     run_orb_backtest_replay,
+    run_stop_trailing_dca_comparison,
     simulation_lab_status,
 )
 from metrics import (
@@ -541,6 +542,26 @@ class SimulationLabBuyingPowerAllocationRequest(BaseModel):
     max_position_pct: float = Field(1.0, gt=0.0, le=1.0)
     mode: str = Field("confidence_weighted", pattern="^(confidence_weighted|equal_weight|priority_fill)$")
     candidates: List[SimulationLabAllocationCandidate] = Field(..., min_length=1, max_length=5000)
+
+
+class SimulationLabStopTrailingDcaBar(BaseModel):
+    """One price-path bar for Simulation Lab stop/trailing-stop/DCA comparison."""
+    timestamp: str
+    high: Optional[float] = None
+    low: Optional[float] = None
+    close: float
+
+
+class SimulationLabStopTrailingDcaRequest(BaseModel):
+    """Request body for POST /api/simulation-lab/stop-trailing-dca/compare."""
+    entry_price: float = Field(..., gt=0.0)
+    quantity: float = Field(1.0, gt=0.0)
+    stop_loss_pct: float = Field(0.05, gt=0.0, le=1.0)
+    trailing_pct: float = Field(0.03, gt=0.0, le=1.0)
+    dca_steps: int = Field(1, ge=0, le=50)
+    dca_drop_pct: float = Field(0.03, gt=0.0, le=1.0)
+    dca_allocation_multiplier: float = Field(1.0, gt=0.0, le=10.0)
+    price_path: List[SimulationLabStopTrailingDcaBar] = Field(..., min_length=1, max_length=50000)
 
 
 def _monte_carlo_settings_from_request(request: Any):
@@ -1331,6 +1352,31 @@ async def run_simulation_lab_buying_power_allocation(request: SimulationLabBuyin
             max_position_pct=request.max_position_pct,
             mode=request.mode,
             candidates=candidates,
+        )
+    except SimulationLabDisabledError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/simulation-lab/stop-trailing-dca/compare")
+async def run_simulation_lab_stop_trailing_dca_comparison(request: SimulationLabStopTrailingDcaRequest):
+    """Run a gated stop/trailing-stop/DCA comparison against an explicit price path."""
+    try:
+        require_simulation_lab_enabled()
+        price_path = [
+            bar.model_dump() if hasattr(bar, "model_dump") else bar.dict()
+            for bar in request.price_path
+        ]
+        return run_stop_trailing_dca_comparison(
+            entry_price=request.entry_price,
+            quantity=request.quantity,
+            stop_loss_pct=request.stop_loss_pct,
+            trailing_pct=request.trailing_pct,
+            dca_steps=request.dca_steps,
+            dca_drop_pct=request.dca_drop_pct,
+            dca_allocation_multiplier=request.dca_allocation_multiplier,
+            price_path=price_path,
         )
     except SimulationLabDisabledError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc

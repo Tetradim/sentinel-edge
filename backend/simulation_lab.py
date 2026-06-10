@@ -12,6 +12,7 @@ SIMULATION_LAB_ENV_FLAG = "EDGE_SIMULATION_LAB_ENABLED"
 SIMULATION_LAB_STATUS_VERSION = "edge.simulation_lab.status.v1"
 SIMULATION_LAB_ORB_BACKTEST_VERSION = "edge.simulation_lab.orb_backtest.v1"
 SIMULATION_LAB_BUYING_POWER_VERSION = "edge.simulation_lab.buying_power_allocation.v1"
+SIMULATION_LAB_STOP_TRAILING_DCA_VERSION = "edge.simulation_lab.stop_trailing_dca.v1"
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _BREAKOUT_SIDES = {"both", "long", "short"}
 _ALLOCATION_MODES = {"confidence_weighted", "equal_weight", "priority_fill"}
@@ -61,6 +62,8 @@ _EXPERIMENTS = (
         id="stop_trailing_dca",
         label="Stop vs trailing-stop vs DCA comparisons",
         capability="Compare exit and averaging tactics against the same historical trade stream.",
+        status="available",
+        runnable_when_enabled=True,
     ),
 )
 
@@ -87,6 +90,251 @@ def simulation_lab_status() -> Dict[str, Any]:
         "default_hidden": not enabled,
         "env_flag": SIMULATION_LAB_ENV_FLAG,
         "experiments": [experiment.to_status(enabled) for experiment in _EXPERIMENTS],
+    }
+
+
+def run_stop_trailing_dca_comparison(
+    *,
+    entry_price: float,
+    price_path: Iterable[Dict[str, Any]],
+    quantity: float = 1.0,
+    stop_loss_pct: float = 0.05,
+    trailing_pct: float = 0.03,
+    dca_steps: int = 1,
+    dca_drop_pct: float = 0.03,
+    dca_allocation_multiplier: float = 1.0,
+) -> Dict[str, Any]:
+    """Compare fixed-stop, trailing-stop, and DCA outcomes against one long price path."""
+    entry_price = _positive_float(entry_price, "entry_price")
+    quantity = _positive_float(quantity, "quantity")
+    stop_loss_pct = _bounded_ratio(stop_loss_pct, "stop_loss_pct", allow_zero=False)
+    trailing_pct = _bounded_ratio(trailing_pct, "trailing_pct", allow_zero=False)
+    dca_steps = _bounded_int(dca_steps, "dca_steps", minimum=0, maximum=50)
+    dca_drop_pct = _bounded_ratio(dca_drop_pct, "dca_drop_pct", allow_zero=False)
+    dca_allocation_multiplier = _positive_float(dca_allocation_multiplier, "dca_allocation_multiplier")
+
+    bars = sorted(
+        (_normalise_comparison_bar(bar) for bar in price_path),
+        key=lambda bar: bar["timestamp"],
+    )
+    if not bars:
+        raise ValueError("At least one price_path bar is required")
+
+    plans = [
+        _simulate_regular_stop_plan(
+            entry_price=entry_price,
+            quantity=quantity,
+            stop_loss_pct=stop_loss_pct,
+            bars=bars,
+        ),
+        _simulate_trailing_stop_plan(
+            entry_price=entry_price,
+            quantity=quantity,
+            trailing_pct=trailing_pct,
+            bars=bars,
+        ),
+        _simulate_dca_plan(
+            entry_price=entry_price,
+            quantity=quantity,
+            dca_steps=dca_steps,
+            dca_drop_pct=dca_drop_pct,
+            dca_allocation_multiplier=dca_allocation_multiplier,
+            bars=bars,
+        ),
+    ]
+    best_plan = max(plans, key=lambda plan: plan["pnl"])
+    worst_plan = min(plans, key=lambda plan: plan["pnl"])
+
+    return {
+        "schema_version": SIMULATION_LAB_STOP_TRAILING_DCA_VERSION,
+        "side": "long",
+        "entry_price": round(entry_price, 4),
+        "quantity": round(quantity, 4),
+        "price_points": len(bars),
+        "parameters": {
+            "stop_loss_pct": round(stop_loss_pct, 4),
+            "trailing_pct": round(trailing_pct, 4),
+            "dca_steps": dca_steps,
+            "dca_drop_pct": round(dca_drop_pct, 4),
+            "dca_allocation_multiplier": round(dca_allocation_multiplier, 4),
+        },
+        "summary": {
+            "plan_count": len(plans),
+            "best_plan": best_plan["plan"],
+            "best_pnl": best_plan["pnl"],
+            "worst_plan": worst_plan["plan"],
+            "worst_pnl": worst_plan["pnl"],
+        },
+        "plans": plans,
+    }
+
+
+def _simulate_regular_stop_plan(
+    *,
+    entry_price: float,
+    quantity: float,
+    stop_loss_pct: float,
+    bars: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    stop_price = entry_price * (1 - stop_loss_pct)
+    for bar in bars:
+        if bar["low"] <= stop_price:
+            return _comparison_plan_payload(
+                plan="regular_stop",
+                entry_price=entry_price,
+                average_entry_price=entry_price,
+                quantity=quantity,
+                exit_price=stop_price,
+                exit_timestamp=bar["timestamp"],
+                exit_reason="stop_loss",
+                extra={"stop_price": round(stop_price, 4)},
+            )
+    final_bar = bars[-1]
+    return _comparison_plan_payload(
+        plan="regular_stop",
+        entry_price=entry_price,
+        average_entry_price=entry_price,
+        quantity=quantity,
+        exit_price=final_bar["close"],
+        exit_timestamp=final_bar["timestamp"],
+        exit_reason="final_close",
+        extra={"stop_price": round(stop_price, 4)},
+    )
+
+
+def _simulate_trailing_stop_plan(
+    *,
+    entry_price: float,
+    quantity: float,
+    trailing_pct: float,
+    bars: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    highest_high = entry_price
+    trailing_stop = entry_price * (1 - trailing_pct)
+    for bar in bars:
+        highest_high = max(highest_high, bar["high"])
+        trailing_stop = max(trailing_stop, highest_high * (1 - trailing_pct))
+        if bar["low"] <= trailing_stop:
+            return _comparison_plan_payload(
+                plan="trailing_stop",
+                entry_price=entry_price,
+                average_entry_price=entry_price,
+                quantity=quantity,
+                exit_price=trailing_stop,
+                exit_timestamp=bar["timestamp"],
+                exit_reason="trailing_stop",
+                extra={
+                    "highest_high": round(highest_high, 4),
+                    "trailing_stop": round(trailing_stop, 4),
+                },
+            )
+    final_bar = bars[-1]
+    return _comparison_plan_payload(
+        plan="trailing_stop",
+        entry_price=entry_price,
+        average_entry_price=entry_price,
+        quantity=quantity,
+        exit_price=final_bar["close"],
+        exit_timestamp=final_bar["timestamp"],
+        exit_reason="final_close",
+        extra={
+            "highest_high": round(highest_high, 4),
+            "trailing_stop": round(trailing_stop, 4),
+        },
+    )
+
+
+def _simulate_dca_plan(
+    *,
+    entry_price: float,
+    quantity: float,
+    dca_steps: int,
+    dca_drop_pct: float,
+    dca_allocation_multiplier: float,
+    bars: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    total_quantity = quantity
+    total_cost = entry_price * quantity
+    fill_quantity = quantity * dca_allocation_multiplier
+    fills: List[Dict[str, Any]] = []
+
+    for bar in bars:
+        while len(fills) < dca_steps:
+            step = len(fills) + 1
+            trigger_price = entry_price * (1 - dca_drop_pct * step)
+            if trigger_price <= 0 or bar["low"] > trigger_price:
+                break
+            total_quantity += fill_quantity
+            total_cost += trigger_price * fill_quantity
+            fills.append(
+                {
+                    "step": step,
+                    "timestamp": bar["timestamp"].isoformat(),
+                    "price": round(trigger_price, 4),
+                    "quantity": round(fill_quantity, 4),
+                }
+            )
+
+    final_bar = bars[-1]
+    average_entry_price = total_cost / total_quantity
+    return _comparison_plan_payload(
+        plan="dca",
+        entry_price=entry_price,
+        average_entry_price=average_entry_price,
+        quantity=total_quantity,
+        exit_price=final_bar["close"],
+        exit_timestamp=final_bar["timestamp"],
+        exit_reason="final_close",
+        extra={
+            "dca_fills": len(fills),
+            "fills": fills,
+        },
+    )
+
+
+def _comparison_plan_payload(
+    *,
+    plan: str,
+    entry_price: float,
+    average_entry_price: float,
+    quantity: float,
+    exit_price: float,
+    exit_timestamp: datetime,
+    exit_reason: str,
+    extra: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    invested_notional = average_entry_price * quantity
+    pnl = (exit_price - average_entry_price) * quantity
+    payload = {
+        "plan": plan,
+        "side": "long",
+        "entry_price": round(entry_price, 4),
+        "average_entry_price": round(average_entry_price, 4),
+        "quantity": round(quantity, 4),
+        "exit_price": round(exit_price, 4),
+        "exit_timestamp": exit_timestamp.isoformat(),
+        "exit_reason": exit_reason,
+        "invested_notional": round(invested_notional, 2),
+        "pnl": round(pnl, 2),
+        "pnl_pct": round((pnl / invested_notional) * 100, 4) if invested_notional > 0 else 0.0,
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
+def _normalise_comparison_bar(bar: Dict[str, Any]) -> Dict[str, Any]:
+    timestamp = _parse_lab_timestamp(bar.get("timestamp"), "price_path bar")
+    close = _required_price_path_float(bar, "close")
+    high = close if bar.get("high") is None else _required_price_path_float(bar, "high")
+    low = close if bar.get("low") is None else _required_price_path_float(bar, "low")
+    if high < low:
+        raise ValueError("price_path bar high cannot be below low")
+    return {
+        "timestamp": timestamp,
+        "high": high,
+        "low": low,
+        "close": close,
     }
 
 
@@ -252,6 +500,16 @@ def _bounded_ratio(value: Any, field: str, allow_zero: bool = True) -> float:
     if not lower_ok or numeric > 1:
         bound = "between 0 and 1" if allow_zero else "greater than 0 and at most 1"
         raise ValueError(f"{field} must be {bound}")
+    return numeric
+
+
+def _bounded_int(value: Any, field: str, *, minimum: int, maximum: int) -> int:
+    try:
+        numeric = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be an integer") from exc
+    if numeric < minimum or numeric > maximum:
+        raise ValueError(f"{field} must be between {minimum} and {maximum}")
     return numeric
 
 
@@ -429,6 +687,19 @@ def _parse_bar_timestamp(value: Any) -> datetime:
     return _to_et(parsed).astimezone(ET)
 
 
+def _parse_lab_timestamp(value: Any, label: str) -> datetime:
+    if isinstance(value, datetime):
+        return _to_et(value)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} timestamp is required")
+    raw_value = value.strip()
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{label} timestamp must be ISO-8601") from exc
+    return _to_et(parsed).astimezone(ET)
+
+
 def _required_float(bar: Dict[str, Any], field: str) -> float:
     value = bar.get(field)
     if value is None:
@@ -437,3 +708,13 @@ def _required_float(bar: Dict[str, Any], field: str) -> float:
         return float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"ORB replay bar {field} must be numeric") from exc
+
+
+def _required_price_path_float(bar: Dict[str, Any], field: str) -> float:
+    value = bar.get(field)
+    if value is None:
+        raise ValueError(f"price_path bar {field} is required")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"price_path bar {field} must be numeric") from exc
