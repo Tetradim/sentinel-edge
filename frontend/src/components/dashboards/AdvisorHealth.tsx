@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
 import { api, type EdgeLiveness, type EdgeReadinessCheckDetail, type NormalizedEdgeReadiness } from '@/lib/api';
+import { formatAge } from '@/lib/time';
 
 interface ProviderStatus {
   healthy: boolean;
@@ -62,17 +63,6 @@ const emptyState: HealthState = {
   decisionsCount: 0,
   automation: null,
   refreshedAt: null,
-};
-
-const formatAge = (iso: string | null) => {
-  if (!iso) return 'never';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return 'unknown';
-  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
 };
 
 const formatDurationSeconds = (value: unknown) => {

@@ -16,6 +16,8 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
         self.assertNotIn("ready: any | null", text)
         self.assertIn("api.getReadiness()", text)
         self.assertIn("protection-readiness-guard", text)
+        self.assertIn("import { formatAge } from '@/lib/time'", text)
+        self.assertNotIn("const formatAge = (iso: string | null)", text)
         self.assertIn("readinessDetails", text)
         self.assertIn("failingReadinessDetails", text)
         self.assertIn("state.ready?.failing_check_details ?? []", text)
