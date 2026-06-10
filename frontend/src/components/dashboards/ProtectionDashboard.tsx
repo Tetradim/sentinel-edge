@@ -575,6 +575,19 @@ const HandoffEventCard: React.FC<{ title: string; handoff: any | null; empty: st
   const failed = handoff.sent === false;
   const handoffStatus = handoff.handoff_status ? String(handoff.handoff_status) : null;
   const pulse_feedback = handoff.pulse_feedback || null;
+  const pulseHandoffId = pulse_feedback && pulse_feedback.response && pulse_feedback.response.handoff_id
+    ? String(pulse_feedback.response.handoff_id)
+    : null;
+  const pulseHttpStatus = pulse_feedback && pulse_feedback.status_code !== undefined && pulse_feedback.status_code !== null
+    ? String(pulse_feedback.status_code)
+    : null;
+  let pulseLegacyFallback: string | null = null;
+  if (pulse_feedback && typeof pulse_feedback.legacy_fallback === 'boolean') {
+    pulseLegacyFallback = pulse_feedback.legacy_fallback ? 'yes' : 'no';
+  }
+  const pulsePrimaryEndpoint = pulse_feedback && pulse_feedback.primary_feedback && pulse_feedback.primary_feedback.endpoint
+    ? String(pulse_feedback.primary_feedback.endpoint)
+    : null;
   const status = suppressed
     ? handoff.suppressed_reason || 'suppressed'
     : handoffStatus
@@ -600,6 +613,18 @@ const HandoffEventCard: React.FC<{ title: string; handoff: any | null; empty: st
         {handoffStatus && <span className="break-words text-gray-300/80">Pulse status: {handoffStatus}</span>}
         {pulse_feedback && pulse_feedback.reason && (
           <span className="break-words text-gray-300/80">Pulse: {String(pulse_feedback.reason)}</span>
+        )}
+        {pulseHandoffId && (
+          <span className="break-words text-gray-300/80">Pulse handoff id: {pulseHandoffId}</span>
+        )}
+        {pulseHttpStatus && (
+          <span className="break-words text-gray-400">HTTP status: {pulseHttpStatus}</span>
+        )}
+        {pulseLegacyFallback && (
+          <span className="break-words text-gray-400">Legacy fallback: {pulseLegacyFallback}</span>
+        )}
+        {pulsePrimaryEndpoint && (
+          <span className="break-words text-gray-400">Primary endpoint: {pulsePrimaryEndpoint}</span>
         )}
         {pulse_feedback && pulse_feedback.endpoint && (
           <span className="break-words text-gray-400">Endpoint: {String(pulse_feedback.endpoint)}</span>

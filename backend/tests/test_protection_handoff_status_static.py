@@ -33,6 +33,14 @@ class ProtectionHandoffStatusStaticTests(unittest.TestCase):
         self.assertIn("handoff.pulse_feedback", text)
         self.assertIn("Pulse:", text)
         self.assertIn("pulse_feedback.reason", text)
+        self.assertIn("Pulse handoff id", text)
+        self.assertIn("HTTP status", text)
+        self.assertIn("Legacy fallback", text)
+        self.assertIn("Primary endpoint", text)
+        self.assertIn("pulse_feedback.response.handoff_id", text)
+        self.assertIn("pulse_feedback.status_code", text)
+        self.assertIn("pulse_feedback.legacy_fallback", text)
+        self.assertIn("pulse_feedback.primary_feedback", text)
 
     def test_guarded_actions_surface_operator_errors(self):
         text = PROTECTION.read_text(encoding="utf-8")
