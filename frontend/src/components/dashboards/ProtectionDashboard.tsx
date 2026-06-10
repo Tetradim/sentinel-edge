@@ -117,19 +117,23 @@ export const ProtectionDashboard: React.FC = () => {
         api.getPulseQueue(),
       ]);
 
-      setState({
+      const failedLoads = [health, stats, ready, pulse, killSwitch, automation, positions, queue].filter(
+        (result) => result.status === 'rejected',
+      );
+
+      setState((prev) => ({
         loading: false,
-        error: null,
-        health: health.status === 'fulfilled' ? health.value : null,
-        stats: stats.status === 'fulfilled' ? stats.value : null,
-        ready: ready.status === 'fulfilled' ? ready.value : null,
-        pulse: pulse.status === 'fulfilled' ? pulse.value : null,
-        killSwitch: killSwitch.status === 'fulfilled' ? killSwitch.value : null,
-        automation: automation.status === 'fulfilled' ? automation.value : null,
-        positions: positions.status === 'fulfilled' ? normalizePositions(positions.value) : [],
-        queue: queue.status === 'fulfilled' ? queue.value : null,
+        error: failedLoads.length > 0 ? 'Protection data failed to refresh. Showing latest available data.' : null,
+        health: health.status === 'fulfilled' ? health.value : prev.health,
+        stats: stats.status === 'fulfilled' ? stats.value : prev.stats,
+        ready: ready.status === 'fulfilled' ? ready.value : prev.ready,
+        pulse: pulse.status === 'fulfilled' ? pulse.value : prev.pulse,
+        killSwitch: killSwitch.status === 'fulfilled' ? killSwitch.value : prev.killSwitch,
+        automation: automation.status === 'fulfilled' ? automation.value : prev.automation,
+        positions: positions.status === 'fulfilled' ? normalizePositions(positions.value) : prev.positions,
+        queue: queue.status === 'fulfilled' ? queue.value : prev.queue,
         refreshedAt: new Date().toLocaleTimeString(),
-      });
+      }));
     } catch (err) {
       setState((prev) => ({
         ...prev,
@@ -253,7 +257,7 @@ export const ProtectionDashboard: React.FC = () => {
           <span>Circuit: {circuitState}</span>
           <span>Mode: {automationSettings.mode || 'recommend_only'}</span>
         </div>
-        {state.error && <p className="mt-3 text-sm text-red-300">{state.error}</p>}
+        {state.error && <p role="alert" className="mt-3 text-sm text-red-300">{state.error}</p>}
         {actionError && <p className="mt-3 text-sm text-red-300">{actionError}</p>}
       </div>
 

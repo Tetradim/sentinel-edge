@@ -36,6 +36,18 @@ class ProtectionHandoffStatusStaticTests(unittest.TestCase):
         self.assertIn("{actionError &&", text)
         self.assertIn("{actionError}", text)
 
+    def test_protection_dashboard_surfaces_partial_refresh_failures(self):
+        text = PROTECTION.read_text(encoding="utf-8")
+
+        self.assertIn("const failedLoads = [health, stats, ready, pulse, killSwitch, automation, positions, queue].filter", text)
+        self.assertIn("setState((prev) => ({", text)
+        self.assertIn("error: failedLoads.length > 0 ? 'Protection data failed to refresh. Showing latest available data.' : null", text)
+        self.assertIn("health: health.status === 'fulfilled' ? health.value : prev.health", text)
+        self.assertIn("ready: ready.status === 'fulfilled' ? ready.value : prev.ready", text)
+        self.assertIn("positions: positions.status === 'fulfilled' ? normalizePositions(positions.value) : prev.positions", text)
+        self.assertIn("{state.error &&", text)
+        self.assertIn('role="alert"', text)
+
 
 if __name__ == "__main__":
     unittest.main()
