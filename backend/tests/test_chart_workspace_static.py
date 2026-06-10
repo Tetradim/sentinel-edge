@@ -200,6 +200,18 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("disabled={labActionDisabled}", dashboard)
         self.assertIn("Lab run actions disabled until chart bars are loaded", text)
 
+    def test_chart_workspace_flags_lab_result_symbol_mismatch(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("activeChartSymbol", dashboard)
+        self.assertIn("simulationLabResultSymbolMismatch", dashboard)
+        self.assertIn("simulationLabResult.symbol !== activeChartSymbol", dashboard)
+        self.assertIn("formatSimulationLabResultMismatch", dashboard)
+        self.assertIn("Result symbol differs from active chart", dashboard)
+        self.assertIn("text-amber-200", dashboard)
+        self.assertIn("flags persisted Simulation Lab results when their symbol differs from the active chart", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 

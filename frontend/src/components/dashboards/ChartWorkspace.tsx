@@ -246,6 +246,10 @@ export const ChartWorkspace: React.FC = () => {
   const labActionsReady = Boolean(snapshot?.bars.length && latestBar);
   const labActionDisabled = labRunInProgress || !labActionsReady;
   const labUnavailableMessage = 'Load chart data to run Simulation Lab.';
+  const activeChartSymbol = snapshot?.symbol || activeSymbol;
+  const simulationLabResultSymbolMismatch = Boolean(
+    simulationLabResult?.symbol && simulationLabResult.symbol !== activeChartSymbol,
+  );
 
   const submitSymbol = (event: React.FormEvent) => {
     event.preventDefault();
@@ -612,6 +616,11 @@ export const ChartWorkspace: React.FC = () => {
               <div className="mt-1 truncate text-[11px] text-slate-500">
                 {formatSimulationLabResultMeta(simulationLabResult)}
               </div>
+              {simulationLabResultSymbolMismatch && (
+                <div className="mt-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] text-amber-200">
+                  {formatSimulationLabResultMismatch(simulationLabResult, activeChartSymbol)}
+                </div>
+              )}
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {buildSimulationLabResultMetrics(simulationLabResult).map((metric) => (
                   <Metric key={metric.label} label={metric.label} value={metric.value} />
@@ -1045,6 +1054,10 @@ function formatSimulationLabResultMeta(result: ChartWorkspaceSimulationLabResult
   if (result.symbol) parts.push(result.symbol);
   if (result.created_at) parts.push(formatSimulationLabResultTimestamp(result.created_at));
   return parts.length ? parts.join(' / ') : 'Session context unavailable';
+}
+
+function formatSimulationLabResultMismatch(result: ChartWorkspaceSimulationLabResult, activeChartSymbol: string) {
+  return `Result symbol differs from active chart: ${result.symbol || 'Unknown'} vs ${activeChartSymbol}`;
 }
 
 function formatSimulationLabResultTimestamp(value: string) {
