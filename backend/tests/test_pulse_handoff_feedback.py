@@ -1,10 +1,14 @@
 """Tests for structured Pulse handoff feedback handling."""
 import asyncio
 import json
+import logging
+import os
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
+
+import httpx
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +18,55 @@ from pulse_client import PulseClient  # noqa: E402
 
 
 class PulseHandoffFeedbackTests(unittest.TestCase):
+    def test_structured_handoff_sends_idempotency_and_mode_headers(self):
+        captured_requests = []
+        idempotency_key = "edge:AAPL:buy:market_open:123:test"
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(202, json={"accepted": True, "handoff_id": "ph-headers"}, request=request)
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                with patch.dict(os.environ, {"PULSE_HANDOFF_ENDPOINT": "/api/edge/handoff"}):
+                    return await client.send_handoff_command(
+                        {
+                            "symbol": "aapl",
+                            "action": "buy",
+                            "confidence": 0.8,
+                            "reason": "test",
+                            "mode": "paper",
+                            "orb_session": "market_open",
+                            "idempotency_key": idempotency_key,
+                            "source": "sentinel_edge",
+                            "created_at": 1760000000.0,
+                            "metadata": {},
+                        }
+                    )
+            finally:
+                await client.aclose()
+
+        with (
+            patch.object(logging.getLogger("httpx"), "disabled", True),
+            patch.object(logging.getLogger("pulse_client"), "disabled", True),
+        ):
+            result = asyncio.run(run())
+
+        self.assertTrue(result["sent"])
+        self.assertEqual(len(captured_requests), 1)
+        request = captured_requests[0]
+        self.assertEqual(request.headers.get("Idempotency-Key"), idempotency_key)
+        self.assertEqual(request.headers.get("X-Edge-Mode"), "paper")
+        self.assertEqual(request.headers.get("X-Edge-Contract-Version"), "edge.pulse.handoff.v1")
+
     def test_invalid_handoff_payload_is_suppressed_before_transport(self):
         async def run():
             client = PulseClient(base_url="http://pulse.invalid")

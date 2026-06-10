@@ -409,6 +409,7 @@ Payloads can include:
 - Manual bridge calls for trailing stops and emergency exits.
 - Autonomous handoff through `PULSE_HANDOFF_ENDPOINT` when configured.
 - Versioned handoff contract discovery through `/api/pulse/handoff/schema` with contract version `edge.pulse.handoff.v1`.
+- Structured handoff transport headers: `Idempotency-Key`, `X-Edge-Mode`, and `X-Edge-Contract-Version`.
 - Legacy fallback to `/api/tickers/{symbol}/decision` when no structured endpoint is configured.
 
 ---

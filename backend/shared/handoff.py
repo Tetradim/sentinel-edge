@@ -103,6 +103,11 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
         "endpoint_env": "PULSE_HANDOFF_ENDPOINT",
         "recommended_endpoint": "/api/edge/handoff",
         "request_schema": PulseHandoffRequest.model_json_schema(),
+        "transport_headers": {
+            "Idempotency-Key": "Same value as request.idempotency_key.",
+            "X-Edge-Mode": "Same value as request.mode, either paper or live.",
+            "X-Edge-Contract-Version": "Same value as request.contract_version.",
+        },
         "response_contract": {
             "accepted_response": {
                 "accepted": True,

@@ -15,6 +15,9 @@ class PulseHandoffFeedbackStaticTests(unittest.TestCase):
 
         self.assertIn("PulseHandoffRequest", text)
         self.assertIn("invalid_handoff_contract", text)
+        self.assertIn("Idempotency-Key", text)
+        self.assertIn("X-Edge-Mode", text)
+        self.assertIn("X-Edge-Contract-Version", text)
         self.assertIn("def normalise_handoff_feedback", text)
         self.assertIn("async def _post_with_feedback", text)
         self.assertIn('"status": "accepted"', text)

@@ -297,7 +297,22 @@ class PulseClient:
             safe_errors.append(safe_error)
         return safe_errors
 
-    async def _post_with_feedback(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    @staticmethod
+    def handoff_headers(payload: Dict[str, Any]) -> Dict[str, str]:
+        return {
+            "Idempotency-Key": str(payload.get("idempotency_key", "")),
+            "X-Edge-Mode": str(payload.get("mode", "")),
+            "X-Edge-Contract-Version": str(
+                payload.get("contract_version", "edge.pulse.handoff.v1")
+            ),
+        }
+
+    async def _post_with_feedback(
+        self,
+        endpoint: str,
+        payload: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         if not self._should_allow_request():
             if self.pulse_available:
                 logger.debug("Circuit %s - POST %s suppressed", self.state.name, endpoint)
@@ -308,7 +323,7 @@ class PulseClient:
         url = f"{self.base_url}{endpoint}"
         start = time.time()
         try:
-            response = await self._client.post(url, json=payload)
+            response = await self._client.post(url, json=payload, headers=headers)
             edge_api_latency.labels(endpoint=endpoint).observe(time.time() - start)
             if response.status_code in (200, 201, 202, 204):
                 edge_api_calls_total.labels(endpoint=endpoint, status="success").inc()
@@ -431,7 +446,11 @@ class PulseClient:
         if handoff_endpoint:
             if not handoff_endpoint.startswith("/"):
                 handoff_endpoint = f"/{handoff_endpoint}"
-            handoff_feedback = await self._post_with_feedback(handoff_endpoint, payload)
+            handoff_feedback = await self._post_with_feedback(
+                handoff_endpoint,
+                payload,
+                headers=self.handoff_headers(payload),
+            )
             if handoff_feedback.get("status") != "failed":
                 return handoff_feedback
         else:
