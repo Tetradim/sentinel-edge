@@ -47,6 +47,23 @@ interface PulseHandoffContract {
   endpoint_env: string;
   recommended_endpoint?: string;
   transport_headers?: Record<string, string>;
+  response_contract?: Record<string, PulseHandoffContractResponse>;
+  feedback_semantics?: Record<string, PulseFeedbackSemantic>;
+}
+
+interface PulseHandoffContractResponse {
+  accepted?: boolean;
+  status?: string;
+  reason?: string;
+  handoff_id?: string;
+  message?: string;
+  error?: string;
+}
+
+interface PulseFeedbackSemantic {
+  edge_sent?: boolean;
+  pulse_side_effect?: string;
+  expected_fields?: string[];
 }
 
 const MARKET_DATA_OPTIONS = [
@@ -56,6 +73,8 @@ const MARKET_DATA_OPTIONS = [
   'alpha_vantage',
   'twelve_data',
 ];
+
+const PULSE_RESPONSE_CONTRACT_KEYS = ['accepted_response', 'rejected_response', 'failed_response'];
 
 const isSecretField = (key: string) => {
   const normalized = key.toLowerCase();
@@ -508,6 +527,54 @@ export function SettingsDashboard() {
                 <div className="mt-3 text-xs text-amber-300">Idempotency-Key header missing from contract discovery.</div>
               )}
             </div>
+
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 md:col-span-3">
+              <div className="text-sm font-medium text-gray-300">response_contract</div>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                {PULSE_RESPONSE_CONTRACT_KEYS.map((name) => {
+                  const response = pulseHandoffContract.response_contract?.[name];
+                  if (!response) return null;
+                  return (
+                    <div key={name} className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+                      <div className="truncate text-xs font-semibold text-cyan-200">
+                        {formatPulseContractLabel(name)}
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs text-gray-500">
+                        <div>accepted: {formatPulseContractBoolean(response.accepted)}</div>
+                        <div>status: {response.status || '--'}</div>
+                        <div>reason: {response.reason || response.error || '--'}</div>
+                        {response.handoff_id && <div>handoff_id: {response.handoff_id}</div>}
+                        {response.message && <div>message: {response.message}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {Object.keys(pulseHandoffContract.response_contract || {}).length === 0 && (
+                <div className="mt-3 text-xs text-amber-300">No Pulse response contract entries discovered.</div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 md:col-span-3">
+              <div className="text-sm font-medium text-gray-300">Pulse feedback semantics</div>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                {Object.entries(pulseHandoffContract.feedback_semantics || {}).map(([name, semantics]) => (
+                  <div key={name} className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+                    <div className="truncate text-xs font-semibold text-cyan-200">
+                      {formatPulseContractLabel(name)}
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-500">
+                      <div>edge_sent: {formatPulseContractBoolean(semantics.edge_sent)}</div>
+                      <div>expected_fields: {formatPulseExpectedFields(semantics.expected_fields)}</div>
+                      <div>pulse_side_effect: {semantics.pulse_side_effect || '--'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {Object.keys(pulseHandoffContract.feedback_semantics || {}).length === 0 && (
+                <div className="mt-3 text-xs text-amber-300">No Pulse feedback semantics discovered.</div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -643,3 +710,16 @@ const RuntimeDetail: React.FC<{ label: string; value: string }> = ({ label, valu
     <div className="mt-2 break-words text-sm text-white">{value || '--'}</div>
   </div>
 );
+
+function formatPulseContractLabel(value: string) {
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatPulseContractBoolean(value?: boolean) {
+  if (value === undefined) return '--';
+  return value ? 'true' : 'false';
+}
+
+function formatPulseExpectedFields(fields?: string[]) {
+  return fields?.length ? fields.join(', ') : '--';
+}
