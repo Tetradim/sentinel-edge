@@ -75,6 +75,9 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("avg_realized_r", text)
         self.assertIn("allocated_notional", text)
         self.assertIn("best_plan", text)
+        self.assertIn("best_pnl_pct", text)
+        self.assertIn("worst_pnl_pct", text)
+        self.assertIn("'percent'", text)
 
     def test_readme_documents_default_off_simulation_lab_gate(self):
         text = README.read_text(encoding="utf-8")
@@ -92,6 +95,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
         self.assertIn("/api/simulation-lab/buying-power/allocation", text)
         self.assertIn("stop vs trailing-stop vs DCA comparisons", text)
         self.assertIn("/api/simulation-lab/stop-trailing-dca/compare", text)
+        self.assertIn("normalized P&L percentage", text)
 
     def test_settings_dashboard_surfaces_simulation_lab_status(self):
         text = SETTINGS.read_text(encoding="utf-8")

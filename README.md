@@ -491,7 +491,7 @@ Simulation Lab status in Settings mirrors the same gate and experiment catalog r
 
 - ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint, including per-breakout risk/reward scoring from the opposite ORB boundary, target/stop/open outcome scoring, average realized R, and summary fields for scored breakouts, average reward R, maximum risk per share, and maximum reward per share.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`.
-- Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions.
+- Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions by both absolute P&L and normalized P&L percentage.
 
 These capabilities are intended for research, replay, and validation. They should remain clearly separated from live automation unless an operator deliberately promotes a tested workflow into a gated automation path.
 
@@ -798,7 +798,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate and planned experiment catalog. |
 | POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan with optional `target_r_multiple` risk/reward and target/stop/open outcome scoring. |
 | POST | `/simulation-lab/buying-power/allocation` | Compare gated buying-power allocation plans for candidate trades. |
-| POST | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path. |
+| POST | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path with absolute and percentage-normalized P&L summaries. |
 | GET | `/strategies` | Strategy catalog. |
 | GET | `/strategies/puzzle-key/status` | Puzzle Key strategy status. |
 | GET | `/strategies/{strategy_name}` | Strategy details. |
@@ -969,7 +969,7 @@ Near-term priorities:
 3. Simulation Lab foundation
    - ORB strategy replay with risk/reward and outcome scoring
    - buying-power allocation experiments
-   - stop/trailing/DCA comparisons
+   - stop/trailing/DCA comparisons with normalized P&L percentage summaries
    - default-hidden until explicitly enabled
 
 4. Chart workspace

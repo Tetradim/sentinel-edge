@@ -43,20 +43,27 @@ class SimulationLabStopTrailingDcaTests(unittest.TestCase):
         self.assertEqual(result["summary"]["worst_plan"], "dca")
         self.assertEqual(result["summary"]["best_pnl"], 0.7)
         self.assertEqual(result["summary"]["worst_pnl"], -7.0)
+        self.assertEqual(result["summary"]["best_pnl_pct_plan"], "trailing_stop")
+        self.assertEqual(result["summary"]["best_pnl_pct"], 0.7)
+        self.assertEqual(result["summary"]["worst_pnl_pct_plan"], "regular_stop")
+        self.assertEqual(result["summary"]["worst_pnl_pct"], -5.0)
 
         self.assertEqual(plans["regular_stop"]["exit_reason"], "stop_loss")
         self.assertEqual(plans["regular_stop"]["exit_price"], 95.0)
         self.assertEqual(plans["regular_stop"]["pnl"], -5.0)
+        self.assertEqual(plans["regular_stop"]["pnl_pct"], -5.0)
 
         self.assertEqual(plans["trailing_stop"]["exit_reason"], "trailing_stop")
         self.assertEqual(plans["trailing_stop"]["exit_price"], 100.7)
         self.assertEqual(plans["trailing_stop"]["pnl"], 0.7)
+        self.assertEqual(plans["trailing_stop"]["pnl_pct"], 0.7)
 
         self.assertEqual(plans["dca"]["exit_reason"], "final_close")
         self.assertEqual(plans["dca"]["dca_fills"], 1)
         self.assertEqual(plans["dca"]["average_entry_price"], 98.5)
         self.assertEqual(plans["dca"]["quantity"], 2.0)
         self.assertEqual(plans["dca"]["pnl"], -7.0)
+        self.assertEqual(plans["dca"]["pnl_pct"], -3.5533)
 
     def test_dca_plan_can_fill_multiple_ladder_steps(self):
         result = run_stop_trailing_dca_comparison(

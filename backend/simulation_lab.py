@@ -156,6 +156,8 @@ def run_stop_trailing_dca_comparison(
     ]
     best_plan = max(plans, key=lambda plan: plan["pnl"])
     worst_plan = min(plans, key=lambda plan: plan["pnl"])
+    best_pct_plan = max(plans, key=lambda plan: plan["pnl_pct"])
+    worst_pct_plan = min(plans, key=lambda plan: plan["pnl_pct"])
 
     return {
         "schema_version": SIMULATION_LAB_STOP_TRAILING_DCA_VERSION,
@@ -176,6 +178,10 @@ def run_stop_trailing_dca_comparison(
             "best_pnl": best_plan["pnl"],
             "worst_plan": worst_plan["plan"],
             "worst_pnl": worst_plan["pnl"],
+            "best_pnl_pct_plan": best_pct_plan["plan"],
+            "best_pnl_pct": best_pct_plan["pnl_pct"],
+            "worst_pnl_pct_plan": worst_pct_plan["plan"],
+            "worst_pnl_pct": worst_pct_plan["pnl_pct"],
         },
         "plans": plans,
     }
