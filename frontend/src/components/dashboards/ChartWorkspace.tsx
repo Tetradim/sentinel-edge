@@ -9,7 +9,12 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot, OrbSessionSummary } from '@/types';
+import type {
+  ChartWorkspaceIndicatorId,
+  ChartWorkspaceIndicatorPoint,
+  ChartWorkspaceSnapshot,
+  OrbSessionSummary,
+} from '@/types';
 import { PlotlyChart } from '../ui/PlotlyCharts';
 
 const INDICATOR_OPTIONS: { id: ChartWorkspaceIndicatorId; label: string }[] = [
@@ -86,6 +91,12 @@ interface ChartWorkspaceSimulationLabResult {
     input_fingerprint_algorithm?: string;
     summary?: Record<string, unknown>;
   };
+}
+
+interface ChartWorkspaceIndicatorSnapshotMetric {
+  label: string;
+  value: string;
+  timestamp?: string;
 }
 
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
@@ -226,6 +237,10 @@ export const ChartWorkspace: React.FC = () => {
     [snapshot, chartType, showOrbOverlays, orbOverlaySessions],
   );
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
+  const indicatorSnapshotMetrics = useMemo(
+    () => buildIndicatorSnapshotMetrics(snapshot, selectedIndicators),
+    [snapshot, selectedIndicators],
+  );
   const latestBar = snapshot?.bars[snapshot.bars.length - 1];
   const { layoutMode, panelVisibility } = workspaceLayout;
   const simulationLabEnabled = Boolean(
@@ -544,6 +559,19 @@ export const ChartWorkspace: React.FC = () => {
             <div>Replay session: {selectedOrbReplaySession.label}</div>
             <div>Symbol: {activeSymbol}</div>
           </div>
+          {indicatorSnapshotMetrics.length > 0 && (
+            <div className="mt-3 space-y-1 border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
+              <div className="font-semibold uppercase text-slate-500">Indicator Snapshot</div>
+              {indicatorSnapshotMetrics.map((metric) => (
+                <div key={metric.label} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-slate-300">{metric.label}</span>
+                  <span className="shrink-0 font-mono text-slate-500" title={metric.timestamp}>
+                    {metric.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -979,6 +1007,59 @@ function buildOscillatorTraces(snapshot: ChartWorkspaceSnapshot | null) {
   return traces;
 }
 
+function buildIndicatorSnapshotMetrics(
+  snapshot: ChartWorkspaceSnapshot | null,
+  selectedIndicators: ChartWorkspaceIndicatorId[],
+): ChartWorkspaceIndicatorSnapshotMetric[] {
+  if (!snapshot) return [];
+  const metrics: ChartWorkspaceIndicatorSnapshotMetric[] = [];
+
+  selectedIndicators.forEach((id) => {
+    const indicator = snapshot.indicators[id];
+    if (!indicator) return;
+    const latestPoint = findLatestIndicatorPoint(indicator.points);
+    metrics.push({
+      label: indicator.label || formatIndicatorOptionLabel(id),
+      value: formatIndicatorSnapshotValue(id, latestPoint),
+      timestamp: latestPoint?.timestamp,
+    });
+  });
+
+  return metrics;
+}
+
+function findLatestIndicatorPoint(points: ChartWorkspaceIndicatorPoint[]) {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index];
+    if (
+      (point.value !== null && point.value !== undefined) ||
+      (point.macd !== null && point.macd !== undefined) ||
+      (point.signal !== null && point.signal !== undefined) ||
+      (point.histogram !== null && point.histogram !== undefined)
+    ) {
+      return point;
+    }
+  }
+  return undefined;
+}
+
+function formatIndicatorSnapshotValue(id: ChartWorkspaceIndicatorId, point?: ChartWorkspaceIndicatorPoint) {
+  if (!point) return '--';
+  if (id === 'macd') {
+    return [
+      `MACD ${formatIndicatorPointNumber(point.macd)}`,
+      `Sig ${formatIndicatorPointNumber(point.signal)}`,
+      `Hist ${formatIndicatorPointNumber(point.histogram)}`,
+    ].join(' / ');
+  }
+  return formatIndicatorPointNumber(point.value);
+}
+
+function formatIndicatorPointNumber(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '--';
+  return Math.abs(value) >= 100 ? value.toFixed(2) : value.toFixed(4);
+}
+
 function orbLineTrace(x: string[], y: number, name: string, color: string) {
   return {
     x: [x[0], x[x.length - 1]],
@@ -1027,8 +1108,12 @@ function formatIndicatorPresetLabel(indicatorPreset: ChartWorkspaceIndicatorPres
 function formatSelectedIndicators(indicators: ChartWorkspaceIndicatorId[]) {
   if (!indicators.length) return 'None';
   return indicators
-    .map((indicator) => INDICATOR_OPTIONS.find((option) => option.id === indicator)?.label || indicator.toUpperCase())
+    .map(formatIndicatorOptionLabel)
     .join(', ');
+}
+
+function formatIndicatorOptionLabel(indicator: ChartWorkspaceIndicatorId) {
+  return INDICATOR_OPTIONS.find((option) => option.id === indicator)?.label || indicator.toUpperCase();
 }
 
 function formatOrbOverlaySessionSummary(

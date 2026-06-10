@@ -291,6 +291,18 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("selectedIndicators: [...preset.indicators]", dashboard)
         self.assertIn("indicator presets", text)
 
+    def test_chart_workspace_surfaces_latest_indicator_snapshot(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("indicatorSnapshotMetrics", dashboard)
+        self.assertIn("buildIndicatorSnapshotMetrics", dashboard)
+        self.assertIn("findLatestIndicatorPoint", dashboard)
+        self.assertIn("formatIndicatorSnapshotValue", dashboard)
+        self.assertIn("Indicator Snapshot", dashboard)
+        self.assertIn("MACD", dashboard)
+        self.assertIn("latest EMA/SMA, RSI, and MACD values", text)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 
