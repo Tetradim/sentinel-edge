@@ -42,6 +42,19 @@ class SettingsActionErrorsStaticTests(unittest.TestCase):
         self.assertIn("localStorage.removeItem('edge_config')", text)
         self.assertIn("setSettingsError('Saved settings could not be loaded; defaults are shown.')", text)
 
+    def test_runtime_metadata_refresh_failures_are_visible(self):
+        text = SETTINGS.read_text(encoding="utf-8")
+
+        self.assertIn("const [runtimeSettingsError, setRuntimeSettingsError] = useState('')", text)
+        self.assertIn("const failedRuntimeLoads = [", text)
+        self.assertIn("providerResponse.status === 'rejected' || !providerResponse.value.ok", text)
+        self.assertIn("automationResponse.status === 'rejected' || !automationResponse.value.ok", text)
+        self.assertIn("tickersResponse.status === 'rejected' || !tickersResponse.value.ok", text)
+        self.assertIn("setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '')", text)
+        self.assertIn("setRuntimeSettingsError('Settings metadata failed to refresh. Showing latest available data.')", text)
+        self.assertIn("{runtimeSettingsError &&", text)
+        self.assertIn("{runtimeSettingsError}", text)
+
 
 if __name__ == "__main__":
     unittest.main()

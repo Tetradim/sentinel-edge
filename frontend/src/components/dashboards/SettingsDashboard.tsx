@@ -124,6 +124,7 @@ export function SettingsDashboard() {
   const [automation, setAutomation] = useState<AutomationSettings | null>(null);
   const [tickers, setTickers] = useState<string[]>([]);
   const [settingsError, setSettingsError] = useState('');
+  const [runtimeSettingsError, setRuntimeSettingsError] = useState('');
 
   // Load saved config from localStorage
   useEffect(() => {
@@ -169,6 +170,13 @@ export function SettingsDashboard() {
         ]);
         if (cancelled) return;
 
+        const failedRuntimeLoads = [
+          providerResponse.status === 'rejected' || !providerResponse.value.ok,
+          automationResponse.status === 'rejected' || !automationResponse.value.ok,
+          tickersResponse.status === 'rejected' || !tickersResponse.value.ok,
+        ].filter(Boolean);
+        setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '');
+
         if (providerResponse.status === 'fulfilled' && providerResponse.value.ok) {
           const data = await providerResponse.value.json();
           setProviders(data.providers || []);
@@ -183,7 +191,9 @@ export function SettingsDashboard() {
           setTickers((data.tickers || []).map((ticker: any) => ticker.symbol).filter(Boolean));
         }
       } catch (e) {
-        // Runtime metadata is informational only; keep Settings usable offline.
+        if (!cancelled) {
+          setRuntimeSettingsError('Settings metadata failed to refresh. Showing latest available data.');
+        }
       }
     };
     loadRuntimeSettings();
@@ -345,6 +355,12 @@ export function SettingsDashboard() {
       {settingsError && (
         <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
           {settingsError}
+        </div>
+      )}
+
+      {runtimeSettingsError && (
+        <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+          {runtimeSettingsError}
         </div>
       )}
 
