@@ -57,12 +57,30 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("runSimulationLabStopTrailingDcaComparison", dashboard)
         self.assertIn("PlotlyChart", dashboard)
 
+    def test_chart_workspace_exposes_custom_layout_persistence(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("CHART_WORKSPACE_LAYOUT_STORAGE_KEY", dashboard)
+        self.assertIn("sentinel-edge.chart-workspace.layout.v1", dashboard)
+        self.assertIn("layoutMode", dashboard)
+        self.assertIn("panelVisibility", dashboard)
+        self.assertIn("localStorage.getItem", dashboard)
+        self.assertIn("localStorage.setItem", dashboard)
+        self.assertIn("localStorage.removeItem", dashboard)
+        self.assertIn("Analysis", dashboard)
+        self.assertIn("Execution", dashboard)
+        self.assertIn("Research", dashboard)
+        self.assertIn("Oscillators", dashboard)
+        self.assertIn("Lab", dashboard)
+        self.assertIn("Snapshot", dashboard)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 
         self.assertIn("/api/chart-workspace/{symbol}", text)
         self.assertIn("EMA/SMA, RSI, MACD", text)
         self.assertIn("ORB overlays", text)
+        self.assertIn("Analysis/Execution/Research layouts", text)
 
 
 if __name__ == "__main__":

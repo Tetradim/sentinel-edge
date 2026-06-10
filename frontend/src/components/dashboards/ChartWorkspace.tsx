@@ -21,15 +21,56 @@ const INDICATOR_OPTIONS: { id: ChartWorkspaceIndicatorId; label: string }[] = [
 
 const DEFAULT_INDICATORS: ChartWorkspaceIndicatorId[] = ['ema_9', 'ema_20', 'sma_20', 'rsi_14', 'macd'];
 
+type ChartWorkspaceLayoutMode = 'analysis' | 'execution' | 'research';
+type ChartWorkspacePanelId = 'snapshot' | 'lab' | 'oscillators';
+
+interface ChartWorkspacePanelVisibility {
+  snapshot: boolean;
+  lab: boolean;
+  oscillators: boolean;
+}
+
+interface ChartWorkspaceLayoutState {
+  layoutMode: ChartWorkspaceLayoutMode;
+  panelVisibility: ChartWorkspacePanelVisibility;
+}
+
+const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
+
+const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
+  snapshot: true,
+  lab: true,
+  oscillators: true,
+};
+
+const DEFAULT_LAYOUT_STATE: ChartWorkspaceLayoutState = {
+  layoutMode: 'analysis',
+  panelVisibility: DEFAULT_PANEL_VISIBILITY,
+};
+
+const LAYOUT_OPTIONS: { id: ChartWorkspaceLayoutMode; label: string }[] = [
+  { id: 'analysis', label: 'Analysis' },
+  { id: 'execution', label: 'Execution' },
+  { id: 'research', label: 'Research' },
+];
+
+const PANEL_OPTIONS: { id: ChartWorkspacePanelId; label: string }[] = [
+  { id: 'snapshot', label: 'Snapshot' },
+  { id: 'lab', label: 'Lab' },
+  { id: 'oscillators', label: 'Oscillators' },
+];
+
 export const ChartWorkspace: React.FC = () => {
   const [symbolInput, setSymbolInput] = useState('SPY');
   const [activeSymbol, setActiveSymbol] = useState('SPY');
   const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
   const [selectedIndicators, setSelectedIndicators] = useState<ChartWorkspaceIndicatorId[]>(DEFAULT_INDICATORS);
+  const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [labMessage, setLabMessage] = useState('');
+  const [layoutMessage, setLayoutMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +101,13 @@ export const ChartWorkspace: React.FC = () => {
   const priceData = useMemo(() => buildPriceTraces(snapshot, chartType), [snapshot, chartType]);
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
   const latestBar = snapshot?.bars[snapshot.bars.length - 1];
+  const { layoutMode, panelVisibility } = workspaceLayout;
+  const hasSidePanels = panelVisibility.snapshot || panelVisibility.lab;
+  const workspaceGridClass = getWorkspaceGridClass(layoutMode);
+  const sidePanelClass = getSidePanelClass(layoutMode);
+  const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? 'xl:order-last' : ''}`;
+  const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
+  const priceChartHeight = layoutMode === 'research' ? 500 : 430;
 
   const submitSymbol = (event: React.FormEvent) => {
     event.preventDefault();
@@ -76,6 +124,34 @@ export const ChartWorkspace: React.FC = () => {
       if (checked) return current.includes(indicator) ? current : [...current, indicator];
       return current.filter((item) => item !== indicator);
     });
+  };
+
+  const updateWorkspaceLayout = (nextLayout: ChartWorkspaceLayoutState) => {
+    setWorkspaceLayout(nextLayout);
+    setLayoutMessage(persistChartWorkspaceLayout(nextLayout) ? 'Layout saved' : 'Layout changes are local only');
+  };
+
+  const selectLayoutMode = (nextLayoutMode: ChartWorkspaceLayoutMode) => {
+    updateWorkspaceLayout({
+      ...workspaceLayout,
+      layoutMode: nextLayoutMode,
+    });
+  };
+
+  const toggleWorkspacePanel = (panel: ChartWorkspacePanelId, checked: boolean) => {
+    updateWorkspaceLayout({
+      ...workspaceLayout,
+      panelVisibility: {
+        ...workspaceLayout.panelVisibility,
+        [panel]: checked,
+      },
+    });
+  };
+
+  const resetWorkspaceLayout = () => {
+    setWorkspaceLayout(DEFAULT_LAYOUT_STATE);
+    clearChartWorkspaceLayout();
+    setLayoutMessage('Layout reset');
   };
 
   const runOrbReplay = async () => {
@@ -114,6 +190,45 @@ export const ChartWorkspace: React.FC = () => {
     }
   };
 
+  const sidePanels = hasSidePanels ? (
+    <aside className={sidePanelClass}>
+      {panelVisibility.snapshot && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <Activity className="h-4 w-4 text-cyan-300" />
+            Snapshot
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <Metric label="Last" value={latestBar ? `$${latestBar.close.toFixed(2)}` : '--'} />
+            <Metric label="Bars" value={snapshot?.summary.bar_count ?? '--'} />
+            <Metric label="Indicators" value={snapshot?.summary.indicator_count ?? '--'} />
+            <Metric label="ORB" value={snapshot?.summary.orb_overlay_count ?? '--'} />
+          </div>
+        </section>
+      )}
+
+      {panelVisibility.lab && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <FlaskConical className="h-4 w-4 text-amber-300" />
+            Simulation Lab
+          </div>
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={runOrbReplay} className={inactiveToolClass}>
+              <BarChart3 className="h-4 w-4" />
+              ORB Replay
+            </button>
+            <button type="button" onClick={runExitComparison} className={inactiveToolClass}>
+              <Activity className="h-4 w-4" />
+              Stop/DCA
+            </button>
+          </div>
+          {labMessage && <p className="mt-3 text-xs text-slate-300">{labMessage}</p>}
+        </section>
+      )}
+    </aside>
+  ) : null;
+
   return (
     <div className="space-y-4" data-testid="chart-workspace">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,8 +254,52 @@ export const ChartWorkspace: React.FC = () => {
         </form>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-3">
+      <section className={panelClass}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <BarChart3 className="h-4 w-4 text-cyan-300" />
+            Layout
+          </div>
+          <button type="button" onClick={resetWorkspaceLayout} className={inactiveToolClass}>
+            <RefreshCw className="h-4 w-4" />
+            Reset
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(260px,auto)]">
+          <div className="flex flex-wrap items-center gap-2">
+            {LAYOUT_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => selectLayoutMode(option.id)}
+                className={layoutMode === option.id ? activeToolClass : inactiveToolClass}
+                aria-pressed={layoutMode === option.id}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {PANEL_OPTIONS.map((option) => (
+              <label key={option.id} className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={panelVisibility[option.id]}
+                  onChange={(event) => toggleWorkspacePanel(option.id, event.target.checked)}
+                  className="h-3.5 w-3.5 accent-cyan-400"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+        {layoutMessage && <p className="mt-3 text-xs text-slate-400">{layoutMessage}</p>}
+      </section>
+
+      <div className={workspaceGridClass}>
+        {layoutMode === 'execution' && sidePanels}
+
+        <section className={pricePanelClass}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button
@@ -188,7 +347,7 @@ export const ChartWorkspace: React.FC = () => {
           ) : (
             <PlotlyChart
               data={priceData}
-              height={430}
+              height={priceChartHeight}
               layout={{
                 showlegend: true,
                 legend: { orientation: 'h', y: 1.08, x: 0 },
@@ -199,51 +358,22 @@ export const ChartWorkspace: React.FC = () => {
           )}
         </section>
 
-        <aside className="space-y-3">
-          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-3">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-              <Activity className="h-4 w-4 text-cyan-300" />
-              Snapshot
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <Metric label="Last" value={latestBar ? `$${latestBar.close.toFixed(2)}` : '--'} />
-              <Metric label="Bars" value={snapshot?.summary.bar_count ?? '--'} />
-              <Metric label="Indicators" value={snapshot?.summary.indicator_count ?? '--'} />
-              <Metric label="ORB" value={snapshot?.summary.orb_overlay_count ?? '--'} />
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-3">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-              <FlaskConical className="h-4 w-4 text-amber-300" />
-              Simulation Lab
-            </div>
-            <div className="flex flex-col gap-2">
-              <button type="button" onClick={runOrbReplay} className={inactiveToolClass}>
-                <BarChart3 className="h-4 w-4" />
-                ORB Replay
-              </button>
-              <button type="button" onClick={runExitComparison} className={inactiveToolClass}>
-                <Activity className="h-4 w-4" />
-                Stop/DCA
-              </button>
-            </div>
-            {labMessage && <p className="mt-3 text-xs text-slate-300">{labMessage}</p>}
-          </section>
-        </aside>
+        {layoutMode !== 'execution' && sidePanels}
       </div>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-3">
-        <PlotlyChart
-          data={oscillatorData}
-          height={220}
-          layout={{
-            showlegend: true,
-            legend: { orientation: 'h', y: 1.15, x: 0 },
-            yaxis: { title: 'Oscillators' },
-          }}
-        />
-      </section>
+      {panelVisibility.oscillators && (
+        <section className={panelClass}>
+          <PlotlyChart
+            data={oscillatorData}
+            height={oscillatorHeight}
+            layout={{
+              showlegend: true,
+              legend: { orientation: 'h', y: 1.15, x: 0 },
+              yaxis: { title: 'Oscillators' },
+            }}
+          />
+        </section>
+      )}
     </div>
   );
 };
@@ -354,6 +484,78 @@ function orbLineTrace(x: string[], y: number, name: string, color: string) {
   };
 }
 
+function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {
+  if (typeof window === 'undefined') return cloneDefaultLayoutState();
+  try {
+    const storedLayout = window.localStorage.getItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
+    if (!storedLayout) return cloneDefaultLayoutState();
+    return normalizeChartWorkspaceLayout(JSON.parse(storedLayout));
+  } catch {
+    return cloneDefaultLayoutState();
+  }
+}
+
+function persistChartWorkspaceLayout(layout: ChartWorkspaceLayoutState) {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearChartWorkspaceLayout() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
+  } catch {
+    return;
+  }
+}
+
+function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutState {
+  if (!isRecord(value)) return cloneDefaultLayoutState();
+  const storedPanels = isRecord(value.panelVisibility) ? value.panelVisibility : {};
+  return {
+    layoutMode: isChartWorkspaceLayoutMode(value.layoutMode) ? value.layoutMode : DEFAULT_LAYOUT_STATE.layoutMode,
+    panelVisibility: {
+      snapshot: typeof storedPanels.snapshot === 'boolean' ? storedPanels.snapshot : DEFAULT_PANEL_VISIBILITY.snapshot,
+      lab: typeof storedPanels.lab === 'boolean' ? storedPanels.lab : DEFAULT_PANEL_VISIBILITY.lab,
+      oscillators:
+        typeof storedPanels.oscillators === 'boolean' ? storedPanels.oscillators : DEFAULT_PANEL_VISIBILITY.oscillators,
+    },
+  };
+}
+
+function cloneDefaultLayoutState(): ChartWorkspaceLayoutState {
+  return {
+    layoutMode: DEFAULT_LAYOUT_STATE.layoutMode,
+    panelVisibility: { ...DEFAULT_PANEL_VISIBILITY },
+  };
+}
+
+function isChartWorkspaceLayoutMode(value: unknown): value is ChartWorkspaceLayoutMode {
+  return value === 'analysis' || value === 'execution' || value === 'research';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function getWorkspaceGridClass(layoutMode: ChartWorkspaceLayoutMode) {
+  if (layoutMode === 'research') return 'grid grid-cols-1 gap-3';
+  if (layoutMode === 'execution') return 'grid grid-cols-1 gap-3 xl:grid-cols-[280px_minmax(0,1fr)]';
+  return 'grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]';
+}
+
+function getSidePanelClass(layoutMode: ChartWorkspaceLayoutMode) {
+  if (layoutMode === 'research') return 'grid grid-cols-1 gap-3 lg:grid-cols-2';
+  if (layoutMode === 'execution') return 'space-y-3 xl:order-first';
+  return 'space-y-3';
+}
+
+const panelClass = 'rounded-lg border border-slate-800 bg-slate-950/80 p-3';
 const activeToolClass =
   'inline-flex h-9 items-center gap-2 rounded-lg border border-cyan-300/60 bg-cyan-400/15 px-3 text-sm font-semibold text-cyan-100';
 const inactiveToolClass =
