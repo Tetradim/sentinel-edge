@@ -113,7 +113,28 @@ class PulseHandoffRequest(BaseModel):
             raise ValueError("trailing_percent is required when stop_type is trailing")
         if self.action == PulseHandoffAction.DCA and self.dca is None:
             raise ValueError("dca is required for dca handoff actions")
+        self._validate_idempotency_key_scope()
         return self
+
+    def _validate_idempotency_key_scope(self) -> None:
+        parts = self.idempotency_key.split(":")
+        expected_format = "edge:{symbol}:{action}:{orb_session}:{minute_bucket}:{nonce}"
+        if len(parts) != 6:
+            raise ValueError(f"idempotency_key must match {expected_format}")
+
+        prefix, symbol, action, orb_session, minute_bucket, nonce = parts
+        if prefix != "edge":
+            raise ValueError(f"idempotency_key must match {expected_format}")
+        if symbol.upper() != self.symbol:
+            raise ValueError("idempotency_key symbol must match payload symbol")
+        if action != self.action.value:
+            raise ValueError("idempotency_key action must match payload action")
+        if orb_session != self.orb_session.value:
+            raise ValueError("idempotency_key orb_session must match payload orb_session")
+        if not minute_bucket.isdigit():
+            raise ValueError("idempotency_key minute_bucket must be numeric")
+        if not nonce.strip():
+            raise ValueError("idempotency_key nonce is required")
 
 
 def pulse_handoff_contract_document() -> Dict[str, Any]:
@@ -239,6 +260,8 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
             "idempotency_key": {
                 "required": True,
                 "transport_header": "Idempotency-Key",
+                "format": "edge:{symbol}:{action}:{orb_session}:{minute_bucket}:{nonce}",
+                "validation": "must_match_payload_scope",
                 "dedupe_scope": ["symbol", "action", "orb_session", "minute_bucket", "nonce"],
                 "pulse_requirement": "Pulse should treat duplicate keys as the same handoff attempt.",
             },

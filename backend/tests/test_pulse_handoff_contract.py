@@ -29,6 +29,11 @@ def valid_payload(**overrides):
         "metadata": {"signal_strength": 8.75},
     }
     payload.update(overrides)
+    if "idempotency_key" not in overrides:
+        payload["idempotency_key"] = (
+            f"edge:{str(payload['symbol']).strip().upper()}:"
+            f"{payload['action']}:{payload['orb_session']}:123:test"
+        )
     return payload
 
 
@@ -69,6 +74,25 @@ class PulseHandoffContractTests(unittest.TestCase):
             PulseHandoffRequest.from_edge_payload(valid_payload(idempotency_key=""))
 
         self.assertIn("idempotency_key", str(ctx.exception))
+
+    def test_contract_enforces_idempotency_scope_matches_payload(self):
+        valid = PulseHandoffRequest.from_edge_payload(
+            valid_payload(idempotency_key="edge:AAPL:buy:market_open:17600000:abcd1234")
+        )
+        self.assertEqual(valid.idempotency_key, "edge:AAPL:buy:market_open:17600000:abcd1234")
+
+        invalid_keys = [
+            "edge:MSFT:buy:market_open:17600000:abcd1234",
+            "edge:AAPL:dca:market_open:17600000:abcd1234",
+            "edge:AAPL:buy:premarket_30m:17600000:abcd1234",
+            "edge:AAPL:buy:market_open:not-a-bucket:abcd1234",
+            "edge:AAPL:buy:market_open",
+        ]
+        for idempotency_key in invalid_keys:
+            with self.subTest(idempotency_key=idempotency_key):
+                with self.assertRaises(ValidationError) as ctx:
+                    PulseHandoffRequest.from_edge_payload(valid_payload(idempotency_key=idempotency_key))
+                self.assertIn("idempotency_key", str(ctx.exception))
 
     def test_trailing_handoff_requires_positive_trailing_percent(self):
         with self.assertRaises(ValidationError) as ctx:
@@ -148,6 +172,11 @@ class PulseHandoffContractTests(unittest.TestCase):
         field_semantics = document["field_semantics"]
         self.assertTrue(field_semantics["idempotency_key"]["required"])
         self.assertEqual(field_semantics["idempotency_key"]["transport_header"], "Idempotency-Key")
+        self.assertEqual(
+            field_semantics["idempotency_key"]["format"],
+            "edge:{symbol}:{action}:{orb_session}:{minute_bucket}:{nonce}",
+        )
+        self.assertEqual(field_semantics["idempotency_key"]["validation"], "must_match_payload_scope")
         self.assertIn("action", field_semantics["idempotency_key"]["dedupe_scope"])
         self.assertEqual(field_semantics["mode"]["allowed_values"], ["paper", "live"])
         self.assertEqual(field_semantics["mode"]["recommend_only_semantics"], "suppressed_by_edge")
