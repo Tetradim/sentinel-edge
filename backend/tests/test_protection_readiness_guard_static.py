@@ -26,6 +26,10 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
         self.assertIn("detail.label", text)
         self.assertIn("title={detail.description || detail.name}", text)
         self.assertIn("Readiness blockers", text)
+        self.assertIn("protection-readiness-checks", text)
+        self.assertIn("Object.entries(readinessChecks).map(([check, ok])", text)
+        self.assertIn("const detail = readinessDetails[check]", text)
+        self.assertIn("{detail.label}: {ok ? 'ok' : 'blocked'}", text)
 
     def test_paper_handoff_is_disabled_when_runtime_not_ready(self):
         text = PROTECTION.read_text(encoding="utf-8")

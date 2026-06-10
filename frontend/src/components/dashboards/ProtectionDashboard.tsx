@@ -310,6 +310,28 @@ export const ProtectionDashboard: React.FC = () => {
               </span>
             ))}
           </div>
+          {Object.keys(readinessChecks).length > 0 && (
+            <div data-testid="protection-readiness-checks" className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(readinessChecks).map(([check, ok]) => {
+                const detail = readinessDetails[check] || {
+                  name: check,
+                  label: check,
+                  description: check,
+                  required: true,
+                  ready: ok,
+                };
+                return (
+                  <span
+                    key={check}
+                    title={detail.description || detail.name}
+                    className={`rounded-full px-2 py-0.5 text-xs ${ok ? 'bg-emerald-500/10 text-emerald-200' : 'bg-red-500/15 text-red-100'}`}
+                  >
+                    {detail.label}: {ok ? 'ok' : 'blocked'}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
