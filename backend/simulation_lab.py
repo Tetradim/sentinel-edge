@@ -11,8 +11,10 @@ from orb import ET, MARKET_CLOSE, ORB_SESSIONS, _is_trading_day, _session_dt, _t
 SIMULATION_LAB_ENV_FLAG = "EDGE_SIMULATION_LAB_ENABLED"
 SIMULATION_LAB_STATUS_VERSION = "edge.simulation_lab.status.v1"
 SIMULATION_LAB_ORB_BACKTEST_VERSION = "edge.simulation_lab.orb_backtest.v1"
+SIMULATION_LAB_BUYING_POWER_VERSION = "edge.simulation_lab.buying_power_allocation.v1"
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _BREAKOUT_SIDES = {"both", "long", "short"}
+_ALLOCATION_MODES = {"confidence_weighted", "equal_weight", "priority_fill"}
 
 
 class SimulationLabDisabledError(RuntimeError):
@@ -52,6 +54,8 @@ _EXPERIMENTS = (
         id="buying_power_allocation",
         label="Buying-power allocation experiments",
         capability="Compare capital-allocation assumptions before promotion to automation settings.",
+        status="available",
+        runnable_when_enabled=True,
     ),
     SimulationLabExperiment(
         id="stop_trailing_dca",
@@ -84,6 +88,180 @@ def simulation_lab_status() -> Dict[str, Any]:
         "env_flag": SIMULATION_LAB_ENV_FLAG,
         "experiments": [experiment.to_status(enabled) for experiment in _EXPERIMENTS],
     }
+
+
+def run_buying_power_allocation_experiment(
+    *,
+    buying_power: float,
+    candidates: Iterable[Dict[str, Any]],
+    mode: str = "confidence_weighted",
+    cash_reserve_pct: float = 0.0,
+    max_position_pct: float = 1.0,
+) -> Dict[str, Any]:
+    """Allocate buying power across candidate trades without touching live state."""
+    buying_power = _positive_float(buying_power, "buying_power")
+    cash_reserve_pct = _bounded_ratio(cash_reserve_pct, "cash_reserve_pct")
+    max_position_pct = _bounded_ratio(max_position_pct, "max_position_pct", allow_zero=False)
+    if mode not in _ALLOCATION_MODES:
+        raise ValueError("mode must be one of: confidence_weighted, equal_weight, priority_fill")
+
+    normalised = [_normalise_allocation_candidate(candidate, index) for index, candidate in enumerate(candidates)]
+    if not normalised:
+        raise ValueError("At least one allocation candidate is required")
+
+    reserve_notional = buying_power * cash_reserve_pct
+    allocatable_notional = buying_power - reserve_notional
+    max_position_notional = buying_power * max_position_pct
+    eligible: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, Any]] = []
+
+    for candidate in normalised:
+        remaining_position_capacity = max(0.0, max_position_notional - candidate["current_exposure"])
+        candidate_cap = min(candidate["requested_notional"], remaining_position_capacity)
+        if candidate_cap <= 0:
+            skipped.append(_skipped_allocation(candidate, "position_limit"))
+            continue
+        eligible.append({**candidate, "candidate_cap": candidate_cap})
+
+    allocations = _allocate_buying_power(
+        eligible=eligible,
+        allocatable_notional=allocatable_notional,
+        buying_power=buying_power,
+        mode=mode,
+    )
+    allocated_notional = round(sum(item["allocated_notional"] for item in allocations), 2)
+    unallocated_notional = round(max(0.0, allocatable_notional - allocated_notional), 2)
+
+    return {
+        "schema_version": SIMULATION_LAB_BUYING_POWER_VERSION,
+        "mode": mode,
+        "buying_power": round(buying_power, 2),
+        "cash_reserve_pct": round(cash_reserve_pct, 4),
+        "max_position_pct": round(max_position_pct, 4),
+        "cash_reserve_notional": round(reserve_notional, 2),
+        "allocatable_notional": round(allocatable_notional, 2),
+        "max_position_notional": round(max_position_notional, 2),
+        "summary": {
+            "candidate_count": len(normalised),
+            "allocated_count": len(allocations),
+            "skipped_count": len(skipped),
+            "allocated_notional": allocated_notional,
+            "unallocated_notional": unallocated_notional,
+        },
+        "allocations": allocations,
+        "skipped": skipped,
+    }
+
+
+def _allocate_buying_power(
+    *,
+    eligible: List[Dict[str, Any]],
+    allocatable_notional: float,
+    buying_power: float,
+    mode: str,
+) -> List[Dict[str, Any]]:
+    if not eligible or allocatable_notional <= 0:
+        return []
+
+    if mode == "priority_fill":
+        ordered = sorted(eligible, key=lambda item: (-item["confidence"], item["index"]))
+        remaining = allocatable_notional
+        allocations = []
+        for candidate in ordered:
+            allocated = min(candidate["candidate_cap"], remaining)
+            if allocated <= 0:
+                break
+            allocations.append(_allocation_payload(candidate, allocated, buying_power))
+            remaining -= allocated
+        return allocations
+
+    if mode == "equal_weight":
+        targets = {candidate["index"]: allocatable_notional / len(eligible) for candidate in eligible}
+    else:
+        confidence_total = sum(candidate["confidence"] for candidate in eligible)
+        if confidence_total <= 0:
+            targets = {candidate["index"]: allocatable_notional / len(eligible) for candidate in eligible}
+        else:
+            targets = {
+                candidate["index"]: allocatable_notional * (candidate["confidence"] / confidence_total)
+                for candidate in eligible
+            }
+
+    allocations = []
+    for candidate in eligible:
+        allocated = min(candidate["candidate_cap"], targets[candidate["index"]])
+        if allocated > 0:
+            allocations.append(_allocation_payload(candidate, allocated, buying_power))
+    return allocations
+
+
+def _normalise_allocation_candidate(candidate: Dict[str, Any], index: int) -> Dict[str, Any]:
+    symbol = str(candidate.get("symbol", "")).strip().upper()
+    if not symbol:
+        raise ValueError("Allocation candidate symbol is required")
+    return {
+        "index": index,
+        "symbol": symbol,
+        "confidence": _bounded_ratio(candidate.get("confidence"), "confidence"),
+        "requested_notional": _positive_float(candidate.get("requested_notional"), "requested_notional"),
+        "current_exposure": _non_negative_float(candidate.get("current_exposure", 0.0), "current_exposure"),
+    }
+
+
+def _allocation_payload(candidate: Dict[str, Any], allocated: float, buying_power: float) -> Dict[str, Any]:
+    allocated = round(allocated, 2)
+    requested = candidate["requested_notional"]
+    return {
+        "symbol": candidate["symbol"],
+        "confidence": round(candidate["confidence"], 4),
+        "requested_notional": round(requested, 2),
+        "current_exposure": round(candidate["current_exposure"], 2),
+        "allocated_notional": allocated,
+        "allocation_pct_of_buying_power": round(allocated / buying_power, 4),
+        "fill_ratio": round(allocated / requested, 4) if requested > 0 else 0.0,
+    }
+
+
+def _skipped_allocation(candidate: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    return {
+        "symbol": candidate["symbol"],
+        "confidence": round(candidate["confidence"], 4),
+        "requested_notional": round(candidate["requested_notional"], 2),
+        "current_exposure": round(candidate["current_exposure"], 2),
+        "reason": reason,
+    }
+
+
+def _positive_float(value: Any, field: str) -> float:
+    numeric = _coerce_float(value, field)
+    if numeric <= 0:
+        raise ValueError(f"{field} must be greater than 0")
+    return numeric
+
+
+def _non_negative_float(value: Any, field: str) -> float:
+    numeric = _coerce_float(value, field)
+    if numeric < 0:
+        raise ValueError(f"{field} must be greater than or equal to 0")
+    return numeric
+
+
+def _bounded_ratio(value: Any, field: str, allow_zero: bool = True) -> float:
+    numeric = _coerce_float(value, field)
+    lower_ok = numeric >= 0 if allow_zero else numeric > 0
+    if not lower_ok or numeric > 1:
+        bound = "between 0 and 1" if allow_zero else "greater than 0 and at most 1"
+        raise ValueError(f"{field} must be {bound}")
+    return numeric
+
+
+def _coerce_float(value: Any, field: str) -> float:
+    if value is None:
+        raise ValueError(f"{field} is required")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be numeric") from exc
 
 
 def run_orb_backtest_replay(

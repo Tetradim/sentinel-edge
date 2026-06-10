@@ -37,6 +37,7 @@ from shared.handoff import pulse_handoff_contract_document
 from simulation_lab import (
     SimulationLabDisabledError,
     require_simulation_lab_enabled,
+    run_buying_power_allocation_experiment,
     run_orb_backtest_replay,
     simulation_lab_status,
 )
@@ -523,6 +524,23 @@ class SimulationLabOrbBacktestRequest(BaseModel):
     timeframe_minutes: int = Field(30, ge=1, le=390)
     breakout_side: str = Field("both", pattern="^(both|long|short)$")
     bars: List[SimulationLabOrbBar] = Field(..., min_length=1, max_length=50000)
+
+
+class SimulationLabAllocationCandidate(BaseModel):
+    """One candidate trade for Simulation Lab buying-power allocation."""
+    symbol: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    requested_notional: float = Field(..., gt=0.0)
+    current_exposure: float = Field(0.0, ge=0.0)
+
+
+class SimulationLabBuyingPowerAllocationRequest(BaseModel):
+    """Request body for POST /api/simulation-lab/buying-power/allocation."""
+    buying_power: float = Field(..., gt=0.0)
+    cash_reserve_pct: float = Field(0.0, ge=0.0, le=1.0)
+    max_position_pct: float = Field(1.0, gt=0.0, le=1.0)
+    mode: str = Field("confidence_weighted", pattern="^(confidence_weighted|equal_weight|priority_fill)$")
+    candidates: List[SimulationLabAllocationCandidate] = Field(..., min_length=1, max_length=5000)
 
 
 def _monte_carlo_settings_from_request(request: Any):
@@ -1291,6 +1309,28 @@ async def run_simulation_lab_orb_backtest(request: SimulationLabOrbBacktestReque
             timeframe_minutes=request.timeframe_minutes,
             breakout_side=request.breakout_side,
             bars=bars,
+        )
+    except SimulationLabDisabledError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/simulation-lab/buying-power/allocation")
+async def run_simulation_lab_buying_power_allocation(request: SimulationLabBuyingPowerAllocationRequest):
+    """Run a gated buying-power allocation experiment against candidate trades."""
+    try:
+        require_simulation_lab_enabled()
+        candidates = [
+            candidate.model_dump() if hasattr(candidate, "model_dump") else candidate.dict()
+            for candidate in request.candidates
+        ]
+        return run_buying_power_allocation_experiment(
+            buying_power=request.buying_power,
+            cash_reserve_pct=request.cash_reserve_pct,
+            max_position_pct=request.max_position_pct,
+            mode=request.mode,
+            candidates=candidates,
         )
     except SimulationLabDisabledError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc

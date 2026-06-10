@@ -259,6 +259,13 @@ class ApiClient {
     });
   }
 
+  async runSimulationLabBuyingPowerAllocation(payload: any) {
+    return fetchJSON('/api/simulation-lab/buying-power/allocation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async pauseScheduler() {
     return fetchJSON('/api/control/pause', { method: 'POST' });
   }
