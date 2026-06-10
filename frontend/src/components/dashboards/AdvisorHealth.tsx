@@ -161,6 +161,9 @@ export const AdvisorHealth: React.FC = () => {
   const readinessDetails: Record<string, EdgeReadinessCheckDetail> = state.ready?.check_details ?? {};
   const failingReadinessDetails: EdgeReadinessCheckDetail[] = state.ready?.failing_check_details ?? [];
   const runtimeReady = Boolean(state.ready?.ready);
+  const readinessSubtitle = state.ready
+    ? `${failingReadinessDetails.length} failing readiness checks`
+    : 'Readiness unavailable';
   const paused = Boolean(state.health?.paused || state.stats?.paused);
   const running = Boolean(state.health?.running || state.stats?.running);
   const killSwitchActive = Boolean(state.killSwitch?.kill_switch_active);
@@ -198,7 +201,7 @@ export const AdvisorHealth: React.FC = () => {
         <MetricCard
           title="Runtime Readiness"
           value={state.ready ? (runtimeReady ? 'Ready' : 'Blocked') : 'Unknown'}
-          subtitle={`${failingReadinessDetails.length} failing readiness checks`}
+          subtitle={readinessSubtitle}
           icon={runtimeReady ? CheckCircle : AlertTriangle}
           color={runtimeReady ? 'green' : state.ready ? 'red' : 'yellow'}
         />
