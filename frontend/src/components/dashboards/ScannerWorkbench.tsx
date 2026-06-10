@@ -94,6 +94,7 @@ export const ScannerWorkbench: React.FC = () => {
 
   const selectedCount = watchState.scanners.length + watchState.tickers.length + watchState.strategies.length + watchState.indicators.length;
   const selectedScannerNames = watchState.scanners.map((id) => scannerLookup.get(id)?.name ?? id);
+  const selectedTickerSymbols = watchState.tickers;
   const selectedStrategyNames = watchState.strategies.map((id) => strategyLookup.get(id)?.name ?? id);
   const selectedIndicatorNames = watchState.indicators.map((id) => indicatorLookup.get(id)?.name ?? id);
 
@@ -211,8 +212,9 @@ export const ScannerWorkbench: React.FC = () => {
             <Activity className="h-4 w-4 text-cyan-300" />
             Bot watchlist
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-gray-300 xl:grid-cols-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-gray-300 md:grid-cols-2 xl:grid-cols-4">
             <WatchSummary label="Scanner watch" values={selectedScannerNames} />
+            <WatchSummary label="Ticker watch" values={selectedTickerSymbols} />
             <WatchSummary label="Strategy watch" values={selectedStrategyNames} />
             <WatchSummary label="Indicator watch" values={selectedIndicatorNames} />
           </div>

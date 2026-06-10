@@ -104,6 +104,8 @@ class ScannerWorkbenchStaticTests(unittest.TestCase):
         self.assertIn("Tickers", dashboard)
         self.assertIn("Strategies", dashboard)
         self.assertIn("Indicators", dashboard)
+        self.assertIn("selectedTickerSymbols", dashboard)
+        self.assertIn('WatchSummary label="Ticker watch"', dashboard)
         self.assertIn("collection_packs", dashboard)
         self.assertIn("Collections distilled into packs", dashboard)
         self.assertNotIn("id: 'collections'", dashboard)
