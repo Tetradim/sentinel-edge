@@ -154,6 +154,15 @@ class PulseHandoffContractTests(unittest.TestCase):
         self.assertEqual(feedback_semantics["rejected"]["edge_sent"], False)
         self.assertEqual(feedback_semantics["failed"]["edge_sent"], False)
 
+    def test_contract_document_distinguishes_orb_sessions_from_strategy_contexts(self):
+        document = pulse_handoff_contract_document()
+        orb_session_semantics = document["field_semantics"]["orb_session"]
+
+        self.assertEqual(orb_session_semantics["known_orb_session_values"], ["premarket_30m", "market_open"])
+        self.assertNotIn("puzzle_key", orb_session_semantics["known_orb_session_values"])
+        self.assertIn("puzzle_key", orb_session_semantics["strategy_context_values"])
+        self.assertIn("non-ORB", orb_session_semantics["strategy_context_values"]["puzzle_key"])
+
 
 if __name__ == "__main__":
     unittest.main()

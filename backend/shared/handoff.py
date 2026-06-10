@@ -189,6 +189,10 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
                 "required": False,
                 "default": "market_open",
                 "known_edge_values": ["premarket_30m", "market_open", "puzzle_key"],
+                "known_orb_session_values": ["premarket_30m", "market_open"],
+                "strategy_context_values": {
+                    "puzzle_key": "non-ORB strategy context used by the Puzzle Key plugin handoff path."
+                },
             },
             "stop_type": {
                 "required": False,
