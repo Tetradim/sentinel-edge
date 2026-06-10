@@ -55,6 +55,9 @@ class FrontendReadinessUiStaticTests(unittest.TestCase):
         self.assertIn("detail.label", text)
         self.assertIn("title={detail.description || detail.name}", text)
         self.assertIn("edge-readiness-checks", text)
+        self.assertIn("edge-readiness-blockers", text)
+        self.assertIn("failingReadinessDetails.map((detail)", text)
+        self.assertIn("failingReadinessDetails.length > 0 &&", text)
         self.assertIn("failing readiness checks", text)
 
 

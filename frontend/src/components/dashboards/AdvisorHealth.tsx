@@ -337,6 +337,19 @@ export const AdvisorHealth: React.FC = () => {
                 <AlertTriangle className="h-4 w-4" />
                 {failingReadinessDetails.length} failing readiness checks
               </div>
+              {failingReadinessDetails.length > 0 && (
+                <div data-testid="edge-readiness-blockers" className="mb-3 flex flex-wrap gap-2">
+                  {failingReadinessDetails.map((detail) => (
+                    <span
+                      key={detail.name}
+                      title={detail.description || detail.name}
+                      className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-100"
+                    >
+                      {detail.label}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {Object.entries(readinessChecks).map(([check, ok]) => {
                   const detail = readinessDetails[check] || {
