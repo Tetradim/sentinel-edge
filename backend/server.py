@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, APIRouter, Body, Depends, HTTPException, Request
+from fastapi import FastAPI, APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -32,6 +32,7 @@ from scheduler import EvaluationScheduler
 from signals import SignalEngine
 from alert_handler import router as alert_handler_router, shutdown as alert_handler_shutdown
 from automation import AutomationMode
+from chart_workspace import build_chart_workspace_payload
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.handoff import pulse_handoff_contract_document
 from simulation_lab import (
@@ -263,6 +264,23 @@ def _refresh_readiness_metrics() -> Dict[str, Any]:
         "failing_check_details": failing_check_details,
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
+
+
+def _chart_workspace_bars_from_frame(frame: Any) -> List[Dict[str, Any]]:
+    bars: List[Dict[str, Any]] = []
+    for timestamp, row in frame.iterrows():
+        timestamp_value = timestamp.to_pydatetime() if hasattr(timestamp, "to_pydatetime") else timestamp
+        bars.append(
+            {
+                "timestamp": timestamp_value,
+                "open": row.get("Open"),
+                "high": row.get("High"),
+                "low": row.get("Low"),
+                "close": row.get("Close"),
+                "volume": row.get("Volume", 0.0),
+            }
+        )
+    return bars
 
 
 def _rate_limit_pressure(tracked_clients: int) -> str:
@@ -1838,6 +1856,35 @@ async def get_orb_levels(symbol: str):
         "orb_levels": result,
         "orb_sessions": session_status["sessions"],
     }
+
+
+@api_router.get("/chart-workspace/{symbol}")
+async def get_chart_workspace(
+    symbol: str,
+    indicators: str = Query("ema_9,ema_20,sma_20,rsi_14,macd", min_length=1, max_length=160),
+    limit: int = Query(240, ge=1, le=2000),
+):
+    """Return chart-ready candles, indicators, and ORB overlays for a symbol."""
+    sym = _symbol(symbol)
+    fetcher = _require_price_fetcher()
+    frame = await fetcher.get_ohlcv(sym, period="2d", interval="1m")
+    if frame is None or frame.empty:
+        raise HTTPException(status_code=404, detail=f"No chart workspace OHLCV data for {sym}")
+
+    orb_status = None
+    if scheduler is not None and getattr(scheduler, "orb", None) is not None:
+        orb_status = scheduler.orb.get_session_status(sym)
+
+    try:
+        return build_chart_workspace_payload(
+            symbol=sym,
+            bars=_chart_workspace_bars_from_frame(frame),
+            indicators=[part.strip() for part in indicators.split(",") if part.strip()],
+            limit=limit,
+            orb_status=orb_status,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -87,6 +87,7 @@ Edge is also designed to degrade safely:
 | Readiness | `/api/live` for process liveness, `/api/ready` for dependency readiness, readiness metrics, Grafana panels, alerts, and runbooks. |
 | Observability | Prometheus metrics, frontend RUM metrics, rate-limit metrics, OpenTelemetry traces, Loki/Promtail/Grafana/Tempo/Alertmanager Docker stack. |
 | Backtesting | Backtest execution, run reports, strategy optimization, Monte Carlo chart endpoints, dry-run status, and strategy catalog endpoints. |
+| Chart workspace | Chart-ready OHLCV snapshots, ORB overlays, EMA/SMA, RSI, MACD, and a Sentinel operations workspace for chart replay. |
 | Safety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
 
 ---
@@ -477,6 +478,7 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Dry-run status.
 - Strategy optimization.
 - Monte Carlo chart listing and chart serving.
+- Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including ORB overlays, EMA/SMA, RSI, MACD, and chart-ready OHLCV bars.
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. The initial Lab roadmap covers:
 
@@ -746,6 +748,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/price/{symbol}` | Current price. |
 | GET | `/quote/{symbol}` | Current quote. |
 | GET | `/orb/{symbol}` | ORB levels and status. |
+| GET | `/chart-workspace/{symbol}` | Return chart-ready OHLCV bars, ORB overlays, and EMA/SMA, RSI, MACD indicator series. |
 
 ### Automation
 

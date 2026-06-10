@@ -3,6 +3,7 @@ import {
   Bell,
   CheckCircle,
   Gauge,
+  LineChart,
   Save,
   Shield,
   SlidersHorizontal,
@@ -100,6 +101,7 @@ export const nowTime = () => new Date().toLocaleTimeString('en-US', { hour: '2-d
 
 export const operationsViews: OperationViewItem[] = [
   { id: 'overview', label: 'Trading Overview', icon: Activity },
+  { id: 'charts', label: 'Chart Workspace', icon: LineChart },
   { id: 'advisor', label: 'Advisor Health', icon: Gauge },
   { id: 'experience', label: 'Experience', icon: Zap },
   { id: 'protection', label: 'Protection Ops', icon: Shield },

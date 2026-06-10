@@ -1,3 +1,5 @@
+import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot } from '@/types';
+
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 const FRONTEND_RUM_PATH = '/api/frontend/rum';
 const FRONTEND_RUM_BEACON_MAX_BYTES = 60 * 1024;
@@ -201,6 +203,14 @@ class ApiClient {
 
   async getOrbLevels(symbol: string) {
     return fetchJSON(`/api/orb/${symbol}`);
+  }
+
+  async getChartWorkspace(symbol: string, options: { indicators?: ChartWorkspaceIndicatorId[]; limit?: number } = {}) {
+    const params = new URLSearchParams();
+    if (options.indicators?.length) params.set('indicators', options.indicators.join(','));
+    if (options.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return fetchJSON<ChartWorkspaceSnapshot>(`/api/chart-workspace/${encodeURIComponent(symbol)}${query ? `?${query}` : ''}`);
   }
 
   async getMarkets() {

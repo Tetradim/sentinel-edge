@@ -90,6 +90,59 @@ export interface ChartDataPoint {
   label?: string;
 }
 
+export type ChartWorkspaceIndicatorId = 'ema_9' | 'ema_20' | 'sma_20' | 'rsi_14' | 'macd';
+
+export interface ChartWorkspaceBar {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface ChartWorkspaceIndicatorPoint {
+  timestamp: string;
+  value?: number | null;
+  macd?: number | null;
+  signal?: number | null;
+  histogram?: number | null;
+}
+
+export interface ChartWorkspaceIndicator {
+  label: string;
+  kind: 'overlay' | 'oscillator';
+  points: ChartWorkspaceIndicatorPoint[];
+}
+
+export interface ChartWorkspaceOrbOverlay {
+  session_id: string;
+  label: string;
+  timeframe: string;
+  high: number;
+  low: number;
+  range_width: number;
+  locked: boolean;
+  is_valid: boolean;
+  date?: string;
+}
+
+export interface ChartWorkspaceSnapshot {
+  schema_version: string;
+  symbol: string;
+  timeframe: string;
+  source: string;
+  summary: {
+    bar_count: number;
+    available_bar_count: number;
+    indicator_count: number;
+    orb_overlay_count: number;
+  };
+  bars: ChartWorkspaceBar[];
+  indicators: Record<string, ChartWorkspaceIndicator>;
+  orb_overlays: ChartWorkspaceOrbOverlay[];
+}
+
 export interface DecisionEntry {
   symbol: string;
   decision: string;

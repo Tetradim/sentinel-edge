@@ -1,5 +1,6 @@
 import type React from 'react';
 import { AdvisorHealth } from '../../dashboards/AdvisorHealth';
+import { ChartWorkspace } from '../../dashboards/ChartWorkspace';
 import { ExperienceDashboard } from '../../dashboards/ExperienceDashboard';
 import { MarketCoverage } from '../../dashboards/MarketCoverage';
 import { PnLTracking } from '../../dashboards/PnLTracking';
@@ -55,6 +56,7 @@ export function OperationsPanel({
           aria-labelledby={`edge-ops-tab-${activeView}`}
         >
           {activeView === 'overview' && <TradingOverview />}
+          {activeView === 'charts' && <ChartWorkspace />}
           {activeView === 'advisor' && <AdvisorHealth />}
           {activeView === 'experience' && <ExperienceDashboard />}
           {activeView === 'protection' && <OperationsProtectionDashboard />}

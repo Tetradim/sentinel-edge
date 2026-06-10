@@ -4,7 +4,7 @@
  * With resizable layouts: Grid, List, Heatmap
  */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import Plot from 'react-plotly.js';
+import PlotModule from 'react-plotly.js';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -16,6 +16,8 @@ import {
   Minimize2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const Plot = (PlotModule as any).default ?? PlotModule;
 
 // Chart type definitions
 export type ChartType = 'area' | 'bar' | 'line' | 'candlestick' | 'heatmap';
