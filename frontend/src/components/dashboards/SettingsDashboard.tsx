@@ -3,7 +3,7 @@
  * Configuration management for Edge
  */
 import React, { useEffect, useState } from 'react';
-import { Settings, Save, RefreshCw, Database, Zap, Shield, Globe, AlertCircle, TrendingUp, ShieldAlert, BarChart3, CheckCircle, XCircle, FlaskConical } from 'lucide-react';
+import { Settings, Save, RefreshCw, Database, Zap, Shield, Globe, AlertCircle, TrendingUp, ShieldAlert, BarChart3, CheckCircle, XCircle, FlaskConical, Bell } from 'lucide-react';
 
 interface ConfigSection {
   name: string;
@@ -84,6 +84,32 @@ interface SimulationLabStatus {
   default_hidden?: boolean;
   env_flag?: string;
   experiments?: SimulationLabExperiment[];
+}
+
+interface NotificationChannel {
+  id: string;
+  label: string;
+  configured: boolean;
+  status: string;
+  required_env?: string[];
+  configured_env?: string[];
+  missing_env?: string[];
+  delivery_path?: string;
+  purpose?: string;
+  confirmation_path?: string;
+}
+
+interface NotificationsStatus {
+  schema_version?: string;
+  mode?: string;
+  secret_values?: string;
+  channels?: NotificationChannel[];
+  summary?: {
+    configured_count?: number;
+    total_count?: number;
+    configured_channels?: string[];
+    missing_channels?: string[];
+  };
 }
 
 const MARKET_DATA_OPTIONS = [
@@ -170,6 +196,7 @@ export function SettingsDashboard() {
   const [automation, setAutomation] = useState<AutomationSettings | null>(null);
   const [pulseHandoffContract, setPulseHandoffContract] = useState<PulseHandoffContract | null>(null);
   const [simulationLabStatus, setSimulationLabStatus] = useState<SimulationLabStatus | null>(null);
+  const [notificationsStatus, setNotificationsStatus] = useState<NotificationsStatus | null>(null);
   const [tickers, setTickers] = useState<string[]>([]);
   const [settingsError, setSettingsError] = useState('');
   const [runtimeSettingsError, setRuntimeSettingsError] = useState('');
@@ -211,12 +238,20 @@ export function SettingsDashboard() {
     let cancelled = false;
     const loadRuntimeSettings = async () => {
       try {
-        const [providerResponse, automationResponse, tickersResponse, pulseContractResponse, simulationLabResponse] = await Promise.allSettled([
+        const [
+          providerResponse,
+          automationResponse,
+          tickersResponse,
+          pulseContractResponse,
+          simulationLabResponse,
+          notificationsResponse,
+        ] = await Promise.allSettled([
           fetch('/api/market-data/providers'),
           fetch('/api/automation'),
           fetch('/api/tickers'),
           fetch('/api/pulse/handoff/schema'),
           fetch('/api/simulation-lab/status'),
+          fetch('/api/notifications/status'),
         ]);
         if (cancelled) return;
 
@@ -226,6 +261,7 @@ export function SettingsDashboard() {
           tickersResponse.status === 'rejected' || !tickersResponse.value.ok,
           pulseContractResponse.status === 'rejected' || !pulseContractResponse.value.ok,
           simulationLabResponse.status === 'rejected' || !simulationLabResponse.value.ok,
+          notificationsResponse.status === 'rejected' || !notificationsResponse.value.ok,
         ].filter(Boolean);
         setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '');
 
@@ -249,6 +285,10 @@ export function SettingsDashboard() {
         if (simulationLabResponse.status === 'fulfilled' && simulationLabResponse.value.ok) {
           const data = await simulationLabResponse.value.json();
           setSimulationLabStatus(data);
+        }
+        if (notificationsResponse.status === 'fulfilled' && notificationsResponse.value.ok) {
+          const data = await notificationsResponse.value.json();
+          setNotificationsStatus(data);
         }
       } catch (e) {
         if (!cancelled) {
@@ -606,6 +646,70 @@ export function SettingsDashboard() {
         )}
       </div>
 
+      {/* Operator Notification Paths */}
+      <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Bell className="w-5 h-5 text-violet-400" />
+          Operator notification paths
+        </h3>
+        <p className="text-sm text-gray-400 mb-4">
+          Read-only discovery for Telegram, Discord, Slack, and WhatsApp-style notification channels. Settings shows env-var readiness only; secret_values remain redacted and no messages are sent from this panel.
+        </p>
+
+        {!notificationsStatus ? (
+          <div className="text-sm text-gray-500">Notification channel status unavailable until the backend status endpoint responds.</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <RuntimeDetail label="schema_version" value={notificationsStatus.schema_version || '--'} />
+              <RuntimeDetail label="mode" value={notificationsStatus.mode || '--'} />
+              <RuntimeDetail label="secret_values" value={notificationsStatus.secret_values || '--'} />
+              <RuntimeDetail
+                label="configured"
+                value={`${notificationsStatus.summary?.configured_count ?? 0}/${notificationsStatus.summary?.total_count ?? 0}`}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {(notificationsStatus.channels || []).map((channel) => (
+                <div key={channel.id} className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-white">{channel.label}</div>
+                      <div className="mt-1 text-xs text-gray-500">{channel.purpose || 'Operator notification channel'}</div>
+                    </div>
+                    <span className={`rounded-md px-2 py-1 text-xs font-semibold ${channel.configured ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>
+                      {channel.configured ? 'configured' : 'missing env'}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-2">
+                    <div>
+                      <dt className="text-gray-500">Delivery path</dt>
+                      <dd>{channel.delivery_path || '--'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Confirmation path</dt>
+                      <dd>{channel.confirmation_path || '--'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Configured env</dt>
+                      <dd>{formatNotificationEnvList(channel.configured_env)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Missing env</dt>
+                      <dd>{formatNotificationEnvList(channel.missing_env)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
+            </div>
+            {(notificationsStatus.channels || []).length === 0 && (
+              <div className="text-xs text-amber-300">No notification channels discovered.</div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Simulation Lab Status */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -808,6 +912,10 @@ function formatSimulationLabExperimentEndpoint(experiment: SimulationLabExperime
   const method = experiment.http_method || 'POST';
   const endpoint = experiment.endpoint_path || 'endpoint unavailable';
   return `${method} ${endpoint}`;
+}
+
+function formatNotificationEnvList(values?: string[]) {
+  return values?.length ? values.join(', ') : '--';
 }
 
 function formatSimulationLabExperimentId(id?: string) {

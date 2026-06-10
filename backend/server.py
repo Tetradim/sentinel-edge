@@ -24,6 +24,7 @@ from starlette.middleware.cors import CORSMiddleware
 from atr import ATRCalculator
 from engine import DecisionEngine
 from market_hours import MarketHours
+from notification_channels import notification_channel_status
 from orb import ORBTracker
 from price_fetcher import PriceFetcher
 from providers.catalog import active_provider_order, configured_key_sources, default_provider_order, provider_catalog
@@ -954,6 +955,12 @@ async def get_stats(request: Request):
         # Values consistently > OHLCV_CACHE_TTL indicate stale data.
         "price_cache_age_s":      sched.prices.cache_ages(),
     }
+
+
+@api_router.get("/notifications/status")
+async def get_notifications_status():
+    """Return redacted operator notification channel discovery for Settings."""
+    return notification_channel_status()
 
 
 @api_router.get("/markets")
