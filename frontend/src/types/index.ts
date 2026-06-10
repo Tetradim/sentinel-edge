@@ -36,6 +36,10 @@ export interface OrbSessionStatus {
   active_session: string;
   active_label: string;
   active_status: string;
+  active_ready: boolean;
+  active_readiness: string;
+  active_ready_timeframes: string[];
+  active_missing_timeframes: string[];
   sessions: Record<string, OrbSessionSummary>;
 }
 
@@ -44,6 +48,11 @@ export interface OrbSessionSummary {
   label: string;
   description?: string;
   status: string;
+  ready: boolean;
+  readiness: string;
+  ready_timeframes: string[];
+  collecting_timeframes: string[];
+  missing_timeframes: string[];
   start_time?: string;
   timeframes: string[];
   levels?: Record<string, OrbLevel>;
@@ -54,8 +63,12 @@ export interface OrbDecisionContext {
   active_session: string;
   active_label: string;
   active_status: string;
+  active_ready: boolean;
+  active_readiness: string;
   signal_session: string;
   signal_timeframe: string;
+  signal_ready: boolean;
+  signal_readiness: string;
   signal_level?: OrbLevel | null;
   reference_sessions?: Record<string, Record<string, OrbLevel>>;
   generated_at?: string;

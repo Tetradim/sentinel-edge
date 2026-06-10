@@ -248,6 +248,7 @@ export const TradingOverview: React.FC = () => {
                   orbLow={ticker.orb_levels?.['15m']?.low}
                   orbSessionLabel={ticker.orb_session_status?.active_label}
                   orbSessionStatus={ticker.orb_session_status?.active_status}
+                  orbSessionReadiness={ticker.orb_session_status?.active_readiness}
                   atr={ticker.atr}
                   volumeRatio={ticker.volume_ratio}
                   metricToggles={tickerConfigs[ticker.symbol]}

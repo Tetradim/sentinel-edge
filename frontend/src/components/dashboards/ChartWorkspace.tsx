@@ -498,6 +498,7 @@ export const ChartWorkspace: React.FC = () => {
             <Metric label="ORB" value={snapshot?.summary.orb_overlay_count ?? '--'} />
             <Metric label="ORB session" value={orbSessionStatus?.active_label ?? '--'} />
             <Metric label="ORB status" value={formatOrbSessionStatus(orbSessionStatus?.active_status)} />
+            <Metric label="ORB readiness" value={formatOrbReadiness(orbSessionStatus?.active_readiness)} />
           </div>
           {orbSessionEntries.length > 0 && (
             <div className="mt-3 space-y-1 text-[11px] text-slate-400">
@@ -509,6 +510,9 @@ export const ChartWorkspace: React.FC = () => {
                     <span className="shrink-0 text-slate-500">{formatOrbSessionStatus(session.status)}</span>
                   </div>
                   <div className="truncate text-slate-500">{formatOrbSessionLevelSummary(session)}</div>
+                  <div className="truncate text-slate-500">
+                    {formatOrbSessionReadinessDetail(session)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -987,6 +991,11 @@ function formatOrbSessionStatus(status?: string) {
   return status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function formatOrbReadiness(readiness?: string) {
+  if (!readiness) return '--';
+  return readiness.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function formatOrbSessionLevelSummary(session: OrbSessionSummary) {
   const levels = session.levels ?? {};
   const lockedTimeframes = session.timeframes.filter((timeframe) => levels[timeframe]?.locked);
@@ -996,6 +1005,14 @@ function formatOrbSessionLevelSummary(session: OrbSessionSummary) {
   if (validTimeframes.length) return `${validTimeframes.join(', ')} collecting`;
 
   return `${session.timeframes.join(', ')} configured`;
+}
+
+function formatOrbSessionReadinessDetail(session: OrbSessionSummary) {
+  const parts: string[] = [];
+  if (session.ready_timeframes.length) parts.push(`ready ${session.ready_timeframes.join(', ')}`);
+  if (session.collecting_timeframes.length) parts.push(`collecting ${session.collecting_timeframes.join(', ')}`);
+  if (session.missing_timeframes.length) parts.push(`missing ${session.missing_timeframes.join(', ')}`);
+  return parts.length ? parts.join(' / ') : formatOrbReadiness(session.readiness);
 }
 
 function formatIndicatorPresetLabel(indicatorPreset: ChartWorkspaceIndicatorPresetId) {

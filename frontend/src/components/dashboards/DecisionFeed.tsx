@@ -164,7 +164,8 @@ function formatOrbDecisionContext(context?: OrbDecisionContext) {
   const sessionLabel = formatOrbSessionId(context.signal_session || context.active_session);
   const timeframe = context.signal_timeframe || '15m';
   const status = formatOrbSessionId(context.active_status);
-  return `${context.active_label || sessionLabel} / ${sessionLabel} ${timeframe} / ${status}`;
+  const readiness = formatOrbSessionId(context.signal_readiness || context.active_readiness);
+  return `${context.active_label || sessionLabel} / ${sessionLabel} ${timeframe} / ${status} / ${readiness}`;
 }
 
 function formatPulseDecisionFeedback(entry: DecisionEntry) {

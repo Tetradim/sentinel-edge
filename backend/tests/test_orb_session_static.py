@@ -62,9 +62,12 @@ class ORBSessionStaticTests(unittest.TestCase):
         self.assertIn("orb_session_status?:", types)
         self.assertIn("orbSessionLabel={ticker.orb_session_status?.active_label}", overview)
         self.assertIn("orbSessionStatus={ticker.orb_session_status?.active_status}", overview)
+        self.assertIn("orbSessionReadiness={ticker.orb_session_status?.active_readiness}", overview)
         self.assertIn("orbSessionLabel", card)
         self.assertIn("orbSessionStatus", card)
+        self.assertIn("orbSessionReadiness", card)
         self.assertIn("ORB Session", card)
+        self.assertIn("formatOrbReadiness", card)
 
     def test_frontend_surfaces_orb_decision_context(self):
         types = TYPES.read_text(encoding="utf-8")
@@ -72,12 +75,26 @@ class ORBSessionStaticTests(unittest.TestCase):
 
         self.assertIn("orb_decision_context?: OrbDecisionContext", types)
         self.assertIn("export interface OrbDecisionContext", types)
+        self.assertIn("active_readiness", types)
+        self.assertIn("active_ready", types)
+        self.assertIn("signal_readiness", types)
+        self.assertIn("ready_timeframes", types)
+        self.assertIn("missing_timeframes", types)
         self.assertIn("formatOrbDecisionContext", feed)
         self.assertIn("formatOrbDecisionContext(entry.orb_decision_context)", feed)
         self.assertIn("context.signal_timeframe", feed)
         self.assertIn("context.signal_session", feed)
         self.assertIn("context.active_label", feed)
         self.assertIn("context.active_status", feed)
+        self.assertIn("context.signal_readiness", feed)
+
+    def test_chart_workspace_surfaces_orb_readiness(self):
+        chart = (ROOT / "frontend" / "src" / "components" / "dashboards" / "ChartWorkspace.tsx").read_text(encoding="utf-8")
+
+        self.assertIn('Metric label="ORB readiness"', chart)
+        self.assertIn("formatOrbReadiness", chart)
+        self.assertIn("session.ready_timeframes", chart)
+        self.assertIn("session.missing_timeframes", chart)
 
 
 if __name__ == "__main__":

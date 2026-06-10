@@ -435,11 +435,17 @@ class ORBTracker:
                 f"{tf}m": self._serialise_level(level)
                 for tf, level in symbol_sessions.get(session_id, {}).items()
             }
+            readiness = self._session_readiness(session, status, symbol_sessions.get(session_id, {}))
             sessions[session_id] = {
                 "id": session.id,
                 "label": session.label,
                 "description": session.description,
                 "status": status,
+                "ready": readiness["ready"],
+                "readiness": readiness["readiness"],
+                "ready_timeframes": readiness["ready_timeframes"],
+                "collecting_timeframes": readiness["collecting_timeframes"],
+                "missing_timeframes": readiness["missing_timeframes"],
                 "start_time": session_start.isoformat(),
                 "timeframes": [f"{tf}m" for tf in session.timeframes],
                 "levels": levels,
@@ -458,6 +464,10 @@ class ORBTracker:
             "active_session": active_session,
             "active_label": active["label"],
             "active_status": active["status"],
+            "active_ready": active["ready"],
+            "active_readiness": active["readiness"],
+            "active_ready_timeframes": active["ready_timeframes"],
+            "active_missing_timeframes": active["missing_timeframes"],
             "sessions": sessions,
         }
 
@@ -473,6 +483,7 @@ class ORBTracker:
         status = self.get_session_status(symbol, now=et)
         symbol_sessions = self.orb_sessions.get(symbol, {})
         signal_level = symbol_sessions.get(signal_session_id, {}).get(signal_timeframe)
+        signal_readiness, signal_ready = self._signal_readiness(status, signal_session_id, signal_timeframe)
         reference_sessions: Dict[str, Dict[str, Any]] = {}
 
         for session_id, session_levels in symbol_sessions.items():
@@ -487,12 +498,73 @@ class ORBTracker:
             "active_session": status["active_session"],
             "active_label": status["active_label"],
             "active_status": status["active_status"],
+            "active_ready": status["active_ready"],
+            "active_readiness": status["active_readiness"],
             "signal_session": signal_session_id,
             "signal_timeframe": f"{signal_timeframe}m",
+            "signal_ready": signal_ready,
+            "signal_readiness": signal_readiness,
             "signal_level": self._serialise_level(signal_level) if signal_level else None,
             "reference_sessions": reference_sessions,
             "generated_at": et.isoformat(),
         }
+
+    @staticmethod
+    def _session_readiness(
+        session: ORBSession,
+        status: str,
+        levels: Dict[int, ORBLevel],
+    ) -> Dict[str, Any]:
+        ready_timeframes: List[str] = []
+        collecting_timeframes: List[str] = []
+        missing_timeframes: List[str] = []
+
+        for timeframe in session.timeframes:
+            label = f"{timeframe}m"
+            level = levels.get(timeframe)
+            if level and level.locked and level.is_valid:
+                ready_timeframes.append(label)
+            elif level and not level.locked and level.is_valid:
+                collecting_timeframes.append(label)
+            elif status in {"locked", "closed"} or (level and level.locked and not level.is_valid):
+                missing_timeframes.append(label)
+
+        if len(ready_timeframes) == len(session.timeframes):
+            readiness = "ready"
+        elif ready_timeframes:
+            readiness = "partial_ready"
+        elif collecting_timeframes:
+            readiness = "collecting"
+        elif missing_timeframes:
+            readiness = "missing_data"
+        elif status == "pending":
+            readiness = "pending"
+        else:
+            readiness = "waiting_for_data"
+
+        return {
+            "ready": bool(ready_timeframes),
+            "readiness": readiness,
+            "ready_timeframes": ready_timeframes,
+            "collecting_timeframes": collecting_timeframes,
+            "missing_timeframes": missing_timeframes,
+        }
+
+    @staticmethod
+    def _signal_readiness(
+        status: Dict[str, Any],
+        signal_session_id: str,
+        signal_timeframe: int,
+    ) -> Tuple[str, bool]:
+        session = status.get("sessions", {}).get(signal_session_id, {})
+        timeframe = f"{signal_timeframe}m"
+        if timeframe in session.get("ready_timeframes", []):
+            return "ready", True
+        if timeframe in session.get("collecting_timeframes", []):
+            return "collecting", False
+        if timeframe in session.get("missing_timeframes", []):
+            return "missing_data", False
+        return session.get("readiness", "unknown"), False
 
     @staticmethod
     def _serialise_level(level: ORBLevel) -> Dict[str, Any]:

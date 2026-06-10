@@ -21,6 +21,7 @@ interface TickerCardProps {
   orbLow?: number;
   orbSessionLabel?: string;
   orbSessionStatus?: string;
+  orbSessionReadiness?: string;
   atr?: number;
   volumeRatio?: number;
   priceHistory?: Array<{ value: number }>;
@@ -65,6 +66,7 @@ export const TickerCard: React.FC<TickerCardProps> = ({
   orbLow,
   orbSessionLabel,
   orbSessionStatus,
+  orbSessionReadiness,
   atr,
   volumeRatio,
   priceHistory = [],
@@ -262,6 +264,7 @@ export const TickerCard: React.FC<TickerCardProps> = ({
                 <p className="mt-1 text-[11px] text-gray-500">
                   <span>ORB Session</span>: {orbSessionLabel || 'Market open ORB'}
                   {orbSessionStatus ? ` / ${orbSessionStatus}` : ''}
+                  {orbSessionReadiness ? ` / ${formatOrbReadiness(orbSessionReadiness)}` : ''}
                 </p>
               )}
             </div>
@@ -326,3 +329,7 @@ export const TickerCard: React.FC<TickerCardProps> = ({
     </motion.div>
   );
 };
+
+function formatOrbReadiness(value: string) {
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
