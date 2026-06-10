@@ -448,7 +448,7 @@ class EvaluationScheduler:
                     confidence=confidence,
                     reason="Strong move while trailing; tighten trailing stop",
                     orb_session=orb_decision_context["signal_session"],
-                    stop_type="trailing",
+                    stop_type="tighten_trailing",
                     trailing_percent=0.5,
                     metadata={**orb_metadata, "signal_strength": signal_strength, "pnl_pct": pnl_pct},
                 )
@@ -460,7 +460,7 @@ class EvaluationScheduler:
                     confidence=confidence,
                     reason="Bearish reversal detected; tighten stop",
                     orb_session=orb_decision_context["signal_session"],
-                    stop_type="regular",
+                    stop_type="tighten",
                     metadata={**orb_metadata, "signal_strength": signal_strength, "trend": trend.name.lower()},
                 )
 

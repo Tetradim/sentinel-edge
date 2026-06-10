@@ -80,10 +80,24 @@ class PulseHandoffRequest(BaseModel):
 
     @model_validator(mode="after")
     def _validate_action_context(self) -> "PulseHandoffRequest":
+        required_stop_types = {
+            PulseHandoffAction.REGULAR_STOP: PulseHandoffStopType.REGULAR,
+            PulseHandoffAction.TRAILING_STOP: PulseHandoffStopType.TRAILING,
+            PulseHandoffAction.TIGHTEN_STOP: PulseHandoffStopType.TIGHTEN,
+            PulseHandoffAction.TIGHTEN_TRAILING_STOP: PulseHandoffStopType.TIGHTEN_TRAILING,
+        }
         trailing_actions = {
             PulseHandoffAction.TRAILING_STOP,
             PulseHandoffAction.TIGHTEN_TRAILING_STOP,
         }
+        required_stop_type = required_stop_types.get(self.action)
+        if required_stop_type is not None:
+            if self.stop_type is None:
+                raise ValueError(f"stop_type is required for {self.action.value} handoff actions")
+            if self.stop_type != required_stop_type:
+                raise ValueError(
+                    f"stop_type must be {required_stop_type.value} for {self.action.value} handoff actions"
+                )
         if self.action in trailing_actions and self.trailing_percent is None:
             raise ValueError("trailing_percent is required for trailing handoff actions")
         if self.stop_type in {
@@ -153,7 +167,9 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
                 "required": True,
                 "allowed_values": action_values,
                 "conditional_fields": {
+                    "regular_stop": ["stop_type"],
                     "trailing_stop": ["stop_type", "trailing_percent"],
+                    "tighten_stop": ["stop_type"],
                     "tighten_trailing_stop": ["stop_type", "trailing_percent"],
                     "dca": ["dca"],
                 },
@@ -178,9 +194,17 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
                 "required": False,
                 "allowed_values": stop_type_values,
                 "required_when": [
+                    "action=regular_stop",
                     "action=trailing_stop",
+                    "action=tighten_stop",
                     "action=tighten_trailing_stop",
                 ],
+                "required_values_by_action": {
+                    "regular_stop": "regular",
+                    "trailing_stop": "trailing",
+                    "tighten_stop": "tighten",
+                    "tighten_trailing_stop": "tighten_trailing",
+                },
             },
             "trailing_percent": {
                 "required": False,

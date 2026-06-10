@@ -66,6 +66,33 @@ class PulseHandoffContractTests(unittest.TestCase):
 
         self.assertIn("trailing_percent", str(ctx.exception))
 
+    def test_stop_handoffs_require_matching_stop_type(self):
+        stop_cases = [
+            ("regular_stop", "regular", {}),
+            ("trailing_stop", "trailing", {"trailing_percent": 1.25}),
+            ("tighten_stop", "tighten", {}),
+            ("tighten_trailing_stop", "tighten_trailing", {"trailing_percent": 0.5}),
+        ]
+
+        for action, stop_type, extras in stop_cases:
+            with self.subTest(action=action, case="missing_stop_type"):
+                with self.assertRaises(ValidationError) as ctx:
+                    PulseHandoffRequest.from_edge_payload(valid_payload(action=action, stop_type=None, **extras))
+                self.assertIn("stop_type", str(ctx.exception))
+
+            wrong_stop_type = "regular" if stop_type != "regular" else "trailing"
+            with self.subTest(action=action, case="wrong_stop_type"):
+                with self.assertRaises(ValidationError) as ctx:
+                    PulseHandoffRequest.from_edge_payload(
+                        valid_payload(action=action, stop_type=wrong_stop_type, **extras)
+                    )
+                self.assertIn(stop_type, str(ctx.exception))
+
+            request = PulseHandoffRequest.from_edge_payload(
+                valid_payload(action=action, stop_type=stop_type, **extras)
+            )
+            self.assertEqual(request.model_dump(mode="json", exclude_none=True)["stop_type"], stop_type)
+
     def test_dca_handoff_requires_and_preserves_dca_plan(self):
         with self.assertRaises(ValidationError) as ctx:
             PulseHandoffRequest.from_edge_payload(valid_payload(action="dca", dca=None))
@@ -113,8 +140,13 @@ class PulseHandoffContractTests(unittest.TestCase):
         self.assertEqual(field_semantics["mode"]["allowed_values"], ["paper", "live"])
         self.assertEqual(field_semantics["mode"]["recommend_only_semantics"], "suppressed_by_edge")
         self.assertIn("trailing_percent", field_semantics["action"]["conditional_fields"]["trailing_stop"])
+        self.assertIn("stop_type", field_semantics["action"]["conditional_fields"]["regular_stop"])
+        self.assertIn("stop_type", field_semantics["action"]["conditional_fields"]["tighten_stop"])
+        self.assertIn("stop_type", field_semantics["action"]["conditional_fields"]["tighten_trailing_stop"])
         self.assertIn("dca", field_semantics["action"]["conditional_fields"]["dca"])
         self.assertEqual(field_semantics["trailing_percent"]["unit"], "percent")
+        self.assertIn("action=regular_stop", field_semantics["stop_type"]["required_when"])
+        self.assertIn("action=tighten_stop", field_semantics["stop_type"]["required_when"])
         self.assertIn("action=dca", field_semantics["dca"]["required_when"])
 
         feedback_semantics = document["feedback_semantics"]
