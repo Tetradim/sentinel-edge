@@ -36,7 +36,8 @@ class LocalVerificationSummaryTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
             summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
 
-        statuses = {entry["name"]: entry["status"] for entry in summary["results"]}
+        entries = {entry["name"]: entry for entry in summary["results"]}
+        statuses = {name: entry["status"] for name, entry in entries.items()}
 
         self.assertEqual(summary["status"], "passed")
         self.assertEqual(
@@ -51,6 +52,9 @@ class LocalVerificationSummaryTests(unittest.TestCase):
         self.assertEqual(statuses["Backend verification"], "skipped")
         self.assertEqual(statuses["Frontend verification"], "skipped")
         self.assertEqual(statuses["Workspace whitespace check: git diff --check"], "passed")
+        self.assertEqual(entries["Backend verification"]["reason"], "-SkipBackend was supplied")
+        self.assertEqual(entries["Frontend verification"]["reason"], "-SkipFrontend was supplied")
+        self.assertIsNone(entries["Workspace whitespace check: git diff --check"]["reason"])
 
 
 if __name__ == "__main__":

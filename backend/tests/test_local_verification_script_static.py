@@ -21,6 +21,7 @@ class LocalVerificationScriptStaticTests(unittest.TestCase):
         self.assertIn("Add-VerificationSkipped", script)
         self.assertIn("Get-VerificationCounts", script)
         self.assertIn("Write-VerificationSummary", script)
+        self.assertIn("reason = $Reason", script)
         self.assertIn("ConvertTo-Json -Depth 5", script)
         self.assertIn("verification summary written", script)
         self.assertIn("npm ci", script)

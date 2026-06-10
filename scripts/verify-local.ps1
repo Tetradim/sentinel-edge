@@ -49,7 +49,8 @@ function Add-VerificationResult {
         [object]$ExitCode,
         [string]$WorkingDirectory,
         [double]$DurationSeconds,
-        [object]$ErrorMessage = $null
+        [object]$ErrorMessage = $null,
+        [object]$Reason = $null
     )
     $VerificationResults.Add([pscustomobject]@{
         name = $Name
@@ -58,6 +59,7 @@ function Add-VerificationResult {
         duration_seconds = [math]::Round($DurationSeconds, 3)
         working_directory = $WorkingDirectory
         error = $ErrorMessage
+        reason = $Reason
     })
 }
 
@@ -74,7 +76,8 @@ function Add-VerificationSkipped {
         -ExitCode $null `
         -WorkingDirectory $WorkingDirectory `
         -DurationSeconds 0 `
-        -ErrorMessage $null
+        -ErrorMessage $null `
+        -Reason $Reason
 }
 
 function Test-VerificationFailed {
