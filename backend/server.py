@@ -33,6 +33,7 @@ from signals import SignalEngine
 from alert_handler import router as alert_handler_router, shutdown as alert_handler_shutdown
 from automation import AutomationMode
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
+from shared.handoff import pulse_handoff_contract_document
 from metrics import (
     edge_frontend_long_task_duration_ms,
     edge_frontend_rum_active_routes,
@@ -1572,6 +1573,12 @@ async def get_pulse_health():
     if hasattr(sched, 'pulse'):
         return await sched.pulse.health_check_detailed()
     return {"error": "Pulse not configured"}
+
+
+@api_router.get("/pulse/handoff/schema")
+async def get_pulse_handoff_schema():
+    """Return the versioned Edge -> Pulse handoff request and response contract."""
+    return pulse_handoff_contract_document()
 
 
 @api_router.get("/pulse/status")

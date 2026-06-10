@@ -408,6 +408,7 @@ Payloads can include:
 - Pulse account/position/queue calls.
 - Manual bridge calls for trailing stops and emergency exits.
 - Autonomous handoff through `PULSE_HANDOFF_ENDPOINT` when configured.
+- Versioned handoff contract discovery through `/api/pulse/handoff/schema` with contract version `edge.pulse.handoff.v1`.
 - Legacy fallback to `/api/tickers/{symbol}/decision` when no structured endpoint is configured.
 
 ---
@@ -746,6 +747,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/pulse/health` | Detailed Pulse health. |
+| GET | `/pulse/handoff/schema` | Edge-to-Pulse structured handoff contract for `PULSE_HANDOFF_ENDPOINT` (`edge.pulse.handoff.v1`). |
 | GET | `/pulse/status` | Pulse availability and circuit status. |
 | GET | `/pulse/positions` | Pulse-synced positions. |
 | GET | `/pulse/positions/{symbol}` | One Pulse-synced position. |

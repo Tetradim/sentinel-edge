@@ -9,7 +9,7 @@ from pydantic import ValidationError
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from shared.handoff import PulseHandoffRequest  # noqa: E402
+from shared.handoff import PulseHandoffRequest, pulse_handoff_contract_document  # noqa: E402
 
 
 def valid_payload(**overrides):
@@ -82,6 +82,20 @@ class PulseHandoffContractTests(unittest.TestCase):
         self.assertEqual(payload["dca"]["steps"], 2)
         self.assertEqual(payload["dca"]["interval_seconds"], 60)
         self.assertEqual(payload["dca"]["allocation_pct"], 25.0)
+
+    def test_contract_document_exposes_request_and_response_shapes(self):
+        document = pulse_handoff_contract_document()
+
+        self.assertEqual(document["contract_version"], "edge.pulse.handoff.v1")
+        self.assertEqual(document["endpoint_env"], "PULSE_HANDOFF_ENDPOINT")
+        self.assertEqual(document["recommended_endpoint"], "/api/edge/handoff")
+        self.assertIn("request_schema", document)
+        self.assertIn("response_contract", document)
+        self.assertIn("accepted_response", document["response_contract"])
+        self.assertIn("rejected_response", document["response_contract"])
+        self.assertIn("idempotency_key", document["request_schema"]["properties"])
+        self.assertIn("trailing_percent", document["request_schema"]["properties"])
+        self.assertIn("dca", document["request_schema"]["properties"])
 
 
 if __name__ == "__main__":
