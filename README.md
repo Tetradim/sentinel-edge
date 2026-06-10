@@ -858,6 +858,8 @@ The verification runner checks:
 - frontend npm audit at moderate level
 - workspace whitespace via `git diff --check`
 
+CI also includes `macOS Smoke Checks` in `.github/workflows/macos-smoke.yml`. The macOS workflow is a smoke gate: it runs backend static contract tests plus frontend install, lint, and production build on `macos-latest`. Windows installer remains the packaging path; macOS packaging should stay separate until it is deliberately designed and tested.
+
 Focused commands:
 
 ```powershell

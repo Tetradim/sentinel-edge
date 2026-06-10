@@ -1,0 +1,71 @@
+name: macOS Smoke Checks
+
+on:
+  push:
+    branches: [consolidated, OC-Iteration]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'README.md'
+      - '.github/workflows/macos-smoke.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'README.md'
+      - '.github/workflows/macos-smoke.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  macos-smoke:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    name: macOS Smoke
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run backend static contract tests
+        run: python -m unittest discover -s backend/tests -p "test_*static.py"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-frontend-dist
+          path: frontend/dist
+          if-no-files-found: warn
+          retention-days: 7
