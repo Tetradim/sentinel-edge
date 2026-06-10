@@ -45,6 +45,16 @@ interface ChartWorkspacePreferencesState {
   showOrbOverlays: boolean;
 }
 
+interface ChartWorkspaceSimulationLabExperiment {
+  runnable?: boolean;
+}
+
+interface ChartWorkspaceSimulationLabStatus {
+  enabled?: boolean;
+  default_hidden?: boolean;
+  experiments?: ChartWorkspaceSimulationLabExperiment[];
+}
+
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
 const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
 
@@ -92,6 +102,7 @@ export const ChartWorkspace: React.FC = () => {
   const [symbolInput, setSymbolInput] = useState(workspacePreferences.activeSymbol);
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
+  const [simulationLabStatus, setSimulationLabStatus] = useState<ChartWorkspaceSimulationLabStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [labMessage, setLabMessage] = useState('');
@@ -125,6 +136,26 @@ export const ChartWorkspace: React.FC = () => {
     };
   }, [activeSymbol, selectedIndicators, barLimit]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.getSimulationLabStatus()
+      .then((status) => {
+        if (!cancelled) setSimulationLabStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSimulationLabStatus({
+            enabled: false,
+            default_hidden: true,
+            experiments: [],
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const priceData = useMemo(
     () => buildPriceTraces(snapshot, chartType, showOrbOverlays),
     [snapshot, chartType, showOrbOverlays],
@@ -132,7 +163,14 @@ export const ChartWorkspace: React.FC = () => {
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
   const latestBar = snapshot?.bars[snapshot.bars.length - 1];
   const { layoutMode, panelVisibility } = workspaceLayout;
-  const hasSidePanels = panelVisibility.snapshot || panelVisibility.lab;
+  const simulationLabEnabled = Boolean(
+    simulationLabStatus?.enabled && simulationLabStatus.experiments?.some((experiment) => experiment.runnable),
+  );
+  const visiblePanelOptions = useMemo(
+    () => PANEL_OPTIONS.filter((option) => option.id !== 'lab' || simulationLabEnabled),
+    [simulationLabEnabled],
+  );
+  const hasSidePanels = panelVisibility.snapshot || (panelVisibility.lab && simulationLabEnabled);
   const workspaceGridClass = getWorkspaceGridClass(layoutMode);
   const sidePanelClass = getSidePanelClass(layoutMode);
   const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? '2xl:order-last' : ''}`;
@@ -310,7 +348,7 @@ export const ChartWorkspace: React.FC = () => {
         </section>
       )}
 
-      {panelVisibility.lab && (
+      {panelVisibility.lab && simulationLabEnabled && (
         <section className={panelClass}>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
             <FlaskConical className="h-4 w-4 text-amber-300" />
@@ -387,7 +425,7 @@ export const ChartWorkspace: React.FC = () => {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {PANEL_OPTIONS.map((option) => (
+            {visiblePanelOptions.map((option) => (
               <label key={option.id} className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                 <input
                   type="checkbox"

@@ -80,6 +80,16 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("2xl:grid-cols-[minmax(0,1fr)_280px]", dashboard)
         self.assertNotIn("lg:grid-cols-[minmax(0,1fr)_280px]", dashboard)
 
+    def test_chart_workspace_hides_simulation_lab_until_enabled(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("getSimulationLabStatus", dashboard)
+        self.assertIn("simulationLabStatus", dashboard)
+        self.assertIn("simulationLabEnabled", dashboard)
+        self.assertIn("visiblePanelOptions", dashboard)
+        self.assertIn("panelVisibility.lab && simulationLabEnabled", dashboard)
+        self.assertIn("option.id !== 'lab' || simulationLabEnabled", dashboard)
+
     def test_chart_workspace_exposes_persistent_chart_preferences(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 
