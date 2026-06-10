@@ -389,20 +389,20 @@ function isEdgeReadiness(value: unknown): value is EdgeReadiness {
 }
 
 function normalizeEdgeReadiness(readiness: EdgeReadiness): NormalizedEdgeReadiness {
-  const checkDetails =
+  const rawCheckDetails =
     readiness.check_details && typeof readiness.check_details === 'object' ? readiness.check_details : {};
+  const checkDetails = Object.fromEntries(Object.entries(rawCheckDetails).map(([check, detail]) => [
+    check,
+    normalizeEdgeReadinessDetail(detail, check, Boolean(readiness.checks[check])),
+  ]));
   const failingChecks = Array.isArray(readiness.failing_checks) ? readiness.failing_checks : [];
   const failingCheckDetails = Array.isArray(readiness.failing_check_details)
-    ? readiness.failing_check_details
+    ? readiness.failing_check_details.map((detail, index) => (
+        normalizeEdgeReadinessDetail(detail, failingChecks[index] || detail?.name || `readiness_check_${index + 1}`, false)
+      ))
     : failingChecks.map((check) => {
         const detail = checkDetails[check];
-        return {
-          name: detail?.name || check,
-          label: detail?.label || check,
-          description: detail?.description || check,
-          required: detail?.required ?? true,
-          ready: detail?.ready ?? false,
-        };
+        return normalizeEdgeReadinessDetail(detail, check, false);
       });
 
   return {
@@ -410,6 +410,20 @@ function normalizeEdgeReadiness(readiness: EdgeReadiness): NormalizedEdgeReadine
     check_details: checkDetails,
     failing_checks: failingChecks,
     failing_check_details: failingCheckDetails,
+  };
+}
+
+function normalizeEdgeReadinessDetail(
+  detail: Partial<EdgeReadinessCheckDetail> | undefined,
+  fallbackName: string,
+  fallbackReady: boolean,
+): EdgeReadinessCheckDetail {
+  return {
+    name: detail?.name || fallbackName,
+    label: detail?.label || fallbackName,
+    description: detail?.description || fallbackName,
+    required: detail?.required ?? true,
+    ready: detail?.ready ?? fallbackReady,
   };
 }
 
