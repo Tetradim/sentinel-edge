@@ -35,6 +35,13 @@ class SettingsActionErrorsStaticTests(unittest.TestCase):
         self.assertIn("setSettingsError(error instanceof Error ? error.message : 'Backend config validation unavailable')", text)
         self.assertIn("setSaved(true)", text)
 
+    def test_corrupt_local_settings_are_visible_and_cleared(self):
+        text = SETTINGS.read_text(encoding="utf-8")
+
+        self.assertIn("console.error('Failed to load saved config', error)", text)
+        self.assertIn("localStorage.removeItem('edge_config')", text)
+        self.assertIn("setSettingsError('Saved settings could not be loaded; defaults are shown.')", text)
+
 
 if __name__ == "__main__":
     unittest.main()

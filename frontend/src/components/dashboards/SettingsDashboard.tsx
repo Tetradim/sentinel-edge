@@ -150,8 +150,10 @@ export function SettingsDashboard() {
             value: sanitized[section.key]?.[field.key] ?? field.value
           }))
         })));
-      } catch (e) {
-        console.error('Failed to load saved config');
+      } catch (error) {
+        console.error('Failed to load saved config', error);
+        localStorage.removeItem('edge_config');
+        setSettingsError('Saved settings could not be loaded; defaults are shown.');
       }
     }
   }, []);
