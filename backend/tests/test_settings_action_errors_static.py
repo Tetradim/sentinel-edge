@@ -26,6 +26,15 @@ class SettingsActionErrorsStaticTests(unittest.TestCase):
         self.assertIn("if (!response.ok) throw new Error(`Failed to save ${symbol} handoff setting`)", text)
         self.assertIn("setSettingsError(error instanceof Error ? error.message : `Failed to save ${symbol} handoff setting`)", text)
 
+    def test_config_validation_failures_are_visible_after_local_save(self):
+        text = SETTINGS.read_text(encoding="utf-8")
+
+        self.assertIn("const response = await fetch('/api/config/validate'", text)
+        self.assertIn("if (!response.ok) throw new Error('Backend config validation failed')", text)
+        self.assertIn("if (validation.valid === false) throw new Error('Backend config validation reported issues')", text)
+        self.assertIn("setSettingsError(error instanceof Error ? error.message : 'Backend config validation unavailable')", text)
+        self.assertIn("setSaved(true)", text)
+
 
 if __name__ == "__main__":
     unittest.main()

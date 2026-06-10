@@ -247,6 +247,7 @@ export function SettingsDashboard() {
 
   const handleSave = async () => {
     setSaving(true);
+    setSettingsError('');
     
     // Save to localStorage
     const config: Record<string, Record<string, any>> = {};
@@ -262,13 +263,16 @@ export function SettingsDashboard() {
     
     // Validate against backend schema when available; browser storage remains the source.
     try {
-      await fetch('/api/config/validate', {
+      const response = await fetch('/api/config/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
       });
-    } catch (e) {
-      // Silently fail - localStorage is enough
+      if (!response.ok) throw new Error('Backend config validation failed');
+      const validation = await response.json();
+      if (validation.valid === false) throw new Error('Backend config validation reported issues');
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : 'Backend config validation unavailable');
     }
     
     setSaving(false);
@@ -337,7 +341,7 @@ export function SettingsDashboard() {
       </div>
 
       {settingsError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+        <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
           {settingsError}
         </div>
       )}
