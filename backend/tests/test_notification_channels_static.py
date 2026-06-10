@@ -15,8 +15,12 @@ class NotificationChannelStaticTests(unittest.TestCase):
         text = SERVER.read_text(encoding="utf-8")
 
         self.assertIn("notification_channel_status", text)
+        self.assertIn("notification_confirmation_preview", text)
         self.assertIn('@api_router.get("/notifications/status")', text)
-        self.assertIn("edge.notifications.status.v1", (ROOT / "backend" / "notification_channels.py").read_text(encoding="utf-8"))
+        self.assertIn('@api_router.post("/notifications/confirmation/preview")', text)
+        notification_text = (ROOT / "backend" / "notification_channels.py").read_text(encoding="utf-8")
+        self.assertIn("edge.notifications.status.v1", notification_text)
+        self.assertIn("edge.notifications.confirmation_preview.v1", notification_text)
 
     def test_settings_surfaces_operator_notification_paths(self):
         text = SETTINGS.read_text(encoding="utf-8")
@@ -29,7 +33,10 @@ class NotificationChannelStaticTests(unittest.TestCase):
         self.assertIn("Discord", text)
         self.assertIn("WhatsApp", text)
         self.assertIn("secret_values", text)
+        self.assertIn("confirmation_actions", text)
+        self.assertIn("Confirmation workflows", text)
         self.assertIn("operator notification channel discovery", readme)
+        self.assertIn("notification confirmation preview contract", readme)
 
 
 if __name__ == "__main__":

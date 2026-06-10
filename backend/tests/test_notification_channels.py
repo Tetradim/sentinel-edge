@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from notification_channels import notification_channel_status
+from notification_channels import notification_channel_status, notification_confirmation_preview
 
 
 class NotificationChannelStatusTests(unittest.TestCase):
@@ -50,6 +50,68 @@ class NotificationChannelStatusTests(unittest.TestCase):
         self.assertFalse(channels["slack"]["configured"])
         self.assertFalse(channels["discord"]["configured"])
         self.assertFalse(channels["whatsapp"]["configured"])
+
+    def test_status_lists_confirmation_actions_without_delivery_side_effects(self):
+        status = notification_channel_status({})
+        actions = {action["id"]: action for action in status["confirmation_actions"]}
+
+        self.assertEqual(
+            status["confirmation_preview"]["schema_version"],
+            "edge.notifications.confirmation_preview.v1",
+        )
+        self.assertEqual(status["confirmation_preview"]["send_side_effect"], "none_preview_only")
+        self.assertIn("live_handoff", actions)
+        self.assertIn("emergency_exit", actions)
+        self.assertIn("trailing_stop", actions)
+        self.assertTrue(actions["live_handoff"]["requires_confirmation"])
+        self.assertEqual(actions["emergency_exit"]["risk"], "critical")
+
+    def test_confirmation_preview_redacts_metadata_and_selects_channels(self):
+        env = {
+            "TELEGRAM_BOT_TOKEN": "telegram-secret-token",
+            "TELEGRAM_TRADING_CHAT": "12345",
+            "DISCORD_WEBHOOK_URL": "https://discord.example/webhook",
+        }
+
+        preview = notification_confirmation_preview(
+            "live_handoff",
+            symbol="spy",
+            mode="live",
+            channel_ids=["telegram"],
+            reason="Opening range breakout",
+            metadata={
+                "confidence": 0.91,
+                "api_key": "should-not-render",
+                "broker_key": "key-hidden",
+                "nested": {"auth_token": "also-hidden", "note": "visible"},
+            },
+            env=env,
+        )
+
+        self.assertEqual(preview["schema_version"], "edge.notifications.confirmation_preview.v1")
+        self.assertEqual(preview["action_type"], "live_handoff")
+        self.assertEqual(preview["mode"], "live")
+        self.assertEqual(preview["context"]["symbol"], "SPY")
+        self.assertEqual(preview["safety"]["send_side_effect"], "none_preview_only")
+        self.assertEqual(preview["channels"][0]["id"], "telegram")
+        self.assertTrue(preview["channels"][0]["configured"])
+        self.assertEqual(preview["context"]["metadata"]["api_key"], "[redacted]")
+        self.assertEqual(preview["context"]["metadata"]["broker_key"], "[redacted]")
+        self.assertEqual(preview["context"]["metadata"]["nested"]["auth_token"], "[redacted]")
+        self.assertIn("edge:notification-confirmation:live:live_handoff:spy", preview["idempotency_key"])
+        rendered = repr(preview)
+        self.assertNotIn("telegram-secret-token", rendered)
+        self.assertNotIn("should-not-render", rendered)
+        self.assertNotIn("key-hidden", rendered)
+        self.assertNotIn("also-hidden", rendered)
+
+    def test_confirmation_preview_rejects_unknown_channels(self):
+        with self.assertRaises(ValueError):
+            notification_confirmation_preview(
+                "live_handoff",
+                channel_ids=["telegram", "unknown-relay"],
+                env={},
+            )
 
 
 if __name__ == "__main__":

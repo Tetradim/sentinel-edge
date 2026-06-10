@@ -24,7 +24,7 @@ from starlette.middleware.cors import CORSMiddleware
 from atr import ATRCalculator
 from engine import DecisionEngine
 from market_hours import MarketHours
-from notification_channels import notification_channel_status
+from notification_channels import notification_channel_status, notification_confirmation_preview
 from orb import ORBTracker
 from price_fetcher import PriceFetcher
 from providers.catalog import active_provider_order, configured_key_sources, default_provider_order, provider_catalog
@@ -421,6 +421,16 @@ class AutomationSettingsBody(BaseModel):
 class TickerAutomationBody(BaseModel):
     """Per-ticker autonomous handoff toggle."""
     enabled: bool
+
+
+class NotificationConfirmationPreviewBody(BaseModel):
+    """Request body for POST /api/notifications/confirmation/preview."""
+    action_type: str = Field(..., min_length=1, max_length=64)
+    symbol: Optional[str] = Field(None, min_length=1, max_length=10)
+    mode: str = Field("paper", pattern="^(recommend_only|paper|live)$")
+    channel_ids: List[str] = Field(default_factory=list, max_length=8)
+    reason: Optional[str] = Field(None, max_length=500)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class FrontendRumMetric(BaseModel):
@@ -961,6 +971,23 @@ async def get_stats(request: Request):
 async def get_notifications_status():
     """Return redacted operator notification channel discovery for Settings."""
     return notification_channel_status()
+
+
+@api_router.post("/notifications/confirmation/preview")
+async def preview_notification_confirmation(body: NotificationConfirmationPreviewBody):
+    """Return a redacted operator confirmation preview without sending notifications."""
+    symbol = _symbol(body.symbol) if body.symbol else None
+    try:
+        return notification_confirmation_preview(
+            body.action_type,
+            symbol=symbol,
+            mode=body.mode,
+            channel_ids=body.channel_ids or None,
+            reason=body.reason,
+            metadata=body.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @api_router.get("/markets")

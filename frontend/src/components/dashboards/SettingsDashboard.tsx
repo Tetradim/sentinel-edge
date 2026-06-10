@@ -99,11 +99,32 @@ interface NotificationChannel {
   confirmation_path?: string;
 }
 
+interface NotificationConfirmationPreview {
+  schema_version?: string;
+  endpoint?: string;
+  send_side_effect?: string;
+  secret_values?: string;
+}
+
+interface NotificationConfirmationAction {
+  id: string;
+  label?: string;
+  description?: string;
+  risk?: string;
+  requires_confirmation?: boolean;
+  default_channels?: string[];
+  paper_live_semantics?: string;
+  preview_contract?: string;
+  expires_in_seconds?: number;
+}
+
 interface NotificationsStatus {
   schema_version?: string;
   mode?: string;
   secret_values?: string;
   channels?: NotificationChannel[];
+  confirmation_preview?: NotificationConfirmationPreview;
+  confirmation_actions?: NotificationConfirmationAction[];
   summary?: {
     configured_count?: number;
     total_count?: number;
@@ -706,6 +727,60 @@ export function SettingsDashboard() {
             {(notificationsStatus.channels || []).length === 0 && (
               <div className="text-xs text-amber-300">No notification channels discovered.</div>
             )}
+
+            {(notificationsStatus.confirmation_actions || []).length > 0 && (
+              <div className="border-t border-gray-700 pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-white">Confirmation workflows</div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      Preview-only operator confirmations for safety-sensitive Pulse actions.
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-gray-500">
+                    <div>{notificationsStatus.confirmation_preview?.schema_version || 'preview contract unavailable'}</div>
+                    <div>{notificationsStatus.confirmation_preview?.send_side_effect || 'none_preview_only'}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  {(notificationsStatus.confirmation_actions || []).map((action) => (
+                    <div key={action.id} className="min-w-0 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="truncate text-sm font-semibold text-violet-100">
+                          {action.label || formatNotificationActionId(action.id)}
+                        </div>
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${action.risk === 'critical' ? 'bg-red-500/10 text-red-300' : action.risk === 'high' ? 'bg-amber-500/10 text-amber-300' : 'bg-blue-500/10 text-blue-300'}`}>
+                          {action.risk || 'standard'}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">{action.description || 'Operator confirmation workflow'}</div>
+                      <dl className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-gray-500">Requires confirmation</dt>
+                          <dd>{formatNotificationBoolean(action.requires_confirmation)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Expires</dt>
+                          <dd>{formatNotificationExpiry(action.expires_in_seconds)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Default channels</dt>
+                          <dd>{formatNotificationEnvList(action.default_channels)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Preview contract</dt>
+                          <dd className="break-words">{action.preview_contract || '--'}</dd>
+                        </div>
+                      </dl>
+                      {action.paper_live_semantics && (
+                        <div className="mt-2 text-xs text-gray-500">{action.paper_live_semantics}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -916,6 +991,21 @@ function formatSimulationLabExperimentEndpoint(experiment: SimulationLabExperime
 
 function formatNotificationEnvList(values?: string[]) {
   return values?.length ? values.join(', ') : '--';
+}
+
+function formatNotificationBoolean(value?: boolean) {
+  if (value === undefined) return '--';
+  return value ? 'true' : 'false';
+}
+
+function formatNotificationExpiry(seconds?: number) {
+  if (!seconds) return '--';
+  return `${seconds}s`;
+}
+
+function formatNotificationActionId(id?: string) {
+  if (!id) return 'Confirmation workflow';
+  return id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function formatSimulationLabExperimentId(id?: string) {
