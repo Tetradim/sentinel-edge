@@ -20,6 +20,9 @@ class ReadinessRunbookStaticTests(unittest.TestCase):
 
         self.assertIn("Edge Runtime Not Ready", text)
         self.assertIn("/api/ready", text)
+        self.assertIn("ErrorDetails.Message", text)
+        self.assertIn("detail.failing_check_details", text)
+        self.assertIn("Select-Object name, label, description", text)
         self.assertIn("edge_readiness_check_status", text)
         self.assertIn("scheduler_task_alive", text)
         self.assertIn("price_fetcher_initialized", text)

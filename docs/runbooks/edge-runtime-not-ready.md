@@ -21,13 +21,25 @@ Edge may be accepting HTTP requests while one or more runtime dependencies are m
    Invoke-RestMethod http://127.0.0.1:8001/api/ready
    ```
 
-3. Identify the failing checks:
+3. Read the detailed readiness blockers. `/api/ready` returns HTTP 503 while Edge is not ready, so capture the error body and inspect `detail.failing_check_details` for the check name, operator label, and description:
+
+   ```powershell
+   $payload = try {
+     Invoke-RestMethod http://127.0.0.1:8001/api/ready
+   } catch {
+     $_.ErrorDetails.Message | ConvertFrom-Json
+   }
+   $detail = if ($payload.detail) { $payload.detail } else { $payload }
+   $detail.failing_check_details | Select-Object name, label, description
+   ```
+
+4. Identify the failing checks from Prometheus:
 
    ```promql
    edge_readiness_check_status == 0
    ```
 
-4. Confirm the overall runtime state:
+5. Confirm the overall runtime state:
 
    ```promql
    edge_readiness_status
