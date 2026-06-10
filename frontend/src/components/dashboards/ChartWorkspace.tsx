@@ -48,6 +48,9 @@ interface ChartWorkspacePreferencesState {
 
 interface ChartWorkspaceSimulationLabExperiment {
   runnable?: boolean;
+  http_method?: string;
+  endpoint_path?: string;
+  result_schema_version?: string;
 }
 
 interface ChartWorkspaceSimulationLabStatus {

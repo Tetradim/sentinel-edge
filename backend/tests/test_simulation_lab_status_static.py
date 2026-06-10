@@ -59,6 +59,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
 
         self.assertIn("EDGE_SIMULATION_LAB_ENABLED", text)
         self.assertIn("/api/simulation-lab/status", text)
+        self.assertIn("endpoint path, method, and result schema version", text)
         self.assertIn("default-hidden", text)
         self.assertIn("ORB backtesting", text)
         self.assertIn("/api/simulation-lab/orb/backtest", text)

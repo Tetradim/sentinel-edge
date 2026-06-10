@@ -29,6 +29,9 @@ class SimulationLabExperiment:
     id: str
     label: str
     capability: str
+    endpoint_path: str
+    result_schema_version: str
+    http_method: str = "POST"
     status: str = "planned"
     runnable_when_enabled: bool = False
 
@@ -37,6 +40,9 @@ class SimulationLabExperiment:
             "id": self.id,
             "label": self.label,
             "capability": self.capability,
+            "http_method": self.http_method,
+            "endpoint_path": self.endpoint_path,
+            "result_schema_version": self.result_schema_version,
             "status": self.status,
             "state": "visible" if lab_enabled else "hidden",
             "runnable": lab_enabled and self.runnable_when_enabled,
@@ -48,6 +54,8 @@ _EXPERIMENTS = (
         id="orb_backtest",
         label="ORB backtesting",
         capability="Replay ORB session decisions independently from live automation.",
+        endpoint_path="/api/simulation-lab/orb/backtest",
+        result_schema_version=SIMULATION_LAB_ORB_BACKTEST_VERSION,
         status="available",
         runnable_when_enabled=True,
     ),
@@ -55,6 +63,8 @@ _EXPERIMENTS = (
         id="buying_power_allocation",
         label="Buying-power allocation experiments",
         capability="Compare capital-allocation assumptions before promotion to automation settings.",
+        endpoint_path="/api/simulation-lab/buying-power/allocation",
+        result_schema_version=SIMULATION_LAB_BUYING_POWER_VERSION,
         status="available",
         runnable_when_enabled=True,
     ),
@@ -62,6 +72,8 @@ _EXPERIMENTS = (
         id="stop_trailing_dca",
         label="Stop vs trailing-stop vs DCA comparisons",
         capability="Compare exit and averaging tactics against the same historical trade stream.",
+        endpoint_path="/api/simulation-lab/stop-trailing-dca/compare",
+        result_schema_version=SIMULATION_LAB_STOP_TRAILING_DCA_VERSION,
         status="available",
         runnable_when_enabled=True,
     ),

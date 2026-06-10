@@ -28,6 +28,26 @@ class SimulationLabStatusTests(unittest.TestCase):
         )
         self.assertTrue(all(experiment["state"] == "hidden" for experiment in status["experiments"]))
         self.assertTrue(all(experiment["runnable"] is False for experiment in status["experiments"]))
+        experiments = {experiment["id"]: experiment for experiment in status["experiments"]}
+        self.assertEqual(experiments["orb_backtest"]["http_method"], "POST")
+        self.assertEqual(experiments["orb_backtest"]["endpoint_path"], "/api/simulation-lab/orb/backtest")
+        self.assertEqual(experiments["orb_backtest"]["result_schema_version"], "edge.simulation_lab.orb_backtest.v1")
+        self.assertEqual(
+            experiments["buying_power_allocation"]["endpoint_path"],
+            "/api/simulation-lab/buying-power/allocation",
+        )
+        self.assertEqual(
+            experiments["buying_power_allocation"]["result_schema_version"],
+            "edge.simulation_lab.buying_power_allocation.v1",
+        )
+        self.assertEqual(
+            experiments["stop_trailing_dca"]["endpoint_path"],
+            "/api/simulation-lab/stop-trailing-dca/compare",
+        )
+        self.assertEqual(
+            experiments["stop_trailing_dca"]["result_schema_version"],
+            "edge.simulation_lab.stop_trailing_dca.v1",
+        )
 
     def test_simulation_lab_can_be_enabled_by_environment(self):
         with patch.dict(os.environ, {SIMULATION_LAB_ENV_FLAG: "true"}):
