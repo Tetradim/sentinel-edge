@@ -38,6 +38,9 @@ class SimulationLabAllocationTests(unittest.TestCase):
         self.assertEqual(result["summary"]["allocated_count"], 3)
         self.assertEqual(result["summary"]["allocated_notional"], 8500.0)
         self.assertEqual(result["summary"]["unallocated_notional"], 500.0)
+        self.assertEqual(result["summary"]["requested_notional"], 21000.0)
+        self.assertEqual(result["summary"]["unfilled_requested_notional"], 12500.0)
+        self.assertEqual(result["summary"]["fill_ratio"], 0.4048)
         self.assertEqual([item["symbol"] for item in result["allocations"]], ["AAPL", "MSFT", "NVDA"])
         self.assertEqual([item["allocated_notional"] for item in result["allocations"]], [4000.0, 3000.0, 1500.0])
 

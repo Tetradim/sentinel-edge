@@ -397,6 +397,8 @@ def run_buying_power_allocation_experiment(
     )
     allocated_notional = round(sum(item["allocated_notional"] for item in allocations), 2)
     unallocated_notional = round(max(0.0, allocatable_notional - allocated_notional), 2)
+    requested_notional = round(sum(candidate["requested_notional"] for candidate in normalised), 2)
+    unfilled_requested_notional = round(max(0.0, requested_notional - allocated_notional), 2)
 
     return {
         "schema_version": SIMULATION_LAB_BUYING_POWER_VERSION,
@@ -413,6 +415,9 @@ def run_buying_power_allocation_experiment(
             "skipped_count": len(skipped),
             "allocated_notional": allocated_notional,
             "unallocated_notional": unallocated_notional,
+            "requested_notional": requested_notional,
+            "unfilled_requested_notional": unfilled_requested_notional,
+            "fill_ratio": round(allocated_notional / requested_notional, 4) if requested_notional > 0 else 0.0,
         },
         "allocations": allocations,
         "skipped": skipped,

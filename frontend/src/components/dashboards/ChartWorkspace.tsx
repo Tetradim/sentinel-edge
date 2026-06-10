@@ -998,6 +998,8 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
     metrics.push(
       { label: 'allocated_notional', value: formatSimulationLabResultMetric(summary.allocated_notional, 'currency') },
       { label: 'allocated_count', value: formatSimulationLabResultMetric(summary.allocated_count) },
+      { label: 'fill_ratio', value: formatSimulationLabResultMetric(summary.fill_ratio, 'ratio') },
+      { label: 'unfilled_requested', value: formatSimulationLabResultMetric(summary.unfilled_requested_notional, 'currency') },
     );
   }
 
@@ -1013,10 +1015,11 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
   return metrics;
 }
 
-function formatSimulationLabResultMetric(value: unknown, mode: 'plain' | 'currency' | 'percent' = 'plain') {
+function formatSimulationLabResultMetric(value: unknown, mode: 'plain' | 'currency' | 'percent' | 'ratio' = 'plain') {
   if (value === null || value === undefined || value === '') return '--';
   if (mode === 'currency' && typeof value === 'number') return `$${value.toLocaleString()}`;
   if (mode === 'percent' && typeof value === 'number') return `${value.toFixed(2)}%`;
+  if (mode === 'ratio' && typeof value === 'number') return `${(value * 100).toFixed(2)}%`;
   if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
   return String(value).replace(/[_-]+/g, ' ');
 }
