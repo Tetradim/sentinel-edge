@@ -11,7 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
-import { api, type EdgeReadinessCheckDetail } from '@/lib/api';
+import { api, type EdgeLiveness, type EdgeReadiness, type EdgeReadinessCheckDetail } from '@/lib/api';
 
 interface ProviderStatus {
   healthy: boolean;
@@ -32,8 +32,8 @@ interface HealthState {
   connected: boolean;
   loading: boolean;
   error: string | null;
-  live: any | null;
-  ready: any | null;
+  live: EdgeLiveness | null;
+  ready: EdgeReadiness | null;
   health: any | null;
   stats: any | null;
   pulse: any | null;

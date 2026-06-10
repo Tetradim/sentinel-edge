@@ -33,8 +33,12 @@ class FrontendReadinessUiStaticTests(unittest.TestCase):
     def test_advisor_health_surfaces_runtime_readiness(self):
         text = ADVISOR_HEALTH.read_text(encoding="utf-8")
 
-        self.assertIn("live: any | null", text)
-        self.assertIn("ready: any | null", text)
+        self.assertIn("type EdgeLiveness", text)
+        self.assertIn("type EdgeReadiness", text)
+        self.assertIn("live: EdgeLiveness | null", text)
+        self.assertIn("ready: EdgeReadiness | null", text)
+        self.assertNotIn("live: any | null", text)
+        self.assertNotIn("ready: any | null", text)
         self.assertIn("api.getLiveness()", text)
         self.assertIn("api.getReadiness()", text)
         self.assertIn("Runtime Readiness", text)

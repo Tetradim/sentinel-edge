@@ -15,7 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
-import { api, type EdgeReadinessCheckDetail } from '@/lib/api';
+import { api, type EdgeReadiness, type EdgeReadinessCheckDetail } from '@/lib/api';
 
 interface ProtectionPosition {
   symbol: string;
@@ -42,7 +42,7 @@ interface ProtectionState {
   refreshedAt: string | null;
   health: any | null;
   stats: any | null;
-  ready: any | null;
+  ready: EdgeReadiness | null;
   pulse: any | null;
   killSwitch: any | null;
   automation: any | null;

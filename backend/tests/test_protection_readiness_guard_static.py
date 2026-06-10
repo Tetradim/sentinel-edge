@@ -11,7 +11,9 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
     def test_protection_dashboard_fetches_and_surfaces_readiness(self):
         text = PROTECTION.read_text(encoding="utf-8")
 
-        self.assertIn("ready: any | null", text)
+        self.assertIn("type EdgeReadiness", text)
+        self.assertIn("ready: EdgeReadiness | null", text)
+        self.assertNotIn("ready: any | null", text)
         self.assertIn("api.getReadiness()", text)
         self.assertIn("protection-readiness-guard", text)
         self.assertIn("readinessDetails", text)
