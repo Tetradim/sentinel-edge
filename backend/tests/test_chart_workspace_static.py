@@ -73,6 +73,25 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Oscillators", dashboard)
         self.assertIn("Lab", dashboard)
         self.assertIn("Snapshot", dashboard)
+        self.assertIn("2xl:grid-cols-[minmax(0,1fr)_280px]", dashboard)
+        self.assertNotIn("lg:grid-cols-[minmax(0,1fr)_280px]", dashboard)
+
+    def test_chart_workspace_exposes_persistent_chart_preferences(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("CHART_WORKSPACE_PREFERENCES_STORAGE_KEY", dashboard)
+        self.assertIn("sentinel-edge.chart-workspace.preferences.v1", dashboard)
+        self.assertIn("ChartWorkspacePreferencesState", dashboard)
+        self.assertIn("barLimit", dashboard)
+        self.assertIn("readChartWorkspacePreferences", dashboard)
+        self.assertIn("persistChartWorkspacePreferences", dashboard)
+        self.assertIn("normalizeChartWorkspacePreferences", dashboard)
+        self.assertIn("setBarLimit", dashboard)
+        self.assertIn('type="radio"', dashboard)
+        self.assertIn('name="chart-type"', dashboard)
+        self.assertIn("120 bars", dashboard)
+        self.assertIn("240 bars", dashboard)
+        self.assertIn("390 bars", dashboard)
 
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
@@ -81,6 +100,7 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("EMA/SMA, RSI, MACD", text)
         self.assertIn("ORB overlays", text)
         self.assertIn("Analysis/Execution/Research layouts", text)
+        self.assertIn("persistent symbol, chart-type, indicator, and range preferences", text)
 
 
 if __name__ == "__main__":

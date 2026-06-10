@@ -87,7 +87,7 @@ Edge is also designed to degrade safely:
 | Readiness | `/api/live` for process liveness, `/api/ready` for dependency readiness, readiness metrics, Grafana panels, alerts, and runbooks. |
 | Observability | Prometheus metrics, frontend RUM metrics, rate-limit metrics, OpenTelemetry traces, Loki/Promtail/Grafana/Tempo/Alertmanager Docker stack. |
 | Backtesting | Backtest execution, run reports, strategy optimization, Monte Carlo chart endpoints, dry-run status, and strategy catalog endpoints. |
-| Chart workspace | Chart-ready OHLCV snapshots, ORB overlays, EMA/SMA, RSI, MACD, chart replay actions, and persistent Analysis/Execution/Research layouts. |
+| Chart workspace | Chart-ready OHLCV snapshots, ORB overlays, EMA/SMA, RSI, MACD, chart replay actions, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
 | Safety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
 
 ---
@@ -478,7 +478,7 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Dry-run status.
 - Strategy optimization.
 - Monte Carlo chart listing and chart serving.
-- Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including ORB overlays, EMA/SMA, RSI, MACD, chart-ready OHLCV bars, and UI-ready context for persistent Analysis/Execution/Research layouts.
+- Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including ORB overlays, EMA/SMA, RSI, MACD, chart-ready OHLCV bars, UI-ready context for persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences.
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. The initial Lab roadmap covers:
 

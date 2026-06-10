@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   BarChart3,
@@ -23,6 +23,8 @@ const DEFAULT_INDICATORS: ChartWorkspaceIndicatorId[] = ['ema_9', 'ema_20', 'sma
 
 type ChartWorkspaceLayoutMode = 'analysis' | 'execution' | 'research';
 type ChartWorkspacePanelId = 'snapshot' | 'lab' | 'oscillators';
+type ChartWorkspaceChartType = 'candlestick' | 'line';
+type ChartWorkspaceBarLimit = 120 | 240 | 390;
 
 interface ChartWorkspacePanelVisibility {
   snapshot: boolean;
@@ -35,7 +37,15 @@ interface ChartWorkspaceLayoutState {
   panelVisibility: ChartWorkspacePanelVisibility;
 }
 
+interface ChartWorkspacePreferencesState {
+  activeSymbol: string;
+  chartType: ChartWorkspaceChartType;
+  selectedIndicators: ChartWorkspaceIndicatorId[];
+  barLimit: ChartWorkspaceBarLimit;
+}
+
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
+const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
 
 const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
   snapshot: true,
@@ -46,6 +56,13 @@ const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
 const DEFAULT_LAYOUT_STATE: ChartWorkspaceLayoutState = {
   layoutMode: 'analysis',
   panelVisibility: DEFAULT_PANEL_VISIBILITY,
+};
+
+const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
+  activeSymbol: 'SPY',
+  chartType: 'candlestick',
+  selectedIndicators: DEFAULT_INDICATORS,
+  barLimit: 240,
 };
 
 const LAYOUT_OPTIONS: { id: ChartWorkspaceLayoutMode; label: string }[] = [
@@ -60,17 +77,25 @@ const PANEL_OPTIONS: { id: ChartWorkspacePanelId; label: string }[] = [
   { id: 'oscillators', label: 'Oscillators' },
 ];
 
+const BAR_LIMIT_OPTIONS: { value: ChartWorkspaceBarLimit; label: string }[] = [
+  { value: 120, label: '120 bars' },
+  { value: 240, label: '240 bars' },
+  { value: 390, label: '390 bars' },
+];
+
 export const ChartWorkspace: React.FC = () => {
-  const [symbolInput, setSymbolInput] = useState('SPY');
-  const [activeSymbol, setActiveSymbol] = useState('SPY');
-  const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
-  const [selectedIndicators, setSelectedIndicators] = useState<ChartWorkspaceIndicatorId[]>(DEFAULT_INDICATORS);
+  const [workspacePreferences, setWorkspacePreferences] =
+    useState<ChartWorkspacePreferencesState>(readChartWorkspacePreferences);
+  const workspacePreferencesRef = useRef(workspacePreferences);
+  const [symbolInput, setSymbolInput] = useState(workspacePreferences.activeSymbol);
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [labMessage, setLabMessage] = useState('');
   const [layoutMessage, setLayoutMessage] = useState('');
+  const [viewMessage, setViewMessage] = useState('');
+  const { activeSymbol, chartType, selectedIndicators, barLimit } = workspacePreferences;
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +105,7 @@ export const ChartWorkspace: React.FC = () => {
       try {
         const nextSnapshot = await api.getChartWorkspace(activeSymbol, {
           indicators: selectedIndicators,
-          limit: 240,
+          limit: barLimit,
         });
         if (!cancelled) setSnapshot(nextSnapshot);
       } catch (err) {
@@ -96,7 +121,7 @@ export const ChartWorkspace: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol, selectedIndicators]);
+  }, [activeSymbol, selectedIndicators, barLimit]);
 
   const priceData = useMemo(() => buildPriceTraces(snapshot, chartType), [snapshot, chartType]);
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
@@ -105,7 +130,7 @@ export const ChartWorkspace: React.FC = () => {
   const hasSidePanels = panelVisibility.snapshot || panelVisibility.lab;
   const workspaceGridClass = getWorkspaceGridClass(layoutMode);
   const sidePanelClass = getSidePanelClass(layoutMode);
-  const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? 'xl:order-last' : ''}`;
+  const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? '2xl:order-last' : ''}`;
   const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
   const priceChartHeight = layoutMode === 'research' ? 500 : 430;
 
@@ -116,14 +141,59 @@ export const ChartWorkspace: React.FC = () => {
       setError('Enter a valid symbol');
       return;
     }
-    setActiveSymbol(symbol);
+    setSymbolInput(symbol);
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      activeSymbol: symbol,
+    }));
   };
 
   const toggleIndicator = (indicator: ChartWorkspaceIndicatorId, checked: boolean) => {
-    setSelectedIndicators((current) => {
-      if (checked) return current.includes(indicator) ? current : [...current, indicator];
-      return current.filter((item) => item !== indicator);
+    updateWorkspacePreferences((current) => {
+      const nextIndicators = checked
+        ? current.selectedIndicators.includes(indicator)
+          ? current.selectedIndicators
+          : [...current.selectedIndicators, indicator]
+        : current.selectedIndicators.filter((item) => item !== indicator);
+      return {
+        ...current,
+        selectedIndicators: nextIndicators,
+      };
     });
+  };
+
+  const selectChartType = (nextChartType: ChartWorkspaceChartType) => {
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      chartType: nextChartType,
+    }));
+  };
+
+  const setBarLimit = (nextBarLimit: ChartWorkspaceBarLimit) => {
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      barLimit: nextBarLimit,
+    }));
+  };
+
+  const resetWorkspacePreferences = () => {
+    const nextPreferences = cloneDefaultPreferencesState();
+    workspacePreferencesRef.current = nextPreferences;
+    setWorkspacePreferences(nextPreferences);
+    setSymbolInput(nextPreferences.activeSymbol);
+    clearChartWorkspacePreferences();
+    setViewMessage('View reset');
+  };
+
+  const updateWorkspacePreferences = (
+    resolveNextPreferences: (current: ChartWorkspacePreferencesState) => ChartWorkspacePreferencesState,
+  ) => {
+    const nextPreferences = resolveNextPreferences(workspacePreferencesRef.current);
+    workspacePreferencesRef.current = nextPreferences;
+    setWorkspacePreferences(nextPreferences);
+    setViewMessage(
+      persistChartWorkspacePreferences(nextPreferences) ? 'View saved' : 'View changes are local only',
+    );
   };
 
   const updateWorkspaceLayout = (nextLayout: ChartWorkspaceLayoutState) => {
@@ -265,7 +335,7 @@ export const ChartWorkspace: React.FC = () => {
             Reset
           </button>
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(260px,auto)]">
+        <div className="mt-3 grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,auto)]">
           <div className="flex flex-wrap items-center gap-2">
             {LAYOUT_OPTIONS.map((option) => (
               <button
@@ -302,24 +372,46 @@ export const ChartWorkspace: React.FC = () => {
         <section className={pricePanelClass}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setChartType('candlestick')}
-                className={chartType === 'candlestick' ? activeToolClass : inactiveToolClass}
-                aria-pressed={chartType === 'candlestick'}
-              >
+              <label className={chartType === 'candlestick' ? activeRadioClass : inactiveRadioClass}>
+                <input
+                  type="radio"
+                  name="chart-type"
+                  checked={chartType === 'candlestick'}
+                  onChange={() => selectChartType('candlestick')}
+                  className="sr-only"
+                />
                 <CandlestickChart className="h-4 w-4" />
                 Candle
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartType('line')}
-                className={chartType === 'line' ? activeToolClass : inactiveToolClass}
-                aria-pressed={chartType === 'line'}
-              >
+              </label>
+              <label className={chartType === 'line' ? activeRadioClass : inactiveRadioClass}>
+                <input
+                  type="radio"
+                  name="chart-type"
+                  checked={chartType === 'line'}
+                  onChange={() => selectChartType('line')}
+                  className="sr-only"
+                />
                 <LineChart className="h-4 w-4" />
                 Line
+              </label>
+              <button type="button" onClick={resetWorkspacePreferences} className={inactiveToolClass}>
+                <RefreshCw className="h-4 w-4" />
+                Reset View
               </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase text-slate-500">Range</span>
+              {BAR_LIMIT_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setBarLimit(option.value)}
+                  className={barLimit === option.value ? activeToolClass : inactiveToolClass}
+                  aria-pressed={barLimit === option.value}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {INDICATOR_OPTIONS.map((option) => (
@@ -335,6 +427,7 @@ export const ChartWorkspace: React.FC = () => {
               ))}
             </div>
           </div>
+          {viewMessage && <p className="mb-3 text-xs text-slate-400">{viewMessage}</p>}
 
           {error && (
             <p role="alert" className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
@@ -514,6 +607,36 @@ function clearChartWorkspaceLayout() {
   }
 }
 
+function readChartWorkspacePreferences(): ChartWorkspacePreferencesState {
+  if (typeof window === 'undefined') return cloneDefaultPreferencesState();
+  try {
+    const storedPreferences = window.localStorage.getItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
+    if (!storedPreferences) return cloneDefaultPreferencesState();
+    return normalizeChartWorkspacePreferences(JSON.parse(storedPreferences));
+  } catch {
+    return cloneDefaultPreferencesState();
+  }
+}
+
+function persistChartWorkspacePreferences(preferences: ChartWorkspacePreferencesState) {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearChartWorkspacePreferences() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
+  } catch {
+    return;
+  }
+}
+
 function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutState {
   if (!isRecord(value)) return cloneDefaultLayoutState();
   const storedPanels = isRecord(value.panelVisibility) ? value.panelVisibility : {};
@@ -528,6 +651,16 @@ function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutStat
   };
 }
 
+function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePreferencesState {
+  if (!isRecord(value)) return cloneDefaultPreferencesState();
+  return {
+    activeSymbol: normalizeChartWorkspaceSymbol(value.activeSymbol),
+    chartType: isChartWorkspaceChartType(value.chartType) ? value.chartType : DEFAULT_PREFERENCES_STATE.chartType,
+    selectedIndicators: normalizeChartWorkspaceIndicators(value.selectedIndicators),
+    barLimit: isChartWorkspaceBarLimit(value.barLimit) ? value.barLimit : DEFAULT_PREFERENCES_STATE.barLimit,
+  };
+}
+
 function cloneDefaultLayoutState(): ChartWorkspaceLayoutState {
   return {
     layoutMode: DEFAULT_LAYOUT_STATE.layoutMode,
@@ -535,8 +668,39 @@ function cloneDefaultLayoutState(): ChartWorkspaceLayoutState {
   };
 }
 
+function cloneDefaultPreferencesState(): ChartWorkspacePreferencesState {
+  return {
+    ...DEFAULT_PREFERENCES_STATE,
+    selectedIndicators: [...DEFAULT_INDICATORS],
+  };
+}
+
 function isChartWorkspaceLayoutMode(value: unknown): value is ChartWorkspaceLayoutMode {
   return value === 'analysis' || value === 'execution' || value === 'research';
+}
+
+function isChartWorkspaceChartType(value: unknown): value is ChartWorkspaceChartType {
+  return value === 'candlestick' || value === 'line';
+}
+
+function isChartWorkspaceBarLimit(value: unknown): value is ChartWorkspaceBarLimit {
+  return value === 120 || value === 240 || value === 390;
+}
+
+function isChartWorkspaceIndicatorId(value: unknown): value is ChartWorkspaceIndicatorId {
+  return INDICATOR_OPTIONS.some((option) => option.id === value);
+}
+
+function normalizeChartWorkspaceSymbol(value: unknown) {
+  if (typeof value !== 'string') return DEFAULT_PREFERENCES_STATE.activeSymbol;
+  const symbol = value.trim().toUpperCase();
+  return /^[A-Z0-9.-]{1,10}$/.test(symbol) ? symbol : DEFAULT_PREFERENCES_STATE.activeSymbol;
+}
+
+function normalizeChartWorkspaceIndicators(value: unknown) {
+  if (!Array.isArray(value)) return [...DEFAULT_INDICATORS];
+  const indicators = Array.from(new Set(value.filter(isChartWorkspaceIndicatorId)));
+  return indicators.length ? indicators : [...DEFAULT_INDICATORS];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -545,13 +709,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getWorkspaceGridClass(layoutMode: ChartWorkspaceLayoutMode) {
   if (layoutMode === 'research') return 'grid grid-cols-1 gap-3';
-  if (layoutMode === 'execution') return 'grid grid-cols-1 gap-3 xl:grid-cols-[280px_minmax(0,1fr)]';
-  return 'grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]';
+  if (layoutMode === 'execution') return 'grid grid-cols-1 gap-3 2xl:grid-cols-[280px_minmax(0,1fr)]';
+  return 'grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_280px]';
 }
 
 function getSidePanelClass(layoutMode: ChartWorkspaceLayoutMode) {
-  if (layoutMode === 'research') return 'grid grid-cols-1 gap-3 lg:grid-cols-2';
-  if (layoutMode === 'execution') return 'space-y-3 xl:order-first';
+  if (layoutMode === 'research') return 'grid grid-cols-1 gap-3 2xl:grid-cols-2';
+  if (layoutMode === 'execution') return 'space-y-3 2xl:order-first';
   return 'space-y-3';
 }
 
@@ -560,5 +724,7 @@ const activeToolClass =
   'inline-flex h-9 items-center gap-2 rounded-lg border border-cyan-300/60 bg-cyan-400/15 px-3 text-sm font-semibold text-cyan-100';
 const inactiveToolClass =
   'inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-300 hover:border-cyan-400/40 hover:text-cyan-100';
+const activeRadioClass = `${activeToolClass} cursor-pointer`;
+const inactiveRadioClass = `${inactiveToolClass} cursor-pointer`;
 
 export default ChartWorkspace;
