@@ -13,6 +13,11 @@ const initialRuntime: RuntimeState = {
   rateLimitPressure: 'unknown',
   rateLimitRemaining: undefined,
   rateLimitResetSeconds: undefined,
+  frontendRumStatus: 'unknown',
+  frontendRumSampleCount: undefined,
+  frontendRumRouteCount: undefined,
+  frontendRumLastRoute: undefined,
+  frontendRumAgeSeconds: undefined,
   updatedAt: undefined,
   error: undefined,
 };
@@ -24,10 +29,11 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
     let cancelled = false;
     const loadRuntime = async () => {
       try {
-        const [health, readiness, rateLimit, pulse, kill] = await Promise.allSettled([
+        const [health, readiness, rateLimit, frontendRum, pulse, kill] = await Promise.allSettled([
           api.getHealth(),
           api.getReadiness(),
           api.getRateLimitStatus(),
+          api.getFrontendRumStatus(),
           api.getPulseStatus(),
           api.getKillSwitchStatus(),
         ]);
@@ -35,6 +41,7 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
         const healthValue = health.status === 'fulfilled' ? health.value : null;
         const readinessValue = readiness.status === 'fulfilled' ? readiness.value : null;
         const rateLimitValue = rateLimit.status === 'fulfilled' ? rateLimit.value : null;
+        const frontendRumValue = frontendRum.status === 'fulfilled' ? frontendRum.value : null;
         const pulseValue = pulse.status === 'fulfilled' ? pulse.value : null;
         const killValue = kill.status === 'fulfilled' ? kill.value : null;
         setRuntime({
@@ -48,6 +55,13 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
           rateLimitPressure: rateLimitValue?.pressure || 'unknown',
           rateLimitRemaining: rateLimitValue?.remaining_requests,
           rateLimitResetSeconds: rateLimitValue?.reset_seconds,
+          frontendRumStatus: frontendRumValue?.status === 'receiving' || frontendRumValue?.status === 'waiting'
+            ? frontendRumValue.status
+            : 'unknown',
+          frontendRumSampleCount: frontendRumValue?.sample_count,
+          frontendRumRouteCount: frontendRumValue?.route_count,
+          frontendRumLastRoute: frontendRumValue?.last_route,
+          frontendRumAgeSeconds: frontendRumValue?.seconds_since_last,
           updatedAt: new Date().toISOString(),
           error: undefined,
         });
@@ -63,6 +77,11 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
             rateLimitPressure: 'unknown',
             rateLimitRemaining: undefined,
             rateLimitResetSeconds: undefined,
+            frontendRumStatus: 'unknown',
+            frontendRumSampleCount: undefined,
+            frontendRumRouteCount: undefined,
+            frontendRumLastRoute: undefined,
+            frontendRumAgeSeconds: undefined,
             updatedAt: new Date().toISOString(),
             error: 'Runtime status unavailable',
           }));

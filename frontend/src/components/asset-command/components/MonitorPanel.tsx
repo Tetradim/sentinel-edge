@@ -22,11 +22,20 @@ export function MonitorPanel({
   const killSwitchTone: Tone = runtime.killSwitchActive ? 'red' : 'green';
   const readinessTone: Tone = !runtime.connected ? 'red' : runtime.runtimeReady ? 'green' : 'gold';
   const rateLimitTone: Tone = runtime.rateLimitPressure === 'normal' ? 'green' : runtime.rateLimitPressure === 'warning' ? 'gold' : 'red';
+  const frontendRumTone: Tone = runtime.frontendRumStatus === 'receiving' ? 'green' : runtime.frontendRumStatus === 'waiting' ? 'gold' : 'red';
   const schedulerValue = !runtime.connected ? 'Unknown' : runtime.schedulerPaused ? 'Paused' : 'Active';
   const readinessValue = !runtime.connected ? 'Unknown' : runtime.runtimeReady ? 'Ready' : 'Not ready';
   const readinessDetail = getReadinessDetail(runtime.readinessFailingChecks);
   const rateLimitValue = runtime.rateLimitPressure === 'unknown' ? 'Unknown' : runtime.rateLimitPressure === 'warning' ? 'Warning' : 'Normal';
   const rateLimitDetail = getRateLimitDetail(runtime.rateLimitRemaining, runtime.rateLimitResetSeconds);
+  const frontendRumValue = runtime.frontendRumStatus === 'receiving' ? 'Receiving' : runtime.frontendRumStatus === 'waiting' ? 'Waiting' : 'Unknown';
+  const frontendRumDetail = getFrontendRumDetail(
+    runtime.frontendRumStatus,
+    runtime.frontendRumSampleCount,
+    runtime.frontendRumRouteCount,
+    runtime.frontendRumLastRoute,
+    runtime.frontendRumAgeSeconds,
+  );
   const runtimePollAge = formatRuntimePollAge(runtime.updatedAt);
   const runtimeSignalRows = [
     [
@@ -52,6 +61,12 @@ export function MonitorPanel({
       rateLimitValue.toLowerCase(),
       runtime.rateLimitPressure === 'unknown' ? 'rate-limit status unavailable' : rateLimitDetail,
       runtime.rateLimitPressure,
+    ],
+    [
+      'Frontend RUM',
+      frontendRumValue.toLowerCase(),
+      frontendRumDetail,
+      runtime.frontendRumStatus,
     ],
     [
       'Pulse bridge',
@@ -110,6 +125,12 @@ export function MonitorPanel({
           tone={rateLimitTone}
         />
         <HealthCard
+          label="Frontend RUM"
+          value={frontendRumValue}
+          detail={frontendRumDetail}
+          tone={frontendRumTone}
+        />
+        <HealthCard
           label="Pulse bridge"
           value={runtime.pulseAvailable ? 'Online' : 'Standalone'}
           detail={runtime.pulseAvailable ? 'Execution bridge detected' : 'Handoff suppressed'}
@@ -159,4 +180,20 @@ function getRateLimitDetail(remaining?: number, resetSeconds?: number) {
   const remainingText = typeof remaining === 'number' && Number.isFinite(remaining) ? `${remaining} requests remaining` : 'remaining unknown';
   const resetText = typeof resetSeconds === 'number' && Number.isFinite(resetSeconds) ? `reset in ${resetSeconds}s` : 'reset unknown';
   return `${remainingText}; ${resetText}`;
+}
+
+function getFrontendRumDetail(
+  status: RuntimeState['frontendRumStatus'],
+  sampleCount?: number,
+  routeCount?: number,
+  lastRoute?: string | null,
+  ageSeconds?: number | null,
+) {
+  if (status === 'unknown') return 'RUM status unavailable';
+  if (status === 'waiting') return 'Waiting for first browser sample';
+
+  const samples = typeof sampleCount === 'number' && Number.isFinite(sampleCount) ? sampleCount : 0;
+  const routes = typeof routeCount === 'number' && Number.isFinite(routeCount) ? routeCount : 0;
+  const age = typeof ageSeconds === 'number' && Number.isFinite(ageSeconds) ? `${Math.round(ageSeconds)}s ago` : 'fresh';
+  return `${samples} samples across ${routes} routes; ${lastRoute || '/'} ${age}`;
 }

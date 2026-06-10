@@ -49,6 +49,11 @@ export interface RuntimeState {
   rateLimitPressure: 'normal' | 'warning' | 'unknown';
   rateLimitRemaining?: number;
   rateLimitResetSeconds?: number;
+  frontendRumStatus: 'receiving' | 'waiting' | 'unknown';
+  frontendRumSampleCount?: number;
+  frontendRumRouteCount?: number;
+  frontendRumLastRoute?: string | null;
+  frontendRumAgeSeconds?: number | null;
   updatedAt?: string;
   error?: string;
 }

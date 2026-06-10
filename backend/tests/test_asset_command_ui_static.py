@@ -109,6 +109,19 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("API pressure", text)
         self.assertIn("rateLimitDetail", text)
 
+    def test_monitor_panel_surfaces_frontend_rum_status(self):
+        monitor_panel = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "MonitorPanel.tsx"
+        api_client = ROOT / "frontend" / "src" / "lib" / "api.ts"
+        text = read_existing(ASSET_COMMAND_TYPES, ASSET_COMMAND_RUNTIME_HOOK, monitor_panel, api_client)
+
+        self.assertIn("frontendRumStatus: 'receiving' | 'waiting' | 'unknown'", text)
+        self.assertIn("frontendRumSampleCount?: number", text)
+        self.assertIn("frontendRumRouteCount?: number", text)
+        self.assertIn("api.getFrontendRumStatus()", text)
+        self.assertIn("frontendRumValue?.sample_count", text)
+        self.assertIn("Frontend RUM", text)
+        self.assertIn("frontendRumDetail", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 
