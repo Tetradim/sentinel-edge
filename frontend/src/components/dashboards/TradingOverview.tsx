@@ -79,6 +79,7 @@ export const TradingOverview: React.FC = () => {
   const [tickerConfigs, setTickerConfigs] = useState<Record<string, any>>({});
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [actionError, setActionError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -94,6 +95,9 @@ export const TradingOverview: React.FC = () => {
         api.getCorrelation(),
         api.getDecisions(),
       ]);
+      const failedLoads = [tickersRes, statsRes, corrRes, decsRes].filter(
+        (result) => result.status === 'rejected',
+      );
 
       if (tickersRes.status === 'fulfilled') {
         const raw: any[] = tickersRes.value.tickers || [];
@@ -120,8 +124,15 @@ export const TradingOverview: React.FC = () => {
       if (decsRes.status === 'fulfilled') {
         setDecisions(decsRes.value.decisions || []);
       }
+
+      if (failedLoads.length > 0) {
+        setLoadError('Trading overview data failed to refresh. Showing latest available data.');
+      } else {
+        setLoadError('');
+      }
     } catch (error) {
       console.error('Failed to load trading overview:', error);
+      setLoadError('Trading overview data failed to refresh. Showing latest available data.');
     }
   };
 
@@ -200,6 +211,12 @@ export const TradingOverview: React.FC = () => {
           color={stats?.running ? 'green' : 'red'}
         />
       </div>
+
+      {loadError && (
+        <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {loadError}
+        </p>
+      )}
 
       <MarketBreadth correlation={correlation} />
       <DecisionFeed decisions={decisions} live />

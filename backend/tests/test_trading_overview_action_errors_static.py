@@ -24,6 +24,17 @@ class TradingOverviewActionErrorsStaticTests(unittest.TestCase):
         self.assertIn("try {\n      setActionError('');\n      await api.removeTicker(symbol);\n      removeTicker(symbol);", text)
         self.assertIn("} catch {\n      setActionError(`Failed to remove ${symbol}`);\n    }", text)
 
+    def test_refresh_failures_are_visible_without_stopping_partial_updates(self):
+        text = TRADING_OVERVIEW.read_text(encoding="utf-8")
+
+        self.assertIn("const [loadError, setLoadError] = useState('')", text)
+        self.assertIn("const failedLoads = [tickersRes, statsRes, corrRes, decsRes].filter", text)
+        self.assertIn("setLoadError('Trading overview data failed to refresh. Showing latest available data.')", text)
+        self.assertIn("setLoadError('')", text)
+        self.assertIn("{loadError &&", text)
+        self.assertIn('role="alert"', text)
+        self.assertIn("{loadError}", text)
+
 
 if __name__ == "__main__":
     unittest.main()
