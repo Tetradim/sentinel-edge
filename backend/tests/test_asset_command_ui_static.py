@@ -48,6 +48,16 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("aria-disabled={runtime.loading || !runtime.connected}", text)
         self.assertIn("if (runtime.loading || !runtime.connected) return", text)
 
+    def test_runtime_badges_surface_scheduler_control_failures(self):
+        text = read_existing(ASSET_COMMAND_TYPES, ASSET_COMMAND_SHARED, ASSET_COMMAND_RUNTIME_HOOK)
+
+        self.assertIn("error?: string", text)
+        self.assertIn("error: undefined", text)
+        self.assertIn("error: 'Runtime status unavailable'", text)
+        self.assertIn("error: 'Scheduler control failed'", text)
+        self.assertIn("runtime.error &&", text)
+        self.assertIn("{runtime.error}", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 

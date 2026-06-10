@@ -8,6 +8,7 @@ const initialRuntime: RuntimeState = {
   pulseAvailable: false,
   killSwitchActive: false,
   schedulerPaused: false,
+  error: undefined,
 };
 
 export function useRuntimeStatus(addEvent: (symbol: string, title: string, detail: string) => void) {
@@ -32,10 +33,17 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
           pulseAvailable: Boolean(pulseValue?.available || healthValue?.pulse_available),
           killSwitchActive: Boolean(killValue?.kill_switch_active),
           schedulerPaused: Boolean(healthValue?.paused),
+          error: undefined,
         });
       } catch {
         if (!cancelled) {
-          setRuntime((current) => ({ ...current, connected: false, loading: false, pulseAvailable: false }));
+          setRuntime((current) => ({
+            ...current,
+            connected: false,
+            loading: false,
+            pulseAvailable: false,
+            error: 'Runtime status unavailable',
+          }));
         }
       }
     };
@@ -49,15 +57,17 @@ export function useRuntimeStatus(addEvent: (symbol: string, title: string, detai
 
   const toggleScheduler = async () => {
     if (runtime.loading || !runtime.connected) return;
+    setRuntime((current) => ({ ...current, error: undefined }));
     try {
       if (runtime.schedulerPaused) {
         await api.resumeScheduler();
       } else {
         await api.pauseScheduler();
       }
-      setRuntime((current) => ({ ...current, schedulerPaused: !current.schedulerPaused }));
+      setRuntime((current) => ({ ...current, schedulerPaused: !current.schedulerPaused, error: undefined }));
       addEvent('EDGE', runtime.schedulerPaused ? 'Scheduler resumed' : 'Scheduler paused', 'Runtime control updated from Asset Command');
     } catch {
+      setRuntime((current) => ({ ...current, error: 'Scheduler control failed' }));
       addEvent('EDGE', 'Scheduler control failed', 'Backend control endpoint unavailable');
     }
   };

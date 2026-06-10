@@ -26,6 +26,12 @@ export function RuntimeBadges({ runtime, onToggleScheduler }: { runtime: Runtime
         {runtime.connected ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
         {runtime.loading ? 'Connecting' : runtime.connected ? 'Connected' : 'Disconnected'}
       </span>
+      {runtime.error && (
+        <span className="edge-runtime-pill danger" title={runtime.error}>
+          <AlertTriangle size={14} />
+          {runtime.error}
+        </span>
+      )}
     </div>
   );
 }

@@ -44,6 +44,7 @@ export interface RuntimeState {
   pulseAvailable: boolean;
   killSwitchActive: boolean;
   schedulerPaused: boolean;
+  error?: string;
 }
 
 export interface OperationViewItem {
