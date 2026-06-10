@@ -393,9 +393,10 @@ function normalizeEdgeReadiness(readiness: EdgeReadiness): NormalizedEdgeReadine
   const checks = Object.fromEntries(Object.entries(readiness.checks).map(([check, value]) => [check, Boolean(value)]));
   const rawCheckDetails =
     readiness.check_details && typeof readiness.check_details === 'object' ? readiness.check_details : {};
-  const checkDetails = Object.fromEntries(Object.entries(rawCheckDetails).map(([check, detail]) => [
+  const checkNames = Array.from(new Set([...Object.keys(checks), ...Object.keys(rawCheckDetails)]));
+  const checkDetails = Object.fromEntries(checkNames.map((check) => [
     check,
-    normalizeEdgeReadinessDetail(detail, check, Boolean(checks[check])),
+    normalizeEdgeReadinessDetail(rawCheckDetails[check], check, Boolean(checks[check])),
   ]));
   const failingChecks = Array.isArray(readiness.failing_checks) ? readiness.failing_checks : [];
   const failingCheckDetails = Array.isArray(readiness.failing_check_details)
