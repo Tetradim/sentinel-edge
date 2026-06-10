@@ -52,6 +52,15 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Metric label=\"ORB status\"", dashboard)
         self.assertIn("formatOrbSessionStatus", dashboard)
 
+    def test_chart_workspace_snapshot_panel_lists_all_orb_sessions(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("orbSessionEntries", dashboard)
+        self.assertIn("ORB sessions", dashboard)
+        self.assertIn("formatOrbSessionLevelSummary", dashboard)
+        self.assertIn("session.timeframes", dashboard)
+        self.assertIn("session.levels", dashboard)
+
     def test_operations_deck_exposes_chart_workspace_tab(self):
         panel = OPERATIONS_PANEL.read_text(encoding="utf-8")
         data = ASSET_DATA.read_text(encoding="utf-8")

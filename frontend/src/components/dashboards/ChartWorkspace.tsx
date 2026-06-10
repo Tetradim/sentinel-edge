@@ -8,7 +8,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot } from '@/types';
+import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot, OrbSessionSummary } from '@/types';
 import { PlotlyChart } from '../ui/PlotlyCharts';
 
 const INDICATOR_OPTIONS: { id: ChartWorkspaceIndicatorId; label: string }[] = [
@@ -194,6 +194,7 @@ export const ChartWorkspace: React.FC = () => {
   const selectedOrbReplaySession =
     ORB_REPLAY_SESSION_OPTIONS.find((option) => option.id === orbReplaySession) || ORB_REPLAY_SESSION_OPTIONS[0];
   const orbSessionStatus = snapshot?.orb_session_status;
+  const orbSessionEntries = useMemo(() => Object.values(orbSessionStatus?.sessions ?? {}), [orbSessionStatus]);
   const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
   const priceChartHeight = layoutMode === 'research' ? 500 : 430;
 
@@ -367,6 +368,20 @@ export const ChartWorkspace: React.FC = () => {
             <Metric label="ORB session" value={orbSessionStatus?.active_label ?? '--'} />
             <Metric label="ORB status" value={formatOrbSessionStatus(orbSessionStatus?.active_status)} />
           </div>
+          {orbSessionEntries.length > 0 && (
+            <div className="mt-3 space-y-1 text-[11px] text-slate-400">
+              <div className="font-semibold uppercase text-slate-500">ORB sessions</div>
+              {orbSessionEntries.map((session) => (
+                <div key={session.id} className="border-t border-slate-800/80 pt-1 first:border-t-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-slate-300">{session.label}</span>
+                    <span className="shrink-0 text-slate-500">{formatOrbSessionStatus(session.status)}</span>
+                  </div>
+                  <div className="truncate text-slate-500">{formatOrbSessionLevelSummary(session)}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -738,6 +753,17 @@ function orbLineTrace(x: string[], y: number, name: string, color: string) {
 function formatOrbSessionStatus(status?: string) {
   if (!status) return '--';
   return status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatOrbSessionLevelSummary(session: OrbSessionSummary) {
+  const levels = session.levels ?? {};
+  const lockedTimeframes = session.timeframes.filter((timeframe) => levels[timeframe]?.locked);
+  if (lockedTimeframes.length) return `${lockedTimeframes.join(', ')} locked`;
+
+  const validTimeframes = session.timeframes.filter((timeframe) => levels[timeframe]?.is_valid);
+  if (validTimeframes.length) return `${validTimeframes.join(', ')} collecting`;
+
+  return `${session.timeframes.join(', ')} configured`;
 }
 
 function formatSimulationLabEndpoint(experiment: ChartWorkspaceSimulationLabExperiment) {
