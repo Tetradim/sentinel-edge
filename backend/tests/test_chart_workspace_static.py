@@ -169,6 +169,23 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("premarket_30m", dashboard)
         self.assertIn("market_open", dashboard)
 
+    def test_chart_workspace_exposes_indicator_presets(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("ChartWorkspaceIndicatorPresetId", dashboard)
+        self.assertIn("INDICATOR_PRESET_OPTIONS", dashboard)
+        self.assertIn("indicatorPreset", dashboard)
+        self.assertIn("applyIndicatorPreset", dashboard)
+        self.assertIn("inferIndicatorPreset", dashboard)
+        self.assertIn("isChartWorkspaceIndicatorPresetId", dashboard)
+        self.assertIn("Core", dashboard)
+        self.assertIn("Trend", dashboard)
+        self.assertIn("Momentum", dashboard)
+        self.assertIn("Clean", dashboard)
+        self.assertIn("selectedIndicators: [...preset.indicators]", dashboard)
+        self.assertIn("indicator presets", text)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 

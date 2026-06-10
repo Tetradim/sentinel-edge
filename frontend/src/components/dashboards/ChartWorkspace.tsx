@@ -19,6 +19,13 @@ const INDICATOR_OPTIONS: { id: ChartWorkspaceIndicatorId; label: string }[] = [
   { id: 'macd', label: 'MACD' },
 ];
 
+type ChartWorkspaceIndicatorPresetId = 'core' | 'trend' | 'momentum' | 'clean' | 'custom';
+interface ChartWorkspaceIndicatorPresetOption {
+  id: Exclude<ChartWorkspaceIndicatorPresetId, 'custom'>;
+  label: string;
+  indicators: ChartWorkspaceIndicatorId[];
+}
+
 const DEFAULT_INDICATORS: ChartWorkspaceIndicatorId[] = ['ema_9', 'ema_20', 'sma_20', 'rsi_14', 'macd'];
 
 type ChartWorkspaceLayoutMode = 'analysis' | 'execution' | 'research';
@@ -42,6 +49,7 @@ interface ChartWorkspaceLayoutState {
 interface ChartWorkspacePreferencesState {
   activeSymbol: string;
   chartType: ChartWorkspaceChartType;
+  indicatorPreset: ChartWorkspaceIndicatorPresetId;
   selectedIndicators: ChartWorkspaceIndicatorId[];
   barLimit: ChartWorkspaceBarLimit;
   showOrbOverlays: boolean;
@@ -90,6 +98,7 @@ const DEFAULT_LAYOUT_STATE: ChartWorkspaceLayoutState = {
 const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
   activeSymbol: 'SPY',
   chartType: 'candlestick',
+  indicatorPreset: 'core',
   selectedIndicators: DEFAULT_INDICATORS,
   barLimit: 240,
   showOrbOverlays: true,
@@ -112,6 +121,13 @@ const BAR_LIMIT_OPTIONS: { value: ChartWorkspaceBarLimit; label: string }[] = [
   { value: 120, label: '120 bars' },
   { value: 240, label: '240 bars' },
   { value: 390, label: '390 bars' },
+];
+
+const INDICATOR_PRESET_OPTIONS: ChartWorkspaceIndicatorPresetOption[] = [
+  { id: 'core', label: 'Core', indicators: DEFAULT_INDICATORS },
+  { id: 'trend', label: 'Trend', indicators: ['ema_9', 'ema_20', 'sma_20'] },
+  { id: 'momentum', label: 'Momentum', indicators: ['rsi_14', 'macd'] },
+  { id: 'clean', label: 'Clean', indicators: [] },
 ];
 
 const ORB_REPLAY_SESSION_OPTIONS: {
@@ -143,7 +159,7 @@ export const ChartWorkspace: React.FC = () => {
   const [labMessage, setLabMessage] = useState('');
   const [layoutMessage, setLayoutMessage] = useState('');
   const [viewMessage, setViewMessage] = useState('');
-  const { activeSymbol, chartType, selectedIndicators, barLimit, showOrbOverlays, orbOverlaySessions } =
+  const { activeSymbol, chartType, indicatorPreset, selectedIndicators, barLimit, showOrbOverlays, orbOverlaySessions } =
     workspacePreferences;
 
   useEffect(() => {
@@ -241,9 +257,18 @@ export const ChartWorkspace: React.FC = () => {
         : current.selectedIndicators.filter((item) => item !== indicator);
       return {
         ...current,
+        indicatorPreset: 'custom',
         selectedIndicators: nextIndicators,
       };
     });
+  };
+
+  const applyIndicatorPreset = (preset: ChartWorkspaceIndicatorPresetOption) => {
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      indicatorPreset: preset.id,
+      selectedIndicators: [...preset.indicators],
+    }));
   };
 
   const selectChartType = (nextChartType: ChartWorkspaceChartType) => {
@@ -604,6 +629,23 @@ export const ChartWorkspace: React.FC = () => {
                 <RefreshCw className="h-4 w-4" />
                 Reset View
               </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase text-slate-500">Preset</span>
+              {INDICATOR_PRESET_OPTIONS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyIndicatorPreset(preset)}
+                  className={indicatorPreset === preset.id ? activeToolClass : inactiveToolClass}
+                  aria-pressed={indicatorPreset === preset.id}
+                >
+                  {preset.label}
+                </button>
+              ))}
+              {indicatorPreset === 'custom' && (
+                <span className="text-xs font-semibold text-slate-500">Custom</span>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-semibold uppercase text-slate-500">Range</span>
@@ -980,10 +1022,14 @@ function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutStat
 
 function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePreferencesState {
   if (!isRecord(value)) return cloneDefaultPreferencesState();
+  const selectedIndicators = normalizeChartWorkspaceIndicators(value.selectedIndicators);
   return {
     activeSymbol: normalizeChartWorkspaceSymbol(value.activeSymbol),
     chartType: isChartWorkspaceChartType(value.chartType) ? value.chartType : DEFAULT_PREFERENCES_STATE.chartType,
-    selectedIndicators: normalizeChartWorkspaceIndicators(value.selectedIndicators),
+    indicatorPreset: isChartWorkspaceIndicatorPresetId(value.indicatorPreset)
+      ? value.indicatorPreset
+      : inferIndicatorPreset(selectedIndicators),
+    selectedIndicators,
     barLimit: isChartWorkspaceBarLimit(value.barLimit) ? value.barLimit : DEFAULT_PREFERENCES_STATE.barLimit,
     showOrbOverlays:
       typeof value.showOrbOverlays === 'boolean'
@@ -1024,6 +1070,10 @@ function isChartWorkspaceIndicatorId(value: unknown): value is ChartWorkspaceInd
   return INDICATOR_OPTIONS.some((option) => option.id === value);
 }
 
+function isChartWorkspaceIndicatorPresetId(value: unknown): value is ChartWorkspaceIndicatorPresetId {
+  return value === 'custom' || INDICATOR_PRESET_OPTIONS.some((option) => option.id === value);
+}
+
 function normalizeChartWorkspaceSymbol(value: unknown) {
   if (typeof value !== 'string') return DEFAULT_PREFERENCES_STATE.activeSymbol;
   const symbol = value.trim().toUpperCase();
@@ -1032,8 +1082,19 @@ function normalizeChartWorkspaceSymbol(value: unknown) {
 
 function normalizeChartWorkspaceIndicators(value: unknown) {
   if (!Array.isArray(value)) return [...DEFAULT_INDICATORS];
-  const indicators = Array.from(new Set(value.filter(isChartWorkspaceIndicatorId)));
-  return indicators.length ? indicators : [...DEFAULT_INDICATORS];
+  return Array.from(new Set(value.filter(isChartWorkspaceIndicatorId)));
+}
+
+function inferIndicatorPreset(indicators: ChartWorkspaceIndicatorId[]): ChartWorkspaceIndicatorPresetId {
+  const normalizedIndicators = normalizeIndicatorPresetSignature(indicators);
+  const matchingPreset = INDICATOR_PRESET_OPTIONS.find(
+    (option) => normalizeIndicatorPresetSignature(option.indicators) === normalizedIndicators,
+  );
+  return matchingPreset?.id ?? 'custom';
+}
+
+function normalizeIndicatorPresetSignature(indicators: ChartWorkspaceIndicatorId[]) {
+  return [...indicators].sort().join(',');
 }
 
 function normalizeOrbOverlaySessions(value: unknown) {
