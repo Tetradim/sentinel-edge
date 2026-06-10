@@ -40,7 +40,7 @@ from automation import AutomationMode
 from chart_workspace import build_chart_workspace_payload
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.handoff import pulse_handoff_contract_document
-from scanner_workbench_catalog import scanner_workbench_catalog
+from scanner_workbench_catalog import scanner_workbench_catalog, validate_scanner_watch_intent
 from simulation_lab import (
     SimulationLabDisabledError,
     require_simulation_lab_enabled,
@@ -1960,6 +1960,12 @@ async def get_chart_workspace(
 async def get_scanner_workbench_catalog():
     """Return Edge-native scanner, ticker, strategy, and indicator catalog metadata."""
     return scanner_workbench_catalog()
+
+
+@api_router.post("/scanner-workbench/watch-intent/validate")
+async def validate_scanner_workbench_watch_intent(intent: Dict[str, Any] = Body(...)):
+    """Validate saved Scanner Workbench watch intent against the current catalog."""
+    return validate_scanner_watch_intent(intent)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

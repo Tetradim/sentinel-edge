@@ -8,20 +8,15 @@ import type {
   ScannerWorkbenchScanner,
   ScannerWorkbenchStrategy,
   ScannerWorkbenchTicker,
+  ScannerWorkbenchWatchIntent,
+  ScannerWorkbenchWatchIntentValidation,
 } from '@/types';
 
 export const SCANNER_WORKBENCH_STORAGE_KEY = 'sentinel-edge.scanner-workbench.watchlist.v1';
 
 type ScannerWorkbenchTabId = 'scanners' | 'tickers' | 'strategies' | 'indicators';
 
-interface ScannerWorkbenchWatchState {
-  scanners: string[];
-  tickers: string[];
-  strategies: string[];
-  indicators: string[];
-}
-
-const DEFAULT_WATCH_STATE: ScannerWorkbenchWatchState = {
+const DEFAULT_WATCH_STATE: ScannerWorkbenchWatchIntent = {
   scanners: [],
   tickers: [],
   strategies: [],
@@ -38,9 +33,12 @@ const tabs = [
 export const ScannerWorkbench: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ScannerWorkbenchTabId>('scanners');
   const [catalog, setCatalog] = useState<ScannerWorkbenchCatalog | null>(null);
-  const [watchState, setWatchState] = useState<ScannerWorkbenchWatchState>(readScannerWorkbenchWatchState);
+  const [watchState, setWatchState] = useState<ScannerWorkbenchWatchIntent>(readScannerWorkbenchWatchState);
+  const [validation, setValidation] = useState<ScannerWorkbenchWatchIntentValidation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [validating, setValidating] = useState(false);
   const [error, setError] = useState('');
+  const [validationMessage, setValidationMessage] = useState('');
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -64,6 +62,24 @@ export const ScannerWorkbench: React.FC = () => {
     localStorage.setItem(SCANNER_WORKBENCH_STORAGE_KEY, JSON.stringify(watchState));
   }, [watchState]);
 
+  const validateWatchIntent = useCallback(async () => {
+    setValidating(true);
+    setValidationMessage('');
+    try {
+      const nextValidation = await api.validateScannerWorkbenchWatchIntent(watchState);
+      setValidation(nextValidation);
+      setValidationMessage(
+        nextValidation.valid
+          ? 'Watch intent matches the current catalog.'
+          : `${nextValidation.invalid_count} stale watch selections need review.`,
+      );
+    } catch (err) {
+      setValidationMessage(err instanceof Error ? err.message : 'Failed to validate watch intent');
+    } finally {
+      setValidating(false);
+    }
+  }, [watchState]);
+
   const scannerLookup = useMemo(() => {
     return new Map((catalog?.scanners ?? []).map((scanner) => [scanner.id, scanner]));
   }, [catalog]);
@@ -81,7 +97,7 @@ export const ScannerWorkbench: React.FC = () => {
   const selectedStrategyNames = watchState.strategies.map((id) => strategyLookup.get(id)?.name ?? id);
   const selectedIndicatorNames = watchState.indicators.map((id) => indicatorLookup.get(id)?.name ?? id);
 
-  const toggleWatchValue = (key: keyof ScannerWorkbenchWatchState, value: string) => {
+  const toggleWatchValue = (key: keyof ScannerWorkbenchWatchIntent, value: string) => {
     setWatchState((current) => {
       const nextValues = new Set(current[key]);
       if (nextValues.has(value)) nextValues.delete(value);
@@ -99,6 +115,20 @@ export const ScannerWorkbench: React.FC = () => {
 
   const clearWatchIntent = () => {
     setWatchState(DEFAULT_WATCH_STATE);
+    setValidation(null);
+    setValidationMessage('');
+  };
+
+  const applySanitizedWatchIntent = () => {
+    if (!validation) return;
+    setWatchState(validation.sanitized_intent);
+    setValidation({
+      ...validation,
+      valid: true,
+      invalid_count: 0,
+      invalid_selections: DEFAULT_WATCH_STATE,
+    });
+    setValidationMessage('Stale watch selections removed.');
   };
 
   return (
@@ -127,11 +157,44 @@ export const ScannerWorkbench: React.FC = () => {
             </button>
             <button
               type="button"
+              onClick={validateWatchIntent}
+              className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-500/20"
+              disabled={validating}
+            >
+              Validate watch intent
+            </button>
+            <button
+              type="button"
               onClick={clearWatchIntent}
               className="rounded-lg border border-gray-700 px-3 py-2 text-sm font-medium text-gray-300 hover:border-gray-500 hover:text-white"
             >
               Clear watch intent
             </button>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-gray-800 bg-gray-900/70 px-4 py-3 text-sm text-gray-300" aria-live="polite">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <span className="font-semibold text-white">Watch validation</span>
+              <span className="ml-2 text-gray-400">
+                {validationMessage || 'Validate before connecting this selection to future scanner automation.'}
+              </span>
+              {validation?.invalid_count ? (
+                <span className="ml-2 text-amber-300">
+                  Invalid: {formatInvalidSelectionSummary(validation.invalid_selections)}
+                </span>
+              ) : null}
+            </div>
+            {validation?.invalid_count ? (
+              <button
+                type="button"
+                onClick={applySanitizedWatchIntent}
+                className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-500/20"
+              >
+                Apply sanitized watch intent
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -464,12 +527,19 @@ function formatIds<T extends { id: string; name: string }>(ids: string[], lookup
   return `${labels.slice(0, 3).join(', ')} +${labels.length - 3}`;
 }
 
-function readScannerWorkbenchWatchState(): ScannerWorkbenchWatchState {
+function formatInvalidSelectionSummary(invalidSelections: ScannerWorkbenchWatchIntent) {
+  return Object.entries(invalidSelections)
+    .filter(([, values]) => values.length > 0)
+    .map(([key, values]) => `${key} ${values.length}`)
+    .join(', ');
+}
+
+function readScannerWorkbenchWatchState(): ScannerWorkbenchWatchIntent {
   if (typeof localStorage === 'undefined') return DEFAULT_WATCH_STATE;
   try {
     const raw = localStorage.getItem(SCANNER_WORKBENCH_STORAGE_KEY);
     if (!raw) return DEFAULT_WATCH_STATE;
-    const parsed = JSON.parse(raw) as Partial<ScannerWorkbenchWatchState>;
+    const parsed = JSON.parse(raw) as Partial<ScannerWorkbenchWatchIntent>;
     return {
       scanners: normalizeStringList(parsed.scanners),
       tickers: normalizeStringList(parsed.tickers),

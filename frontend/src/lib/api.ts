@@ -1,4 +1,10 @@
-import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot, ScannerWorkbenchCatalog } from '@/types';
+import type {
+  ChartWorkspaceIndicatorId,
+  ChartWorkspaceSnapshot,
+  ScannerWorkbenchCatalog,
+  ScannerWorkbenchWatchIntent,
+  ScannerWorkbenchWatchIntentValidation,
+} from '@/types';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 const FRONTEND_RUM_PATH = '/api/frontend/rum';
@@ -215,6 +221,13 @@ class ApiClient {
 
   async getScannerWorkbenchCatalog() {
     return fetchJSON<ScannerWorkbenchCatalog>('/api/scanner-workbench/catalog');
+  }
+
+  async validateScannerWorkbenchWatchIntent(intent: ScannerWorkbenchWatchIntent) {
+    return fetchJSON<ScannerWorkbenchWatchIntentValidation>('/api/scanner-workbench/watch-intent/validate', {
+      method: 'POST',
+      body: JSON.stringify(intent),
+    });
   }
 
   async getMarkets() {

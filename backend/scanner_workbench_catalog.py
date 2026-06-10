@@ -6,10 +6,13 @@ import TrendSpider code, account-bound scanner definitions, or proprietary
 criteria.
 """
 from copy import deepcopy
+from typing import Any, Dict, Iterable, List
 
 
 SCANNER_WORKBENCH_SCHEMA_VERSION = "edge.scanner_workbench.v1"
+SCANNER_WORKBENCH_WATCH_INTENT_VALIDATION_VERSION = "edge.scanner_workbench.watch_intent_validation.v1"
 SCANNER_WORKBENCH_SOURCE_POLICY = "edge_native_paraphrased_public_research_not_trendspider_import"
+SCANNER_WORKBENCH_WATCH_INTENT_KEYS = ("scanners", "tickers", "strategies", "indicators")
 
 TRENDSPIDER_PUBLIC_SOURCE_URLS = [
     "https://trendspider.com/trading-tools-store/",
@@ -1010,3 +1013,57 @@ def scanner_workbench_catalog():
         "indicators": deepcopy(INDICATORS),
         "collection_packs": deepcopy(COLLECTION_PACKS),
     }
+
+
+def validate_scanner_watch_intent(intent: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate saved Scanner Workbench watch intent against the current catalog."""
+    if not isinstance(intent, dict):
+        intent = {}
+
+    allowed_values = {
+        "scanners": {scanner["id"] for scanner in SCANNERS},
+        "tickers": {ticker["symbol"] for ticker in RECOMMENDED_TICKERS},
+        "strategies": {strategy["id"] for strategy in STRATEGIES},
+        "indicators": {indicator["id"] for indicator in INDICATORS},
+    }
+    sanitized_intent: Dict[str, List[str]] = {}
+    invalid_selections: Dict[str, List[str]] = {}
+    resolved_counts: Dict[str, int] = {}
+
+    for key in SCANNER_WORKBENCH_WATCH_INTENT_KEYS:
+        raw_values = _normalise_watch_values(intent.get(key), uppercase=(key == "tickers"))
+        sanitized_values = [value for value in raw_values if value in allowed_values[key]]
+        invalid_values = [value for value in raw_values if value not in allowed_values[key]]
+        sanitized_intent[key] = sanitized_values
+        invalid_selections[key] = invalid_values
+        resolved_counts[key] = len(sanitized_values)
+
+    invalid_count = sum(len(values) for values in invalid_selections.values())
+    return {
+        "schema_version": SCANNER_WORKBENCH_WATCH_INTENT_VALIDATION_VERSION,
+        "catalog_schema_version": SCANNER_WORKBENCH_SCHEMA_VERSION,
+        "valid": invalid_count == 0,
+        "selected_count": sum(resolved_counts.values()),
+        "invalid_count": invalid_count,
+        "ignored_fields": sorted(key for key in intent.keys() if key not in SCANNER_WORKBENCH_WATCH_INTENT_KEYS),
+        "resolved_counts": resolved_counts,
+        "sanitized_intent": sanitized_intent,
+        "invalid_selections": invalid_selections,
+    }
+
+
+def _normalise_watch_values(values: Any, *, uppercase: bool = False) -> List[str]:
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, Iterable):
+        return []
+
+    normalised = []
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        cleaned = value.strip()
+        if not cleaned:
+            continue
+        normalised.append(cleaned.upper() if uppercase else cleaned)
+    return sorted(set(normalised))

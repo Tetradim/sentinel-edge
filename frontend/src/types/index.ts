@@ -162,6 +162,30 @@ export interface ScannerWorkbenchCatalog {
   collection_packs: ScannerWorkbenchCollectionPack[];
 }
 
+export interface ScannerWorkbenchWatchIntent {
+  scanners: string[];
+  tickers: string[];
+  strategies: string[];
+  indicators: string[];
+}
+
+export interface ScannerWorkbenchWatchIntentValidation {
+  schema_version: string;
+  catalog_schema_version: string;
+  valid: boolean;
+  selected_count: number;
+  invalid_count: number;
+  ignored_fields: string[];
+  resolved_counts: {
+    scanners: number;
+    tickers: number;
+    strategies: number;
+    indicators: number;
+  };
+  sanitized_intent: ScannerWorkbenchWatchIntent;
+  invalid_selections: ScannerWorkbenchWatchIntent;
+}
+
 export interface ScannerWorkbenchScanner {
   id: string;
   name: string;
