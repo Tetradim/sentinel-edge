@@ -393,7 +393,7 @@ Payloads can include:
 - confidence
 - reason
 - mode
-- ORB session tag, with true ORB values `premarket_30m` and `market_open`; non-ORB strategy context values such as `puzzle_key` are separated in the schema contract.
+- ORB session tag, with true ORB values `premarket_30m` and `market_open`; non-ORB strategy context values such as `puzzle_key` are separated in the schema contract, and unknown values are rejected before sending to Pulse.
 - stop/trailing/DCA recommendation fields
 - idempotency key
 - metadata such as ATR, price, PnL, trend, drawdown, and signal strength

@@ -52,6 +52,18 @@ class PulseHandoffContractTests(unittest.TestCase):
 
         self.assertIn("mode", str(ctx.exception))
 
+    def test_contract_restricts_handoff_session_contexts_to_known_edge_values(self):
+        for orb_session in ("premarket_30m", "market_open", "puzzle_key"):
+            with self.subTest(orb_session=orb_session):
+                request = PulseHandoffRequest.from_edge_payload(valid_payload(orb_session=orb_session))
+                self.assertEqual(request.model_dump(mode="json", exclude_none=True)["orb_session"], orb_session)
+
+        for orb_session in ("", "unknown_session"):
+            with self.subTest(orb_session=orb_session):
+                with self.assertRaises(ValidationError) as ctx:
+                    PulseHandoffRequest.from_edge_payload(valid_payload(orb_session=orb_session))
+                self.assertIn("orb_session", str(ctx.exception))
+
     def test_contract_requires_idempotency_key(self):
         with self.assertRaises(ValidationError) as ctx:
             PulseHandoffRequest.from_edge_payload(valid_payload(idempotency_key=""))

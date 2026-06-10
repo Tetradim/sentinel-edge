@@ -31,6 +31,12 @@ class PulseHandoffStopType(str, Enum):
     TIGHTEN_TRAILING = "tighten_trailing"
 
 
+class PulseHandoffSessionContext(str, Enum):
+    PREMARKET_30M = "premarket_30m"
+    MARKET_OPEN = "market_open"
+    PUZZLE_KEY = "puzzle_key"
+
+
 class PulseHandoffDcaPlan(BaseModel):
     """Optional scale-in plan for Pulse-side DCA handling."""
 
@@ -50,7 +56,7 @@ class PulseHandoffRequest(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str = ""
     mode: PulseHandoffMode
-    orb_session: str = "market_open"
+    orb_session: PulseHandoffSessionContext = PulseHandoffSessionContext.MARKET_OPEN
     stop_type: Optional[PulseHandoffStopType] = None
     trailing_percent: Optional[float] = Field(default=None, gt=0.0)
     dca: Optional[PulseHandoffDcaPlan] = None
@@ -115,6 +121,7 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
     action_values = [action.value for action in PulseHandoffAction]
     mode_values = [mode.value for mode in PulseHandoffMode]
     stop_type_values = [stop_type.value for stop_type in PulseHandoffStopType]
+    session_context_values = [context.value for context in PulseHandoffSessionContext]
 
     return {
         "contract_version": "edge.pulse.handoff.v1",
@@ -187,8 +194,8 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
             },
             "orb_session": {
                 "required": False,
-                "default": "market_open",
-                "known_edge_values": ["premarket_30m", "market_open", "puzzle_key"],
+                "default": PulseHandoffSessionContext.MARKET_OPEN.value,
+                "known_edge_values": session_context_values,
                 "known_orb_session_values": ["premarket_30m", "market_open"],
                 "strategy_context_values": {
                     "puzzle_key": "non-ORB strategy context used by the Puzzle Key plugin handoff path."
