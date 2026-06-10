@@ -422,6 +422,15 @@ const loadTutorialPracticeChecks = (): Record<string, number[]> => {
   }
 };
 
+const persistTutorialState = (key: string, value: string, onFailure: (message: string) => void) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.error('Failed to persist tutorial state:', error);
+    onFailure('Learning progress could not be saved in this browser.');
+  }
+};
+
 const getTutorialWordCount = (tutorial: Tutorial): number => {
   const text = [
     tutorial.title,
@@ -536,6 +545,7 @@ export const TutorialsDashboard: React.FC<TutorialsDashboardProps> = ({ onOpenMo
   const [tutorialPracticeChecks, setTutorialPracticeChecks] = useState<Record<string, number[]>>(loadTutorialPracticeChecks);
   const [selectedLearningPath, setSelectedLearningPath] = useState(LEARNING_PATHS[0].id);
   const [importStatus, setImportStatus] = useState('');
+  const [persistenceStatus, setPersistenceStatus] = useState('');
 
   const expanded = TUTORIALS.find(t => t.id === expandedTutorial);
   const activeLearningPath = LEARNING_PATHS.find((path) => path.id === selectedLearningPath) || LEARNING_PATHS[0];
@@ -640,15 +650,15 @@ export const TutorialsDashboard: React.FC<TutorialsDashboardProps> = ({ onOpenMo
   ].filter((chip): chip is { id: string; label: string; onClear: () => void } => Boolean(chip));
 
   useEffect(() => {
-    window.localStorage.setItem(COMPLETED_TUTORIALS_STORAGE_KEY, JSON.stringify(completedTutorialIds));
+    persistTutorialState(COMPLETED_TUTORIALS_STORAGE_KEY, JSON.stringify(completedTutorialIds), setPersistenceStatus);
   }, [completedTutorialIds]);
 
   useEffect(() => {
-    window.localStorage.setItem(SAVED_TUTORIALS_STORAGE_KEY, JSON.stringify(savedTutorialIds));
+    persistTutorialState(SAVED_TUTORIALS_STORAGE_KEY, JSON.stringify(savedTutorialIds), setPersistenceStatus);
   }, [savedTutorialIds]);
 
   useEffect(() => {
-    window.localStorage.setItem(RECENT_TUTORIALS_STORAGE_KEY, JSON.stringify(recentTutorialIds));
+    persistTutorialState(RECENT_TUTORIALS_STORAGE_KEY, JSON.stringify(recentTutorialIds), setPersistenceStatus);
   }, [recentTutorialIds]);
 
   useEffect(() => {
@@ -661,15 +671,15 @@ export const TutorialsDashboard: React.FC<TutorialsDashboardProps> = ({ onOpenMo
   }, [expandedTutorial]);
 
   useEffect(() => {
-    window.localStorage.setItem(TUTORIAL_NOTES_STORAGE_KEY, JSON.stringify(tutorialNotes));
+    persistTutorialState(TUTORIAL_NOTES_STORAGE_KEY, JSON.stringify(tutorialNotes), setPersistenceStatus);
   }, [tutorialNotes]);
 
   useEffect(() => {
-    window.localStorage.setItem(TUTORIAL_READING_MODE_STORAGE_KEY, selectedReadingMode);
+    persistTutorialState(TUTORIAL_READING_MODE_STORAGE_KEY, selectedReadingMode, setPersistenceStatus);
   }, [selectedReadingMode]);
 
   useEffect(() => {
-    window.localStorage.setItem(TUTORIAL_PRACTICE_CHECKS_STORAGE_KEY, JSON.stringify(tutorialPracticeChecks));
+    persistTutorialState(TUTORIAL_PRACTICE_CHECKS_STORAGE_KEY, JSON.stringify(tutorialPracticeChecks), setPersistenceStatus);
   }, [tutorialPracticeChecks]);
 
   const clearFilters = () => {
@@ -1249,6 +1259,7 @@ export const TutorialsDashboard: React.FC<TutorialsDashboardProps> = ({ onOpenMo
             onChange={(event) => importLearningCenterState(event.target.files?.[0] || null)}
           />
           {importStatus && <span className="text-xs text-gray-400">{importStatus}</span>}
+          {persistenceStatus && <span role="alert" className="text-xs text-red-300">{persistenceStatus}</span>}
         </div>
       </div>
 
