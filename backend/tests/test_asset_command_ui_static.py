@@ -97,6 +97,18 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("Runtime readiness", text)
         self.assertIn("readinessDetail", text)
 
+    def test_monitor_panel_surfaces_api_rate_limit_pressure(self):
+        monitor_panel = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "MonitorPanel.tsx"
+        api_client = ROOT / "frontend" / "src" / "lib" / "api.ts"
+        text = read_existing(ASSET_COMMAND_TYPES, ASSET_COMMAND_RUNTIME_HOOK, monitor_panel, api_client)
+
+        self.assertIn("rateLimitPressure: 'normal' | 'warning' | 'unknown'", text)
+        self.assertIn("rateLimitRemaining?: number", text)
+        self.assertIn("api.getRateLimitStatus()", text)
+        self.assertIn("rateLimitValue?.pressure", text)
+        self.assertIn("API pressure", text)
+        self.assertIn("rateLimitDetail", text)
+
     def test_market_coverage_only_suppresses_vite_html_fallback(self):
         text = MARKET_COVERAGE.read_text(encoding="utf-8")
 

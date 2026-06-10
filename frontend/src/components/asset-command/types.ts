@@ -46,6 +46,9 @@ export interface RuntimeState {
   schedulerPaused: boolean;
   runtimeReady: boolean;
   readinessFailingChecks: string[];
+  rateLimitPressure: 'normal' | 'warning' | 'unknown';
+  rateLimitRemaining?: number;
+  rateLimitResetSeconds?: number;
   updatedAt?: string;
   error?: string;
 }

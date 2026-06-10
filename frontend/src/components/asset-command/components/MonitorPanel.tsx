@@ -21,9 +21,12 @@ export function MonitorPanel({
   const pulseTone: Tone = runtime.pulseAvailable ? 'green' : 'gold';
   const killSwitchTone: Tone = runtime.killSwitchActive ? 'red' : 'green';
   const readinessTone: Tone = !runtime.connected ? 'red' : runtime.runtimeReady ? 'green' : 'gold';
+  const rateLimitTone: Tone = runtime.rateLimitPressure === 'normal' ? 'green' : runtime.rateLimitPressure === 'warning' ? 'gold' : 'red';
   const schedulerValue = !runtime.connected ? 'Unknown' : runtime.schedulerPaused ? 'Paused' : 'Active';
   const readinessValue = !runtime.connected ? 'Unknown' : runtime.runtimeReady ? 'Ready' : 'Not ready';
   const readinessDetail = getReadinessDetail(runtime.readinessFailingChecks);
+  const rateLimitValue = runtime.rateLimitPressure === 'unknown' ? 'Unknown' : runtime.rateLimitPressure === 'warning' ? 'Warning' : 'Normal';
+  const rateLimitDetail = getRateLimitDetail(runtime.rateLimitRemaining, runtime.rateLimitResetSeconds);
   const runtimePollAge = formatRuntimePollAge(runtime.updatedAt);
   const runtimeSignalRows = [
     [
@@ -43,6 +46,12 @@ export function MonitorPanel({
       readinessValue.toLowerCase(),
       !runtime.connected ? 'backend unavailable' : runtime.runtimeReady ? 'all required checks' : readinessDetail,
       runtime.runtimeReady ? 'ready' : runtime.connected ? 'blocked' : 'unknown',
+    ],
+    [
+      'API pressure',
+      rateLimitValue.toLowerCase(),
+      runtime.rateLimitPressure === 'unknown' ? 'rate-limit status unavailable' : rateLimitDetail,
+      runtime.rateLimitPressure,
     ],
     [
       'Pulse bridge',
@@ -95,6 +104,12 @@ export function MonitorPanel({
           tone={readinessTone}
         />
         <HealthCard
+          label="API pressure"
+          value={rateLimitValue}
+          detail={runtime.rateLimitPressure === 'unknown' ? 'Rate-limit status unavailable' : rateLimitDetail}
+          tone={rateLimitTone}
+        />
+        <HealthCard
           label="Pulse bridge"
           value={runtime.pulseAvailable ? 'Online' : 'Standalone'}
           detail={runtime.pulseAvailable ? 'Execution bridge detected' : 'Handoff suppressed'}
@@ -138,4 +153,10 @@ function getReadinessDetail(failingChecks: string[]) {
   const visibleChecks = failingChecks.slice(0, 3).join(', ');
   const overflowCount = failingChecks.length - 3;
   return overflowCount > 0 ? `${visibleChecks} +${overflowCount} more failing` : `Failing: ${visibleChecks}`;
+}
+
+function getRateLimitDetail(remaining?: number, resetSeconds?: number) {
+  const remainingText = typeof remaining === 'number' && Number.isFinite(remaining) ? `${remaining} requests remaining` : 'remaining unknown';
+  const resetText = typeof resetSeconds === 'number' && Number.isFinite(resetSeconds) ? `reset in ${resetSeconds}s` : 'reset unknown';
+  return `${remainingText}; ${resetText}`;
 }
