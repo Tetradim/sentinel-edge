@@ -920,6 +920,7 @@ async def get_tickers():
             "enabled":       True,
             "current_price": None,
             "orb_levels":    {},
+            "orb_session_status": sched.orb.get_session_status(sym),
             "signal_strength": 0.0,
             "trend":         "neutral",
             "atr":           None,
@@ -1671,6 +1672,7 @@ async def get_orb_levels(symbol: str):
     if not levels:
         raise HTTPException(status_code=404, detail=f"No ORB data for {sym} — market may be closed or ticker not yet evaluated")
 
+    session_status = sched.orb.get_session_status(sym)
     result = {}
     for timeframe, level in levels.items():
         result[f"{timeframe}m"] = {
@@ -1680,11 +1682,19 @@ async def get_orb_levels(symbol: str):
             "locked":      level.locked,
             "is_valid":    level.is_valid,
             "date":        level.date,
+            "session_id":   level.session_id,
             "start_time":  level.start_time.isoformat() if level.start_time else None,
             "lock_time":   level.lock_time.isoformat()  if level.lock_time  else None,
         }
 
-    return {"symbol": sym, "orb_levels": result}
+    return {
+        "symbol": sym,
+        "active_session": session_status["active_session"],
+        "active_label": session_status["active_label"],
+        "active_status": session_status["active_status"],
+        "orb_levels": result,
+        "orb_sessions": session_status["sessions"],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════

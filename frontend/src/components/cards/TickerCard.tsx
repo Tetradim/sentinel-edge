@@ -19,6 +19,8 @@ interface TickerCardProps {
   trend?: string;
   orbHigh?: number;
   orbLow?: number;
+  orbSessionLabel?: string;
+  orbSessionStatus?: string;
   atr?: number;
   volumeRatio?: number;
   priceHistory?: Array<{ value: number }>;
@@ -61,6 +63,8 @@ export const TickerCard: React.FC<TickerCardProps> = ({
   trend = 'neutral',
   orbHigh,
   orbLow,
+  orbSessionLabel,
+  orbSessionStatus,
   atr,
   volumeRatio,
   priceHistory = [],
@@ -254,6 +258,12 @@ export const TickerCard: React.FC<TickerCardProps> = ({
               <p className="text-sm font-semibold text-white">
                 ${orbLow.toFixed(2)} – ${orbHigh.toFixed(2)}
               </p>
+              {(orbSessionLabel || orbSessionStatus) && (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  <span>ORB Session</span>: {orbSessionLabel || 'Market open ORB'}
+                  {orbSessionStatus ? ` / ${orbSessionStatus}` : ''}
+                </p>
+              )}
             </div>
           )}
 

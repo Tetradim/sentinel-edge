@@ -4,9 +4,9 @@ Design decisions
 ────────────────
 - All time comparisons are done in US/Eastern (ET) regardless of the server's
   local timezone or the naive datetime passed by the scheduler.
-- The opening range is anchored to true NYSE market open (09:30 ET), not to
-  the first price update received by the bot.
-- Prices arriving before 09:30 ET (pre-market), after 16:00 ET (after-hours),
+- The regular-session opening range is anchored to true NYSE market open
+  (09:30 ET), not to the first price update received by the bot.
+- Prices arriving before the earliest configured ORB session, after 16:00 ET,
   on weekends, or on US market holidays are silently ignored.
 - Each breakout direction fires exactly once per symbol per timeframe per
   trading day (deduplication via breakouts_fired).
@@ -20,7 +20,7 @@ self-updating calendar that also handles early closes (half-days).
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from zoneinfo import ZoneInfo
 
 from metrics import (
@@ -76,6 +76,40 @@ MARKET_OPEN  = time(9, 30)   # NYSE / NASDAQ regular session open
 MARKET_CLOSE = time(16, 0)   # NYSE / NASDAQ regular session close
 
 
+@dataclass(frozen=True)
+class ORBSession:
+    """Opening-range session definition for one market phase."""
+
+    id: str
+    label: str
+    start: time
+    timeframes: Tuple[int, ...]
+    description: str
+
+
+PREMARKET_SESSION_ID = "premarket_30m"
+MARKET_OPEN_SESSION_ID = "market_open"
+
+ORB_SESSIONS: Dict[str, ORBSession] = {
+    PREMARKET_SESSION_ID: ORBSession(
+        id=PREMARKET_SESSION_ID,
+        label="Premarket 30m ORB",
+        start=time(9, 0),
+        timeframes=(30,),
+        description="Final 30 minutes before the regular session open.",
+    ),
+    MARKET_OPEN_SESSION_ID: ORBSession(
+        id=MARKET_OPEN_SESSION_ID,
+        label="Market open ORB",
+        start=MARKET_OPEN,
+        timeframes=(5, 15, 30),
+        description="Regular-session opening range anchored to 09:30 ET.",
+    ),
+}
+
+EARLIEST_ORB_START = min(session.start for session in ORB_SESSIONS.values())
+
+
 def _et_now() -> datetime:
     """Current wall-clock time in US/Eastern."""
     return datetime.now(ET)
@@ -105,9 +139,18 @@ def _is_trading_day(et_date: date) -> bool:
 
 def _session_open_dt(et_date: date) -> datetime:
     """Return the NYSE open datetime (09:30:00 ET) for *et_date*."""
+    return _session_dt(et_date, MARKET_OPEN)
+
+
+def _session_dt(et_date: date, session_time: time) -> datetime:
+    """Return a session datetime on *et_date* in ET."""
     return datetime(
-        et_date.year, et_date.month, et_date.day,
-        9, 30, 0,
+        et_date.year,
+        et_date.month,
+        et_date.day,
+        session_time.hour,
+        session_time.minute,
+        session_time.second,
         tzinfo=ET,
     )
 
@@ -126,6 +169,7 @@ class ORBLevel:
     start_time: Optional[datetime] = None    # always 09:30 ET on the trading day
     lock_time:  Optional[datetime] = None    # ET time the range was sealed
     date:       str   = field(default_factory=lambda: datetime.now(ET).strftime("%Y-%m-%d"))
+    session_id: str = MARKET_OPEN_SESSION_ID
 
     @property
     def range_width(self) -> float:
@@ -156,35 +200,45 @@ class ORBTracker:
     TIMEFRAMES: List[int] = [5, 15, 30]
 
     def __init__(self) -> None:
+        self.orb_sessions:    Dict[str, Dict[str, Dict[int, ORBLevel]]] = {}
         self.orb_levels:      Dict[str, Dict[int, ORBLevel]]       = {}
         self.breakouts_fired: Dict[str, Set[Tuple[str, str, int]]] = {}
         logger.info("ORBTracker initialised — timeframes: %s", self.TIMEFRAMES)
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
-    def _init_symbol(self, symbol: str, session_open: datetime, date_str: str) -> None:
-        """Create fresh ORBLevel entries anchored to true NYSE market open."""
-        self.orb_levels[symbol]      = {}
+    def _init_symbol(self, symbol: str, et_date: date) -> None:
+        """Create fresh ORBLevel entries for each configured ORB session."""
+        date_str = et_date.strftime("%Y-%m-%d")
+        self.orb_sessions[symbol]    = {}
         self.breakouts_fired[symbol] = set()
-        for tf in self.TIMEFRAMES:
-            self.orb_levels[symbol][tf] = ORBLevel(
-                start_time=session_open,
-                date=date_str,
-            )
+        for session_id, session in ORB_SESSIONS.items():
+            session_start = _session_dt(et_date, session.start)
+            self.orb_sessions[symbol][session_id] = {}
+            for tf in session.timeframes:
+                self.orb_sessions[symbol][session_id][tf] = ORBLevel(
+                    start_time=session_start,
+                    date=date_str,
+                    session_id=session_id,
+                )
+        self.orb_levels[symbol] = self.orb_sessions[symbol][MARKET_OPEN_SESSION_ID]
 
-    def _reset_if_new_day(self, symbol: str, date_str: str, session_open: datetime) -> bool:
+    def _reset_if_new_day(self, symbol: str, date_str: str, et_date: date) -> bool:
         """Reset levels and dedup set when the trading date has rolled over.
 
         Returns True if a reset occurred.
         """
-        existing = self.orb_levels.get(symbol, {})
+        existing = self.orb_sessions.get(symbol, {})
         if not existing:
             return False
         # Sample any timeframe — they all share the same trading date
-        sample = next(iter(existing.values()))
+        sample_session = next(iter(existing.values()), {})
+        if not sample_session:
+            return False
+        sample = next(iter(sample_session.values()))
         if sample.date != date_str:
             logger.info("New trading day for %s — resetting ORB levels", symbol)
-            self._init_symbol(symbol, session_open, date_str)
+            self._init_symbol(symbol, et_date)
             return True
         return False
 
@@ -200,8 +254,8 @@ class ORBTracker:
         timestamp : evaluation time from the scheduler (may be naive or aware)
 
         Returns the symbol's current {timeframe: ORBLevel} dict.
-        Prices outside regular market hours or on non-trading days are ignored
-        and the current levels are returned unchanged.
+        Prices outside configured ORB/regular market hours or on non-trading
+        days are ignored and the current levels are returned unchanged.
         """
         et = _to_et(timestamp)
         et_date = et.date()
@@ -210,48 +264,54 @@ class ORBTracker:
         if not _is_trading_day(et_date):
             return self.orb_levels.get(symbol, {})
 
-        # ── Guard 2: outside regular session ─────────────────────────────────
+        # ── Guard 2: outside configured ORB sessions ─────────────────────────
         t = et.time()
-        if t < MARKET_OPEN or t > MARKET_CLOSE:
+        if t < EARLIEST_ORB_START or t > MARKET_CLOSE:
             return self.orb_levels.get(symbol, {})
 
-        date_str     = et_date.strftime("%Y-%m-%d")
-        session_open = _session_open_dt(et_date)
+        date_str = et_date.strftime("%Y-%m-%d")
 
         # ── Initialise or reset ───────────────────────────────────────────────
-        if symbol not in self.orb_levels:
-            self._init_symbol(symbol, session_open, date_str)
+        if symbol not in self.orb_levels or symbol not in self.orb_sessions:
+            self._init_symbol(symbol, et_date)
         else:
-            self._reset_if_new_day(symbol, date_str, session_open)
+            self._reset_if_new_day(symbol, date_str, et_date)
 
-        # ── Update each timeframe ─────────────────────────────────────────────
-        for tf in self.TIMEFRAMES:
-            level = self.orb_levels[symbol][tf]
+        # ── Update each configured session/timeframe ─────────────────────────
+        for session_id, session in ORB_SESSIONS.items():
+            session_start = _session_dt(et_date, session.start)
+            if et < session_start:
+                continue
 
-            # Auto-lock: seal the range once the opening window has elapsed.
-            # Computed against true market open — not the first price received.
-            if not level.locked:
-                lock_at = session_open + timedelta(minutes=tf)
-                if et >= lock_at:
-                    self._lock(symbol, tf, at=et)
+            for tf in session.timeframes:
+                level = self.orb_sessions[symbol][session_id][tf]
+                lock_at = session_start + timedelta(minutes=tf)
 
-            # Accumulate high/low while the window is still open
-            if not level.locked:
-                if price > level.high:
-                    level.high = price
-                if price < level.low:
-                    level.low = price
+                if not level.locked and et >= lock_at:
+                    self._lock(symbol, tf, at=et, session_id=session_id)
 
-                if level.is_valid:
-                    edge_orb_high.labels(symbol=symbol, timeframe=f"{tf}m").set(level.high)
-                    edge_orb_low.labels(symbol=symbol, timeframe=f"{tf}m").set(level.low)
-                    edge_orb_range_width.labels(symbol=symbol, timeframe=f"{tf}m").set(level.range_width)
+                if not level.locked and session_start <= et < lock_at:
+                    if price > level.high:
+                        level.high = price
+                    if price < level.low:
+                        level.low = price
+
+                    if level.is_valid and session_id == MARKET_OPEN_SESSION_ID:
+                        edge_orb_high.labels(symbol=symbol, timeframe=f"{tf}m").set(level.high)
+                        edge_orb_low.labels(symbol=symbol, timeframe=f"{tf}m").set(level.low)
+                        edge_orb_range_width.labels(symbol=symbol, timeframe=f"{tf}m").set(level.range_width)
 
         return self.orb_levels[symbol]
 
-    def _lock(self, symbol: str, timeframe: int, at: Optional[datetime] = None) -> bool:
+    def _lock(
+        self,
+        symbol: str,
+        timeframe: int,
+        at: Optional[datetime] = None,
+        session_id: str = MARKET_OPEN_SESSION_ID,
+    ) -> bool:
         """Seal the ORB range for *timeframe* — internal, ET-aware."""
-        levels = self.orb_levels.get(symbol)
+        levels = self.orb_sessions.get(symbol, {}).get(session_id)
         if not levels or timeframe not in levels:
             return False
         level = levels[timeframe]
@@ -259,6 +319,8 @@ class ORBTracker:
             return False
         level.locked    = True
         level.lock_time = at or _et_now()
+        if session_id == MARKET_OPEN_SESSION_ID:
+            self.orb_levels[symbol] = levels
         if level.is_valid:
             logger.info(
                 "Locked %dm ORB for %s: $%.2f – $%.2f (range $%.2f)",
@@ -316,6 +378,7 @@ class ORBTracker:
 
             breakouts.append({
                 "symbol":    symbol,
+                "session_id": level.session_id,
                 "timeframe": tf,
                 "direction": direction,
                 "price":     current_price,
@@ -336,7 +399,79 @@ class ORBTracker:
     # ── Getters ───────────────────────────────────────────────────────────────
 
     def get_levels(self, symbol: str) -> Optional[Dict[int, ORBLevel]]:
+        if symbol not in self.orb_levels and symbol in self.orb_sessions:
+            self.orb_levels[symbol] = self.orb_sessions[symbol].get(MARKET_OPEN_SESSION_ID, {})
         return self.orb_levels.get(symbol)
 
     def get_all_levels(self) -> Dict[str, Dict[int, ORBLevel]]:
         return self.orb_levels
+
+    def get_session_levels(self, symbol: str) -> Dict[str, Dict[int, ORBLevel]]:
+        return self.orb_sessions.get(symbol, {})
+
+    def get_all_session_levels(self) -> Dict[str, Dict[str, Dict[int, ORBLevel]]]:
+        return self.orb_sessions
+
+    def get_session_status(self, symbol: str, now: Optional[datetime] = None) -> Dict[str, Any]:
+        """Return API-ready status for configured ORB sessions."""
+        et = _to_et(now or _et_now())
+        et_date = et.date()
+        symbol_sessions = self.orb_sessions.get(symbol, {})
+        sessions: Dict[str, Dict[str, Any]] = {}
+
+        for session_id, session in ORB_SESSIONS.items():
+            session_start = _session_dt(et_date, session.start)
+            session_end = session_start + timedelta(minutes=max(session.timeframes))
+            if not _is_trading_day(et_date) or et.time() > MARKET_CLOSE:
+                status = "closed"
+            elif et < session_start:
+                status = "pending"
+            elif et < session_end:
+                status = "collecting"
+            else:
+                status = "locked"
+
+            levels = {
+                f"{tf}m": self._serialise_level(level)
+                for tf, level in symbol_sessions.get(session_id, {}).items()
+            }
+            sessions[session_id] = {
+                "id": session.id,
+                "label": session.label,
+                "description": session.description,
+                "status": status,
+                "start_time": session_start.isoformat(),
+                "timeframes": [f"{tf}m" for tf in session.timeframes],
+                "levels": levels,
+            }
+
+        active_session = (
+            MARKET_OPEN_SESSION_ID
+            if et.time() >= MARKET_OPEN
+            else PREMARKET_SESSION_ID
+        )
+        if active_session not in sessions:
+            active_session = MARKET_OPEN_SESSION_ID
+        active = sessions[active_session]
+
+        return {
+            "active_session": active_session,
+            "active_label": active["label"],
+            "active_status": active["status"],
+            "sessions": sessions,
+        }
+
+    @staticmethod
+    def _serialise_level(level: ORBLevel) -> Dict[str, Any]:
+        safe_low = level.low if level.low != float("inf") else 0.0
+        return {
+            "high": round(level.high, 4),
+            "low": round(safe_low, 4),
+            "locked": level.locked,
+            "range_width": round(level.range_width, 4),
+            "is_valid": level.is_valid,
+            "date": level.date,
+            "session_id": level.session_id,
+            "start_time": level.start_time.isoformat() if level.start_time else None,
+            "lock_time": level.lock_time.isoformat() if level.lock_time else None,
+        }

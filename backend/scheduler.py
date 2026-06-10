@@ -38,7 +38,7 @@ from metrics import (
     ticker_active_count,
     ticker_evaluation_total,
 )
-from orb import ORBTracker, ORBLevel
+from orb import MARKET_OPEN_SESSION_ID, ORBTracker, ORBLevel
 from position_tracker import PositionTracker
 from price_fetcher import PriceFetcher
 from providers.ws_manager import WebSocketManager
@@ -507,12 +507,14 @@ class EvaluationScheduler:
                     "range_width": round(level.range_width, 4),
                     "is_valid":    level.is_valid,
                 }
+            orb_session_status = self.orb.get_session_status(symbol, now=now)
 
             self.ticker_state[symbol] = {
                 "symbol":           symbol,
                 "enabled":          True,
                 "current_price":    round(price, 4),
                 "orb_levels":       orb_data,
+                "orb_session_status": orb_session_status,
                 "signal_strength":  round(signal_strength, 2),
                 "trend":            trend.name.lower(),
                 "atr":              round(atr, 4),
@@ -742,14 +744,36 @@ class EvaluationScheduler:
                         "low":    safe_low,
                         "locked": level.locked,
                         "is_valid": True,
+                        "session_id": MARKET_OPEN_SESSION_ID,
+                        "start_time": level.start_time,
+                        "lock_time": level.lock_time,
                     }
-            if levels_doc:
+            sessions_doc: Dict[str, Dict] = {}
+            for session_id, session_levels in self.orb.get_session_levels(symbol).items():
+                session_doc: Dict[str, Dict] = {}
+                for tf, level in session_levels.items():
+                    if level.is_valid:
+                        safe_low = level.low if level.low != float("inf") else 0.0
+                        session_doc[str(tf)] = {
+                            "high": level.high,
+                            "low": safe_low,
+                            "locked": level.locked,
+                            "is_valid": True,
+                            "session_id": session_id,
+                            "start_time": level.start_time,
+                            "lock_time": level.lock_time,
+                        }
+                if session_doc:
+                    sessions_doc[session_id] = session_doc
+
+            if levels_doc or sessions_doc:
                 await self.db.orb_levels.update_one(
                     {"symbol": symbol, "date": now.strftime("%Y-%m-%d")},
                     {"$set": {
                         "symbol":     symbol,
                         "date":       now.strftime("%Y-%m-%d"),
                         "levels":     levels_doc,
+                        "sessions": sessions_doc,
                         "updated_at": now,
                     }},
                     upsert=True,
@@ -766,18 +790,47 @@ class EvaluationScheduler:
             count = 0
             async for doc in self.db.orb_levels.find({"date": today}, {"_id": 0}):
                 symbol = doc["symbol"]
-                if symbol not in self.orb.orb_levels:
-                    self.orb.orb_levels[symbol] = {}
+                if symbol not in self.orb.orb_sessions:
+                    self.orb._init_symbol(symbol, datetime.now().date())
+
+                sessions = doc.get("sessions") or {}
+                for session_id, session_levels in sessions.items():
+                    session_bucket = self.orb.orb_sessions[symbol].setdefault(session_id, {})
+                    for tf_str, level_data in session_levels.items():
+                        tf = int(tf_str)
+                        if level_data.get("is_valid"):
+                            session_bucket[tf] = ORBLevel(
+                                high=level_data["high"],
+                                low=level_data["low"],
+                                locked=level_data["locked"],
+                                start_time=level_data.get("start_time") or datetime.now(),
+                                lock_time=level_data.get("lock_time"),
+                                date=doc.get("date", today),
+                                session_id=level_data.get("session_id", session_id),
+                            )
+                            count += 1
+
                 for tf_str, level_data in doc.get("levels", {}).items():
                     tf = int(tf_str)
                     if tf in [5, 15, 30] and level_data.get("is_valid"):
-                        self.orb.orb_levels[symbol][tf] = ORBLevel(
+                        market_open_levels = self.orb.orb_sessions[symbol].setdefault(
+                            MARKET_OPEN_SESSION_ID,
+                            {},
+                        )
+                        market_open_levels[tf] = ORBLevel(
                             high=level_data["high"],
                             low=level_data["low"],
                             locked=level_data["locked"],
-                            start_time=datetime.now(),
+                            start_time=level_data.get("start_time") or datetime.now(),
+                            lock_time=level_data.get("lock_time"),
+                            date=doc.get("date", today),
+                            session_id=level_data.get("session_id", MARKET_OPEN_SESSION_ID),
                         )
                         count += 1
+                self.orb.orb_levels[symbol] = self.orb.orb_sessions[symbol].get(
+                    MARKET_OPEN_SESSION_ID,
+                    {},
+                )
             if count:
                 logger.info("✅ Restored %d ORB levels from MongoDB", count)
         except Exception as e:
