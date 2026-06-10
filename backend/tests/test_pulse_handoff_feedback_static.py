@@ -13,6 +13,8 @@ class PulseHandoffFeedbackStaticTests(unittest.TestCase):
     def test_pulse_client_returns_structured_handoff_feedback(self):
         text = PULSE_CLIENT.read_text(encoding="utf-8")
 
+        self.assertIn("PulseHandoffRequest", text)
+        self.assertIn("invalid_handoff_contract", text)
         self.assertIn("def normalise_handoff_feedback", text)
         self.assertIn("async def _post_with_feedback", text)
         self.assertIn('"status": "accepted"', text)

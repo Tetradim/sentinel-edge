@@ -1,0 +1,96 @@
+"""Shared Edge -> Pulse handoff contract models."""
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Dict, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class PulseHandoffAction(str, Enum):
+    BUY = "buy"
+    STOP_BUYING = "stop_buying"
+    STOP_ALL = "stop_all"
+    REGULAR_STOP = "regular_stop"
+    TRAILING_STOP = "trailing_stop"
+    TIGHTEN_STOP = "tighten_stop"
+    TIGHTEN_TRAILING_STOP = "tighten_trailing_stop"
+    DCA = "dca"
+    EMERGENCY_EXIT = "emergency_exit"
+
+
+class PulseHandoffMode(str, Enum):
+    PAPER = "paper"
+    LIVE = "live"
+
+
+class PulseHandoffStopType(str, Enum):
+    REGULAR = "regular"
+    TRAILING = "trailing"
+    TIGHTEN = "tighten"
+    TIGHTEN_TRAILING = "tighten_trailing"
+
+
+class PulseHandoffDcaPlan(BaseModel):
+    """Optional scale-in plan for Pulse-side DCA handling."""
+
+    steps: Optional[int] = Field(default=None, ge=1)
+    interval_seconds: Optional[int] = Field(default=None, ge=0)
+    allocation_pct: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class PulseHandoffRequest(BaseModel):
+    """Versioned HTTP payload for `PULSE_HANDOFF_ENDPOINT`."""
+
+    contract_version: Literal["edge.pulse.handoff.v1"] = "edge.pulse.handoff.v1"
+    symbol: str
+    action: PulseHandoffAction
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = ""
+    mode: PulseHandoffMode
+    orb_session: str = "market_open"
+    stop_type: Optional[PulseHandoffStopType] = None
+    trailing_percent: Optional[float] = Field(default=None, gt=0.0)
+    dca: Optional[PulseHandoffDcaPlan] = None
+    idempotency_key: str = Field(min_length=1)
+    source: Literal["sentinel_edge"] = "sentinel_edge"
+    created_at: float = Field(gt=0.0)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @classmethod
+    def from_edge_payload(cls, payload: Dict[str, Any]) -> "PulseHandoffRequest":
+        return cls(**payload)
+
+    @field_validator("symbol", mode="before")
+    @classmethod
+    def _normalise_symbol(cls, value: Any) -> str:
+        symbol = str(value or "").strip().upper()
+        if not symbol:
+            raise ValueError("symbol is required")
+        return symbol
+
+    @field_validator("reason", "orb_session", "idempotency_key", mode="before")
+    @classmethod
+    def _strip_text(cls, value: Any) -> str:
+        return str(value or "").strip()
+
+    @model_validator(mode="after")
+    def _validate_action_context(self) -> "PulseHandoffRequest":
+        trailing_actions = {
+            PulseHandoffAction.TRAILING_STOP,
+            PulseHandoffAction.TIGHTEN_TRAILING_STOP,
+        }
+        if self.action in trailing_actions and self.trailing_percent is None:
+            raise ValueError("trailing_percent is required for trailing handoff actions")
+        if self.stop_type in {
+            PulseHandoffStopType.TRAILING,
+            PulseHandoffStopType.TIGHTEN_TRAILING,
+        } and self.trailing_percent is None:
+            raise ValueError("trailing_percent is required when stop_type is trailing")
+        if self.action == PulseHandoffAction.DCA and self.dca is None:
+            raise ValueError("dca is required for dca handoff actions")
+        return self

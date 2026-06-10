@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 import httpx
+from pydantic import ValidationError
 
 from metrics import (
     broker_circuit_state,
@@ -15,6 +16,7 @@ from metrics import (
     edge_api_latency,
 )
 from retry_queue import DecisionQueue
+from shared.handoff import PulseHandoffRequest
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +286,17 @@ class PulseClient:
             "metadata": payload.get("metadata", {}),
         }
 
+    @staticmethod
+    def _json_safe_validation_errors(exc: ValidationError) -> list[Dict[str, Any]]:
+        safe_errors = []
+        for error in exc.errors():
+            safe_error = dict(error)
+            ctx = safe_error.get("ctx")
+            if isinstance(ctx, dict):
+                safe_error["ctx"] = {key: str(value) for key, value in ctx.items()}
+            safe_errors.append(safe_error)
+        return safe_errors
+
     async def _post_with_feedback(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if not self._should_allow_request():
             if self.pulse_available:
@@ -393,10 +406,21 @@ class PulseClient:
         preserving idempotency/reason metadata in the payload.
         """
         symbol = str(payload.get("symbol", "")).upper()
-        action = str(payload.get("action", "hold"))
         if not symbol:
             logger.warning("Pulse handoff suppressed: missing symbol")
             return self.suppressed_handoff_feedback("/api/edge/handoff", "missing_symbol")
+
+        try:
+            handoff_request = PulseHandoffRequest.from_edge_payload(payload)
+        except ValidationError as exc:
+            logger.warning("Pulse handoff suppressed: invalid contract for %s: %s", symbol, exc)
+            feedback = self.suppressed_handoff_feedback("/api/edge/handoff", "invalid_handoff_contract")
+            feedback["validation_errors"] = self._json_safe_validation_errors(exc)
+            return feedback
+
+        payload = handoff_request.model_dump(mode="json", exclude_none=True)
+        symbol = payload["symbol"]
+        action = payload["action"]
 
         if not self.pulse_available or self.state == CircuitState.OPEN:
             logger.debug("Pulse handoff suppressed: Pulse unavailable/circuit open")
