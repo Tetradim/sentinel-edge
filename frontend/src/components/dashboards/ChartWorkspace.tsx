@@ -26,6 +26,7 @@ type ChartWorkspacePanelId = 'snapshot' | 'lab' | 'oscillators';
 type ChartWorkspaceChartType = 'candlestick' | 'line';
 type ChartWorkspaceBarLimit = 120 | 240 | 390;
 type ChartWorkspaceOrbReplaySession = 'market_open' | 'premarket_30m';
+type ChartWorkspaceOrbOverlaySession = 'market_open' | 'premarket_30m';
 
 interface ChartWorkspacePanelVisibility {
   snapshot: boolean;
@@ -44,6 +45,7 @@ interface ChartWorkspacePreferencesState {
   selectedIndicators: ChartWorkspaceIndicatorId[];
   barLimit: ChartWorkspaceBarLimit;
   showOrbOverlays: boolean;
+  orbOverlaySessions: ChartWorkspaceOrbOverlaySession[];
 }
 
 interface ChartWorkspaceSimulationLabExperiment {
@@ -72,6 +74,7 @@ interface ChartWorkspaceSimulationLabResult {
 
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
 const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
+const DEFAULT_ORB_OVERLAY_SESSIONS: ChartWorkspaceOrbOverlaySession[] = ['market_open', 'premarket_30m'];
 
 const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
   snapshot: true,
@@ -90,6 +93,7 @@ const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
   selectedIndicators: DEFAULT_INDICATORS,
   barLimit: 240,
   showOrbOverlays: true,
+  orbOverlaySessions: DEFAULT_ORB_OVERLAY_SESSIONS,
 };
 
 const LAYOUT_OPTIONS: { id: ChartWorkspaceLayoutMode; label: string }[] = [
@@ -119,6 +123,11 @@ const ORB_REPLAY_SESSION_OPTIONS: {
   { id: 'premarket_30m', label: 'Premarket 30m', timeframeMinutes: 30 },
 ];
 
+const ORB_OVERLAY_SESSION_OPTIONS: { id: ChartWorkspaceOrbOverlaySession; label: string }[] = [
+  { id: 'market_open', label: 'Market open ORB' },
+  { id: 'premarket_30m', label: 'Premarket ORB' },
+];
+
 export const ChartWorkspace: React.FC = () => {
   const [workspacePreferences, setWorkspacePreferences] =
     useState<ChartWorkspacePreferencesState>(readChartWorkspacePreferences);
@@ -134,7 +143,8 @@ export const ChartWorkspace: React.FC = () => {
   const [labMessage, setLabMessage] = useState('');
   const [layoutMessage, setLayoutMessage] = useState('');
   const [viewMessage, setViewMessage] = useState('');
-  const { activeSymbol, chartType, selectedIndicators, barLimit, showOrbOverlays } = workspacePreferences;
+  const { activeSymbol, chartType, selectedIndicators, barLimit, showOrbOverlays, orbOverlaySessions } =
+    workspacePreferences;
 
   useEffect(() => {
     let cancelled = false;
@@ -183,8 +193,8 @@ export const ChartWorkspace: React.FC = () => {
   }, []);
 
   const priceData = useMemo(
-    () => buildPriceTraces(snapshot, chartType, showOrbOverlays),
-    [snapshot, chartType, showOrbOverlays],
+    () => buildPriceTraces(snapshot, chartType, showOrbOverlays, orbOverlaySessions),
+    [snapshot, chartType, showOrbOverlays, orbOverlaySessions],
   );
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
   const latestBar = snapshot?.bars[snapshot.bars.length - 1];
@@ -255,6 +265,18 @@ export const ChartWorkspace: React.FC = () => {
       ...current,
       showOrbOverlays: checked,
     }));
+  };
+
+  const toggleOrbOverlaySession = (session: ChartWorkspaceOrbOverlaySession, checked: boolean) => {
+    updateWorkspacePreferences((current) => {
+      const nextSessions = checked
+        ? Array.from(new Set([...current.orbOverlaySessions, session]))
+        : current.orbOverlaySessions.filter((item) => item !== session);
+      return {
+        ...current,
+        orbOverlaySessions: nextSessions,
+      };
+    });
   };
 
   const resetWorkspacePreferences = () => {
@@ -607,6 +629,23 @@ export const ChartWorkspace: React.FC = () => {
                 />
                 ORB overlays
               </label>
+              {ORB_OVERLAY_SESSION_OPTIONS.map((option) => (
+                <label
+                  key={option.id}
+                  className={`flex items-center gap-1.5 text-xs ${
+                    showOrbOverlays ? 'text-slate-300' : 'text-slate-600'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={orbOverlaySessions.includes(option.id)}
+                    disabled={!showOrbOverlays}
+                    onChange={(event) => toggleOrbOverlaySession(option.id, event.target.checked)}
+                    className="h-3.5 w-3.5 accent-cyan-400 disabled:opacity-40"
+                  />
+                  {option.label}
+                </label>
+              ))}
               {INDICATOR_OPTIONS.map((option) => (
                 <label key={option.id} className="flex items-center gap-1.5 text-xs text-slate-300">
                   <input
@@ -689,6 +728,7 @@ function buildPriceTraces(
   snapshot: ChartWorkspaceSnapshot | null,
   chartType: 'candlestick' | 'line',
   includeOrbOverlays = true,
+  includeOrbOverlaySession: ChartWorkspaceOrbOverlaySession[] = DEFAULT_ORB_OVERLAY_SESSIONS,
 ) {
   if (!snapshot) return [];
   const x = snapshot.bars.map((bar) => bar.timestamp);
@@ -722,11 +762,14 @@ function buildPriceTraces(
       name: indicator.label || id,
       line: { width: 1.5 },
     }));
+  const enabledOrbOverlaySessions = new Set(includeOrbOverlaySession);
   const orbTraces = includeOrbOverlays
-    ? snapshot.orb_overlays.flatMap((overlay) => [
-        orbLineTrace(x, overlay.high, `${overlay.label} ${overlay.timeframe} high`, '#f59e0b'),
-        orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
-      ])
+    ? snapshot.orb_overlays
+        .filter((overlay) => enabledOrbOverlaySessions.has(overlay.session_id as ChartWorkspaceOrbOverlaySession))
+        .flatMap((overlay) => [
+          orbLineTrace(x, overlay.high, `${overlay.label} ${overlay.timeframe} high`, '#f59e0b'),
+          orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
+        ])
     : [];
   return [baseTrace, ...indicatorTraces, ...orbTraces];
 }
@@ -946,6 +989,7 @@ function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePrefe
       typeof value.showOrbOverlays === 'boolean'
         ? value.showOrbOverlays
         : DEFAULT_PREFERENCES_STATE.showOrbOverlays,
+    orbOverlaySessions: normalizeOrbOverlaySessions(value.orbOverlaySessions),
   };
 }
 
@@ -960,6 +1004,7 @@ function cloneDefaultPreferencesState(): ChartWorkspacePreferencesState {
   return {
     ...DEFAULT_PREFERENCES_STATE,
     selectedIndicators: [...DEFAULT_INDICATORS],
+    orbOverlaySessions: [...DEFAULT_ORB_OVERLAY_SESSIONS],
   };
 }
 
@@ -989,6 +1034,16 @@ function normalizeChartWorkspaceIndicators(value: unknown) {
   if (!Array.isArray(value)) return [...DEFAULT_INDICATORS];
   const indicators = Array.from(new Set(value.filter(isChartWorkspaceIndicatorId)));
   return indicators.length ? indicators : [...DEFAULT_INDICATORS];
+}
+
+function normalizeOrbOverlaySessions(value: unknown) {
+  if (!Array.isArray(value)) return [...DEFAULT_ORB_OVERLAY_SESSIONS];
+  const sessions = Array.from(new Set(value.filter(isChartWorkspaceOrbOverlaySession)));
+  return sessions.length ? sessions : [];
+}
+
+function isChartWorkspaceOrbOverlaySession(value: unknown): value is ChartWorkspaceOrbOverlaySession {
+  return ORB_OVERLAY_SESSION_OPTIONS.some((option) => option.id === value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -155,12 +155,27 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("240 bars", dashboard)
         self.assertIn("390 bars", dashboard)
 
+    def test_chart_workspace_exposes_persistent_orb_session_overlay_filters(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("ChartWorkspaceOrbOverlaySession", dashboard)
+        self.assertIn("ORB_OVERLAY_SESSION_OPTIONS", dashboard)
+        self.assertIn("orbOverlaySessions", dashboard)
+        self.assertIn("toggleOrbOverlaySession", dashboard)
+        self.assertIn("includeOrbOverlaySession", dashboard)
+        self.assertIn("normalizeOrbOverlaySessions", dashboard)
+        self.assertIn("Premarket ORB", dashboard)
+        self.assertIn("Market open ORB", dashboard)
+        self.assertIn("premarket_30m", dashboard)
+        self.assertIn("market_open", dashboard)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 
         self.assertIn("/api/chart-workspace/{symbol}", text)
         self.assertIn("EMA/SMA, RSI, MACD", text)
         self.assertIn("ORB overlays", text)
+        self.assertIn("per-session ORB overlay filters", text)
         self.assertIn("Analysis/Execution/Research layouts", text)
         self.assertIn("persistent symbol, chart-type, indicator, and range preferences", text)
         self.assertIn("toggleable ORB overlays", text)
