@@ -187,6 +187,19 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Running...", dashboard)
         self.assertIn("guards duplicate Simulation Lab submissions", text)
 
+    def test_chart_workspace_disables_lab_actions_until_chart_data_is_loaded(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("labActionsReady", dashboard)
+        self.assertIn("labActionDisabled", dashboard)
+        self.assertIn("labUnavailableMessage", dashboard)
+        self.assertIn("Boolean(snapshot?.bars.length && latestBar)", dashboard)
+        self.assertIn("Load chart data to run Simulation Lab.", dashboard)
+        self.assertIn("if (!labActionsReady)", dashboard)
+        self.assertIn("disabled={labActionDisabled}", dashboard)
+        self.assertIn("Lab run actions disabled until chart bars are loaded", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 

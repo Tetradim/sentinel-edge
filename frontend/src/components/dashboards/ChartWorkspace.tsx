@@ -243,6 +243,9 @@ export const ChartWorkspace: React.FC = () => {
   const orbSessionEntries = useMemo(() => Object.values(orbSessionStatus?.sessions ?? {}), [orbSessionStatus]);
   const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
   const priceChartHeight = layoutMode === 'research' ? 500 : 430;
+  const labActionsReady = Boolean(snapshot?.bars.length && latestBar);
+  const labActionDisabled = labRunInProgress || !labActionsReady;
+  const labUnavailableMessage = 'Load chart data to run Simulation Lab.';
 
   const submitSymbol = (event: React.FormEvent) => {
     event.preventDefault();
@@ -392,6 +395,10 @@ export const ChartWorkspace: React.FC = () => {
   };
 
   const runOrbReplay = () => runSimulationLabWorkflow(async () => {
+    if (!labActionsReady) {
+      setLabMessage(labUnavailableMessage);
+      return;
+    }
     if (!snapshot?.bars.length) return;
     setLabMessage(`Running ${selectedOrbReplaySession.label} ORB replay`);
     try {
@@ -415,6 +422,10 @@ export const ChartWorkspace: React.FC = () => {
   });
 
   const runAllocationExperiment = () => runSimulationLabWorkflow(async () => {
+    if (!labActionsReady) {
+      setLabMessage(labUnavailableMessage);
+      return;
+    }
     if (!snapshot?.bars.length || !latestBar) return;
     setLabMessage('Running buying-power allocation');
     try {
@@ -441,6 +452,10 @@ export const ChartWorkspace: React.FC = () => {
   });
 
   const runExitComparison = () => runSimulationLabWorkflow(async () => {
+    if (!labActionsReady) {
+      setLabMessage(labUnavailableMessage);
+      return;
+    }
     if (!snapshot?.bars.length) return;
     setLabMessage('Running exit comparison');
     try {
@@ -527,6 +542,7 @@ export const ChartWorkspace: React.FC = () => {
             Simulation Lab
           </div>
           {labRunInProgress && <div className="mb-2 text-xs text-amber-200">Running...</div>}
+          {!labActionsReady && <div className="mb-2 text-xs text-slate-400">{labUnavailableMessage}</div>}
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="ORB replay session">
               {ORB_REPLAY_SESSION_OPTIONS.map((option) => (
@@ -542,15 +558,15 @@ export const ChartWorkspace: React.FC = () => {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={runOrbReplay} disabled={labRunInProgress} className={inactiveToolClass}>
+            <button type="button" onClick={runOrbReplay} disabled={labActionDisabled} className={inactiveToolClass}>
               <BarChart3 className="h-4 w-4" />
               ORB Replay
             </button>
-            <button type="button" onClick={runAllocationExperiment} disabled={labRunInProgress} className={inactiveToolClass}>
+            <button type="button" onClick={runAllocationExperiment} disabled={labActionDisabled} className={inactiveToolClass}>
               <Activity className="h-4 w-4" />
               Buying Power
             </button>
-            <button type="button" onClick={runExitComparison} disabled={labRunInProgress} className={inactiveToolClass}>
+            <button type="button" onClick={runExitComparison} disabled={labActionDisabled} className={inactiveToolClass}>
               <Activity className="h-4 w-4" />
               Stop/DCA
             </button>
