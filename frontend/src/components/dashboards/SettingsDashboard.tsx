@@ -106,6 +106,14 @@ interface NotificationConfirmationPreview {
   secret_values?: string;
 }
 
+interface NotificationConfirmationFeedback {
+  schema_version?: string;
+  endpoint?: string;
+  notification_side_effect?: string;
+  pulse_side_effect?: string;
+  secret_values?: string;
+}
+
 interface NotificationConfirmationAction {
   id: string;
   label?: string;
@@ -124,6 +132,7 @@ interface NotificationsStatus {
   secret_values?: string;
   channels?: NotificationChannel[];
   confirmation_preview?: NotificationConfirmationPreview;
+  confirmation_feedback?: NotificationConfirmationFeedback;
   confirmation_actions?: NotificationConfirmationAction[];
   summary?: {
     configured_count?: number;
@@ -741,6 +750,21 @@ export function SettingsDashboard() {
                     <div>{notificationsStatus.confirmation_preview?.schema_version || 'preview contract unavailable'}</div>
                     <div>{notificationsStatus.confirmation_preview?.send_side_effect || 'none_preview_only'}</div>
                   </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <RuntimeDetail
+                    label="Feedback contract"
+                    value={notificationsStatus.confirmation_feedback?.schema_version || '--'}
+                  />
+                  <RuntimeDetail
+                    label="feedback_endpoint"
+                    value={notificationsStatus.confirmation_feedback?.endpoint || '--'}
+                  />
+                  <RuntimeDetail
+                    label="pulse_side_effect"
+                    value={notificationsStatus.confirmation_feedback?.pulse_side_effect || 'none'}
+                  />
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">

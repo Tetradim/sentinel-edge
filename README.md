@@ -77,7 +77,7 @@ Edge is also designed to degrade safely:
 | Trading overview | Active tickers, runtime stats, correlation clusters with correlation risk recommendation details, decisions, add/remove ticker actions, metric toggles, and refresh-failure warnings. |
 | Advisor health | Edge service state, readiness, Pulse status, provider health, kill-switch state, recommendation counts, handoff mode, and runtime details. |
 | Protection operations | Scheduler controls, kill switch controls, readiness guard, Pulse queue status, handoff status, synced positions, trailing-stop and emergency-exit bridges. |
-| Settings | Local non-secret config, backend validation, read-only provider metadata, operator notification channel discovery, notification confirmation preview contract visibility, global/per-ticker Pulse handoff controls, Simulation Lab status discovery, and runtime metadata warnings. |
+| Settings | Local non-secret config, backend validation, read-only provider metadata, operator notification channel discovery, notification confirmation preview and feedback contract visibility, global/per-ticker Pulse handoff controls, Simulation Lab status discovery, and runtime metadata warnings. |
 | Experience/RUM | Browser Web Vitals collection, backend RUM ingest, rate-limit status, Grafana-style observability panels inside Experience, copyable Prometheus text, and frontend performance visibility. |
 | Market coverage | Market-hours/session status across supported markets. |
 | Portfolio/P&L views | Pulse-backed account, portfolio, position, and P&L visibility when Pulse is available. |
@@ -429,6 +429,7 @@ Edge includes both in-app observability and an external LGTM-style stack.
 - Settings metadata warnings when backend metadata is stale.
 - Settings operator notification channel discovery for Telegram, Discord/Echo, Slack, and WhatsApp-style paths without exposing secret values.
 - Settings notification confirmation preview contract discovery for live handoff, emergency-exit, risk-reduction, and trailing-stop review prompts. The preview contract is redacted and has no delivery side effects.
+- Settings notification confirmation feedback contract discovery for future operator approve/reject relay callbacks. The feedback contract is redacted and has no Pulse side effects.
 
 ### Metrics
 
@@ -811,6 +812,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/rate-limit/status` | Aggregate API rate-limit pressure/status. |
 | GET | `/notifications/status` | Redacted operator notification channel discovery for Settings. |
 | POST | `/notifications/confirmation/preview` | Build a redacted, preview-only operator confirmation payload for safety-sensitive notification workflows. |
+| POST | `/notifications/confirmation/feedback` | Normalize redacted operator confirmation feedback without sending notifications or Pulse commands. |
 
 ### Non-API routes
 

@@ -6,7 +6,11 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from notification_channels import notification_channel_status, notification_confirmation_preview
+from notification_channels import (
+    notification_channel_status,
+    notification_confirmation_feedback,
+    notification_confirmation_preview,
+)
 
 
 class NotificationChannelStatusTests(unittest.TestCase):
@@ -60,6 +64,11 @@ class NotificationChannelStatusTests(unittest.TestCase):
             "edge.notifications.confirmation_preview.v1",
         )
         self.assertEqual(status["confirmation_preview"]["send_side_effect"], "none_preview_only")
+        self.assertEqual(
+            status["confirmation_feedback"]["schema_version"],
+            "edge.notifications.confirmation_feedback.v1",
+        )
+        self.assertEqual(status["confirmation_feedback"]["pulse_side_effect"], "none")
         self.assertIn("live_handoff", actions)
         self.assertIn("emergency_exit", actions)
         self.assertIn("trailing_stop", actions)
@@ -111,6 +120,54 @@ class NotificationChannelStatusTests(unittest.TestCase):
                 "live_handoff",
                 channel_ids=["telegram", "unknown-relay"],
                 env={},
+            )
+
+    def test_confirmation_feedback_normalizes_approval_without_side_effects(self):
+        feedback = notification_confirmation_feedback(
+            idempotency_key="edge:notification-confirmation:live:live_handoff:spy",
+            action_type="live_handoff",
+            decision="approve",
+            channel_id="telegram",
+            operator_ref="@sentinel-operator",
+            reason="ORB breakout confirmed",
+            metadata={"confidence": 0.92, "webhook_secret": "do-not-render"},
+        )
+
+        self.assertEqual(feedback["schema_version"], "edge.notifications.confirmation_feedback.v1")
+        self.assertEqual(feedback["idempotency_key"], "edge:notification-confirmation:live:live_handoff:spy")
+        self.assertEqual(feedback["action_type"], "live_handoff")
+        self.assertEqual(feedback["channel_id"], "telegram")
+        self.assertEqual(feedback["decision"], "approved")
+        self.assertTrue(feedback["accepted"])
+        self.assertEqual(feedback["safety"]["pulse_side_effect"], "none")
+        self.assertEqual(feedback["safety"]["notification_side_effect"], "none")
+        self.assertEqual(feedback["context"]["metadata"]["webhook_secret"], "[redacted]")
+        rendered = repr(feedback)
+        self.assertNotIn("do-not-render", rendered)
+
+    def test_confirmation_feedback_rejects_bad_idempotency_and_channel(self):
+        with self.assertRaises(ValueError):
+            notification_confirmation_feedback(
+                idempotency_key="edge:bad-prefix",
+                action_type="live_handoff",
+                decision="approve",
+                channel_id="telegram",
+            )
+
+        with self.assertRaises(ValueError):
+            notification_confirmation_feedback(
+                idempotency_key="edge:notification-confirmation:paper:live_handoff:spy",
+                action_type="live_handoff",
+                decision="approve",
+                channel_id="unknown-relay",
+            )
+
+        with self.assertRaises(ValueError):
+            notification_confirmation_feedback(
+                idempotency_key="edge:notification-confirmation:paper:trailing_stop:spy",
+                action_type="live_handoff",
+                decision="approve",
+                channel_id="telegram",
             )
 
 

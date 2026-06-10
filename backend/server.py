@@ -24,7 +24,11 @@ from starlette.middleware.cors import CORSMiddleware
 from atr import ATRCalculator
 from engine import DecisionEngine
 from market_hours import MarketHours
-from notification_channels import notification_channel_status, notification_confirmation_preview
+from notification_channels import (
+    notification_channel_status,
+    notification_confirmation_feedback,
+    notification_confirmation_preview,
+)
 from orb import ORBTracker
 from price_fetcher import PriceFetcher
 from providers.catalog import active_provider_order, configured_key_sources, default_provider_order, provider_catalog
@@ -429,6 +433,17 @@ class NotificationConfirmationPreviewBody(BaseModel):
     symbol: Optional[str] = Field(None, min_length=1, max_length=10)
     mode: str = Field("paper", pattern="^(recommend_only|paper|live)$")
     channel_ids: List[str] = Field(default_factory=list, max_length=8)
+    reason: Optional[str] = Field(None, max_length=500)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class NotificationConfirmationFeedbackBody(BaseModel):
+    """Request body for POST /api/notifications/confirmation/feedback."""
+    idempotency_key: str = Field(..., min_length=1, max_length=160)
+    action_type: str = Field(..., min_length=1, max_length=64)
+    decision: str = Field(..., min_length=1, max_length=32)
+    channel_id: str = Field(..., min_length=1, max_length=32)
+    operator_ref: Optional[str] = Field(None, max_length=120)
     reason: Optional[str] = Field(None, max_length=500)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -983,6 +998,23 @@ async def preview_notification_confirmation(body: NotificationConfirmationPrevie
             symbol=symbol,
             mode=body.mode,
             channel_ids=body.channel_ids or None,
+            reason=body.reason,
+            metadata=body.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/notifications/confirmation/feedback")
+async def record_notification_confirmation_feedback(body: NotificationConfirmationFeedbackBody):
+    """Normalize operator confirmation feedback without triggering Pulse side effects."""
+    try:
+        return notification_confirmation_feedback(
+            idempotency_key=body.idempotency_key,
+            action_type=body.action_type,
+            decision=body.decision,
+            channel_id=body.channel_id,
+            operator_ref=body.operator_ref,
             reason=body.reason,
             metadata=body.metadata,
         )

@@ -8,6 +8,8 @@ from typing import Any, Dict, Mapping, Sequence
 
 SCHEMA_VERSION = "edge.notifications.status.v1"
 CONFIRMATION_PREVIEW_SCHEMA_VERSION = "edge.notifications.confirmation_preview.v1"
+CONFIRMATION_FEEDBACK_SCHEMA_VERSION = "edge.notifications.confirmation_feedback.v1"
+CONFIRMATION_IDEMPOTENCY_PREFIX = "edge:notification-confirmation:"
 _PLACEHOLDER_VALUES = {"", "0", "placeholder", "none", "null", "unset", "http://placeholder/no-slack"}
 _SENSITIVE_METADATA_FRAGMENTS = (
     "api_key",
@@ -124,6 +126,13 @@ def notification_channel_status(env: Mapping[str, str] | None = None) -> Dict:
             "send_side_effect": "none_preview_only",
             "secret_values": "redacted",
         },
+        "confirmation_feedback": {
+            "schema_version": CONFIRMATION_FEEDBACK_SCHEMA_VERSION,
+            "endpoint": "POST /api/notifications/confirmation/feedback",
+            "notification_side_effect": "none",
+            "pulse_side_effect": "none",
+            "secret_values": "redacted",
+        },
         "confirmation_actions": [_confirmation_action_status(action) for action in _CONFIRMATION_ACTIONS],
         "summary": {
             "configured_count": len(configured_channels),
@@ -191,6 +200,47 @@ def notification_confirmation_preview(
         "context": {
             "symbol": normalized_symbol,
             "reason": normalized_reason,
+            "metadata": _redact_metadata(metadata or {}),
+        },
+    }
+
+
+def notification_confirmation_feedback(
+    *,
+    idempotency_key: str,
+    action_type: str,
+    decision: str,
+    channel_id: str,
+    operator_ref: str | None = None,
+    reason: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> Dict:
+    """Normalize a relay/operator confirmation response without side effects."""
+    normalized_idempotency_key = _normalize_confirmation_idempotency_key(idempotency_key)
+    action = _confirmation_action(action_type)
+    _validate_confirmation_idempotency_action(normalized_idempotency_key, action["id"])
+    normalized_decision = _normalize_confirmation_decision(decision)
+    normalized_channel_id = _normalize_channel_id(channel_id)
+    normalized_reason = str(reason or "").strip()
+    accepted = normalized_decision == "approved"
+
+    return {
+        "schema_version": CONFIRMATION_FEEDBACK_SCHEMA_VERSION,
+        "idempotency_key": normalized_idempotency_key,
+        "action_type": action["id"],
+        "channel_id": normalized_channel_id,
+        "decision": normalized_decision,
+        "accepted": accepted,
+        "status": normalized_decision,
+        "operator_ref": str(operator_ref or "").strip(),
+        "reason": normalized_reason,
+        "safety": {
+            "notification_side_effect": "none",
+            "pulse_side_effect": "none",
+            "secret_values": "redacted",
+            "requires_operator_confirmation": True,
+        },
+        "context": {
             "metadata": _redact_metadata(metadata or {}),
         },
     }
@@ -278,6 +328,51 @@ def _normalize_channel_ids(channel_ids: Sequence[str] | None, default_channel_id
             raise ValueError(f"Unknown notification channel '{channel_id}'. Expected one of: {valid_channels}.")
         selected.append(normalized)
     return selected or list(default_channel_ids)
+
+
+def _normalize_channel_id(channel_id: str) -> str:
+    selected = _normalize_channel_ids([channel_id], [])
+    if not selected:
+        raise ValueError("Notification channel is required.")
+    return selected[0]
+
+
+def _normalize_confirmation_idempotency_key(idempotency_key: str) -> str:
+    normalized = str(idempotency_key or "").strip()
+    if not normalized:
+        raise ValueError("Notification confirmation feedback requires an idempotency_key.")
+    if not normalized.startswith(CONFIRMATION_IDEMPOTENCY_PREFIX):
+        raise ValueError(
+            "Notification confirmation feedback idempotency_key must start with "
+            f"{CONFIRMATION_IDEMPOTENCY_PREFIX}."
+        )
+    return normalized
+
+
+def _validate_confirmation_idempotency_action(idempotency_key: str, action_id: str) -> None:
+    parts = idempotency_key.split(":")
+    if len(parts) < 5 or parts[3] != action_id:
+        raise ValueError("Notification confirmation feedback action_type must match the idempotency_key action.")
+
+
+def _normalize_confirmation_decision(decision: str) -> str:
+    normalized = str(decision or "").strip().lower()
+    aliases = {
+        "approve": "approved",
+        "approved": "approved",
+        "confirm": "approved",
+        "confirmed": "approved",
+        "reject": "rejected",
+        "rejected": "rejected",
+        "deny": "rejected",
+        "denied": "rejected",
+        "expire": "expired",
+        "expired": "expired",
+        "timeout": "expired",
+    }
+    if normalized not in aliases:
+        raise ValueError("Notification confirmation decision must be approved, rejected, or expired.")
+    return aliases[normalized]
 
 
 def _confirmation_channel_preview(channel: Dict[str, Any]) -> Dict:
