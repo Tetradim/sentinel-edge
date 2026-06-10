@@ -31,6 +31,16 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
         self.assertIn("const detail = readinessDetails[check]", text)
         self.assertIn("{detail.label}: {ok ? 'ok' : 'blocked'}", text)
 
+    def test_unknown_readiness_copy_is_explicit(self):
+        text = PROTECTION.read_text(encoding="utf-8")
+
+        self.assertIn("const readinessGuardTitle = state.ready", text)
+        self.assertIn("'Readiness unavailable'", text)
+        self.assertIn("const readinessGuardMessage = state.ready", text)
+        self.assertIn("'Unable to confirm Edge runtime readiness.", text)
+        self.assertIn("{readinessGuardTitle}", text)
+        self.assertIn("{readinessGuardMessage}", text)
+
     def test_paper_handoff_is_disabled_when_runtime_not_ready(self):
         text = PROTECTION.read_text(encoding="utf-8")
 

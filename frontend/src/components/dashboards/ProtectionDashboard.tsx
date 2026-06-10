@@ -158,6 +158,10 @@ export const ProtectionDashboard: React.FC = () => {
   const readinessDetails: Record<string, EdgeReadinessCheckDetail> = state.ready?.check_details ?? {};
   const failingReadinessDetails: EdgeReadinessCheckDetail[] = state.ready?.failing_check_details ?? [];
   const handoffBlocked = state.ready ? !runtimeReady : true;
+  const readinessGuardTitle = state.ready ? 'Readiness blockers' : 'Readiness unavailable';
+  const readinessGuardMessage = state.ready
+    ? 'Edge runtime must be ready before enabling paper handoff.'
+    : 'Unable to confirm Edge runtime readiness. Refresh or check /api/ready before enabling paper handoff.';
 
   const positionStats = useMemo(() => {
     const totalExposure = state.positions.reduce((sum, item) => sum + Math.abs(numberOrZero(item.market_value)), 0);
@@ -288,10 +292,10 @@ export const ProtectionDashboard: React.FC = () => {
         <div data-testid="protection-readiness-guard" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle className="h-4 w-4" />
-            Readiness blockers
+            {readinessGuardTitle}
           </div>
           <p className="mt-2 text-red-100/80">
-            Edge runtime must be ready before enabling paper handoff.
+            {readinessGuardMessage}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(failingReadinessDetails.length > 0 ? failingReadinessDetails : [{
