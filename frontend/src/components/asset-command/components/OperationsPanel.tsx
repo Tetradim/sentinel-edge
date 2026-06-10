@@ -6,6 +6,7 @@ import { MarketCoverage } from '../../dashboards/MarketCoverage';
 import { PnLTracking } from '../../dashboards/PnLTracking';
 import { PortfolioAnalytics } from '../../dashboards/PortfolioAnalytics';
 import { ProtectionDashboard as OperationsProtectionDashboard } from '../../dashboards/ProtectionDashboard';
+import { ScannerWorkbench } from '../../dashboards/ScannerWorkbench';
 import { SettingsDashboard } from '../../dashboards/SettingsDashboard';
 import { TradingOverview } from '../../dashboards/TradingOverview';
 import { TutorialsDashboard, type TutorialModuleView } from '../../tutorials';
@@ -57,6 +58,7 @@ export function OperationsPanel({
         >
           {activeView === 'overview' && <TradingOverview />}
           {activeView === 'charts' && <ChartWorkspace />}
+          {activeView === 'scanners' && <ScannerWorkbench />}
           {activeView === 'advisor' && <AdvisorHealth />}
           {activeView === 'experience' && <ExperienceDashboard />}
           {activeView === 'protection' && <OperationsProtectionDashboard />}

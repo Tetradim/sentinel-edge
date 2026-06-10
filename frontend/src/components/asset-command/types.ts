@@ -1,7 +1,7 @@
 import type React from 'react';
 
 export type Mode = 'monitor' | 'command' | 'protect' | 'operations' | 'settings';
-export type OperationsView = 'overview' | 'charts' | 'advisor' | 'experience' | 'protection' | 'pnl' | 'markets' | 'portfolio' | 'settings' | 'tutorials';
+export type OperationsView = 'overview' | 'charts' | 'scanners' | 'advisor' | 'experience' | 'protection' | 'pnl' | 'markets' | 'portfolio' | 'settings' | 'tutorials';
 export type Tone = 'green' | 'cyan' | 'gold' | 'red';
 export type EventFilter = 'all' | 'selected' | 'system';
 

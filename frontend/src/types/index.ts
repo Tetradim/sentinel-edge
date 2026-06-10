@@ -144,6 +144,71 @@ export interface ChartWorkspaceSnapshot {
   orb_session_status?: OrbSessionStatus | null;
 }
 
+export interface ScannerWorkbenchCatalog {
+  schema_version: string;
+  source_policy: string;
+  source_urls: string[];
+  counts: {
+    scanners: number;
+    recommended_tickers: number;
+    strategies: number;
+    indicators: number;
+    collection_packs: number;
+  };
+  scanners: ScannerWorkbenchScanner[];
+  recommended_tickers: ScannerWorkbenchTicker[];
+  strategies: ScannerWorkbenchStrategy[];
+  indicators: ScannerWorkbenchIndicator[];
+  collection_packs: ScannerWorkbenchCollectionPack[];
+}
+
+export interface ScannerWorkbenchScanner {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  watch_signals: string[];
+  timeframes: string[];
+  source_inspiration: string;
+  source_urls: string[];
+  requires: string[];
+  automation_default: string;
+}
+
+export interface ScannerWorkbenchTicker {
+  symbol: string;
+  name: string;
+  asset_class: string;
+  liquidity_profile: string;
+  recommended_for: string[];
+  notes: string;
+}
+
+export interface ScannerWorkbenchStrategy {
+  id: string;
+  name: string;
+  description: string;
+  scanner_ids: string[];
+  indicator_ids: string[];
+  risk_notes: string;
+  default_mode: string;
+}
+
+export interface ScannerWorkbenchIndicator {
+  id: string;
+  name: string;
+  description: string;
+  parameters: string[];
+  used_by: string[];
+}
+
+export interface ScannerWorkbenchCollectionPack {
+  id: string;
+  name: string;
+  description: string;
+  scanner_ids: string[];
+}
+
 export interface PulseFeedback {
   sent?: boolean;
   status?: string;

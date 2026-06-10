@@ -40,6 +40,7 @@ from automation import AutomationMode
 from chart_workspace import build_chart_workspace_payload
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.handoff import pulse_handoff_contract_document
+from scanner_workbench_catalog import scanner_workbench_catalog
 from simulation_lab import (
     SimulationLabDisabledError,
     require_simulation_lab_enabled,
@@ -1953,6 +1954,12 @@ async def get_chart_workspace(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.get("/scanner-workbench/catalog")
+async def get_scanner_workbench_catalog():
+    """Return Edge-native scanner, ticker, strategy, and indicator catalog metadata."""
+    return scanner_workbench_catalog()
 
 
 # ═══════════════════════════════════════════════════════════════════════════

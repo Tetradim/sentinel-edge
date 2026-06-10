@@ -1,4 +1,4 @@
-import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot } from '@/types';
+import type { ChartWorkspaceIndicatorId, ChartWorkspaceSnapshot, ScannerWorkbenchCatalog } from '@/types';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 const FRONTEND_RUM_PATH = '/api/frontend/rum';
@@ -211,6 +211,10 @@ class ApiClient {
     if (options.limit) params.set('limit', String(options.limit));
     const query = params.toString();
     return fetchJSON<ChartWorkspaceSnapshot>(`/api/chart-workspace/${encodeURIComponent(symbol)}${query ? `?${query}` : ''}`);
+  }
+
+  async getScannerWorkbenchCatalog() {
+    return fetchJSON<ScannerWorkbenchCatalog>('/api/scanner-workbench/catalog');
   }
 
   async getMarkets() {
