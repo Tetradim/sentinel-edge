@@ -389,11 +389,13 @@ function isEdgeReadiness(value: unknown): value is EdgeReadiness {
 }
 
 function normalizeEdgeReadiness(readiness: EdgeReadiness): NormalizedEdgeReadiness {
+  const ready = Boolean(readiness.ready);
+  const checks = Object.fromEntries(Object.entries(readiness.checks).map(([check, value]) => [check, Boolean(value)]));
   const rawCheckDetails =
     readiness.check_details && typeof readiness.check_details === 'object' ? readiness.check_details : {};
   const checkDetails = Object.fromEntries(Object.entries(rawCheckDetails).map(([check, detail]) => [
     check,
-    normalizeEdgeReadinessDetail(detail, check, Boolean(readiness.checks[check])),
+    normalizeEdgeReadinessDetail(detail, check, Boolean(checks[check])),
   ]));
   const failingChecks = Array.isArray(readiness.failing_checks) ? readiness.failing_checks : [];
   const failingCheckDetails = Array.isArray(readiness.failing_check_details)
@@ -407,6 +409,9 @@ function normalizeEdgeReadiness(readiness: EdgeReadiness): NormalizedEdgeReadine
 
   return {
     ...readiness,
+    ready,
+    status: ready ? 'ready' : 'not_ready',
+    checks,
     check_details: checkDetails,
     failing_checks: failingChecks,
     failing_check_details: failingCheckDetails,
