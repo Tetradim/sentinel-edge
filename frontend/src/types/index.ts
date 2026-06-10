@@ -9,6 +9,7 @@ export interface TickerData {
     '30m'?: OrbLevel;
   };
   orb_session_status?: OrbSessionStatus;
+  orb_decision_context?: OrbDecisionContext;
   signal_strength?: number;
   trend?: string;
   atr?: number;
@@ -48,6 +49,18 @@ export interface OrbSessionSummary {
   levels?: Record<string, OrbLevel>;
 }
 
+export interface OrbDecisionContext {
+  source: string;
+  active_session: string;
+  active_label: string;
+  active_status: string;
+  signal_session: string;
+  signal_timeframe: string;
+  signal_level?: OrbLevel | null;
+  reference_sessions?: Record<string, Record<string, OrbLevel>>;
+  generated_at?: string;
+}
+
 export interface MarketStatus {
   open: boolean;
   lunch_break: boolean;
@@ -84,6 +97,7 @@ export interface DecisionEntry {
   trend: string;
   confidence: number;
   price: number;
+  orb_decision_context?: OrbDecisionContext;
   timestamp: string;
 }
 

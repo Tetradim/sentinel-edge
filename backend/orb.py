@@ -461,6 +461,39 @@ class ORBTracker:
             "sessions": sessions,
         }
 
+    def get_decision_context(
+        self,
+        symbol: str,
+        now: Optional[datetime] = None,
+        signal_session_id: str = MARKET_OPEN_SESSION_ID,
+        signal_timeframe: int = 15,
+    ) -> Dict[str, Any]:
+        """Return the ORB context used to explain a scheduler decision."""
+        et = _to_et(now or _et_now())
+        status = self.get_session_status(symbol, now=et)
+        symbol_sessions = self.orb_sessions.get(symbol, {})
+        signal_level = symbol_sessions.get(signal_session_id, {}).get(signal_timeframe)
+        reference_sessions: Dict[str, Dict[str, Any]] = {}
+
+        for session_id, session_levels in symbol_sessions.items():
+            reference_sessions[session_id] = {
+                f"{tf}m": self._serialise_level(level)
+                for tf, level in session_levels.items()
+                if level.is_valid or level.locked
+            }
+
+        return {
+            "source": "orb",
+            "active_session": status["active_session"],
+            "active_label": status["active_label"],
+            "active_status": status["active_status"],
+            "signal_session": signal_session_id,
+            "signal_timeframe": f"{signal_timeframe}m",
+            "signal_level": self._serialise_level(signal_level) if signal_level else None,
+            "reference_sessions": reference_sessions,
+            "generated_at": et.isoformat(),
+        }
+
     @staticmethod
     def _serialise_level(level: ORBLevel) -> Dict[str, Any]:
         safe_low = level.low if level.low != float("inf") else 0.0

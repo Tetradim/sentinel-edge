@@ -55,6 +55,24 @@ class ORBSessionModelTests(unittest.TestCase):
         self.assertEqual(status["sessions"]["premarket_30m"]["timeframes"], ["30m"])
         self.assertEqual(status["sessions"]["market_open"]["timeframes"], ["5m", "15m", "30m"])
 
+    def test_decision_context_captures_signal_and_reference_orb_sessions(self):
+        tracker = ORBTracker()
+
+        tracker.update("SPY", 100.0, datetime(2026, 6, 10, 9, 5, tzinfo=ET))
+        tracker.update("SPY", 101.0, datetime(2026, 6, 10, 9, 20, tzinfo=ET))
+        tracker.update("SPY", 102.0, datetime(2026, 6, 10, 9, 31, tzinfo=ET))
+
+        context = tracker.get_decision_context("SPY", now=datetime(2026, 6, 10, 9, 35, tzinfo=ET))
+
+        self.assertEqual(context["active_session"], "market_open")
+        self.assertEqual(context["signal_session"], "market_open")
+        self.assertEqual(context["signal_timeframe"], "15m")
+        self.assertEqual(context["signal_level"]["high"], 102.0)
+        self.assertEqual(context["signal_level"]["low"], 102.0)
+        self.assertTrue(context["signal_level"]["is_valid"])
+        self.assertEqual(context["reference_sessions"]["premarket_30m"]["30m"]["high"], 101.0)
+        self.assertEqual(context["reference_sessions"]["premarket_30m"]["30m"]["low"], 100.0)
+
 
 if __name__ == "__main__":
     unittest.main()

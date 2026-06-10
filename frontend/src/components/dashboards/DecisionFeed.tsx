@@ -99,12 +99,19 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
                   <span className="w-12 text-sm font-bold text-white">{entry.symbol}</span>
 
                   {/* Decision badge */}
-                  <div
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs
-                      font-semibold ${style.bg} ${style.text}`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    {style.label}
+                  <div className="flex min-w-[82px] flex-col gap-1">
+                    <div
+                      className={`flex w-fit items-center gap-1 px-2 py-0.5 rounded-full border text-xs
+                        font-semibold ${style.bg} ${style.text}`}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {style.label}
+                    </div>
+                    {(entry.orb_decision_context?.active_label || entry.orb_decision_context?.signal_timeframe) && (
+                      <span className="max-w-[112px] truncate text-[10px] leading-none text-gray-500 whitespace-nowrap">
+                        {entry.orb_decision_context?.active_label || 'ORB'} / {entry.orb_decision_context?.signal_timeframe || '15m'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Signal bar */}

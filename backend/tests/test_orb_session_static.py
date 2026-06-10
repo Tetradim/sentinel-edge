@@ -10,6 +10,7 @@ SERVER = ROOT / "backend" / "server.py"
 TYPES = ROOT / "frontend" / "src" / "types" / "index.ts"
 TRADING_OVERVIEW = ROOT / "frontend" / "src" / "components" / "dashboards" / "TradingOverview.tsx"
 TICKER_CARD = ROOT / "frontend" / "src" / "components" / "cards" / "TickerCard.tsx"
+DECISION_FEED = ROOT / "frontend" / "src" / "components" / "dashboards" / "DecisionFeed.tsx"
 
 
 class ORBSessionStaticTests(unittest.TestCase):
@@ -24,6 +25,7 @@ class ORBSessionStaticTests(unittest.TestCase):
         self.assertIn("session_id: str = MARKET_OPEN_SESSION_ID", text)
         self.assertIn("def get_session_levels", text)
         self.assertIn("def get_session_status", text)
+        self.assertIn("def get_decision_context", text)
 
     def test_scheduler_persists_session_keyed_orb_levels(self):
         text = SCHEDULER.read_text(encoding="utf-8")
@@ -34,6 +36,15 @@ class ORBSessionStaticTests(unittest.TestCase):
         self.assertIn('"sessions": sessions_doc', text)
         self.assertIn('doc.get("sessions")', text)
         self.assertIn("orb_session_status", text)
+
+    def test_scheduler_persists_and_hands_off_orb_decision_context(self):
+        text = SCHEDULER.read_text(encoding="utf-8")
+
+        self.assertIn("orb_decision_context = self.orb.get_decision_context(symbol, now=now)", text)
+        self.assertIn('"orb_decision_context": orb_decision_context', text)
+        self.assertIn('"decision_context": orb_decision_context', text)
+        self.assertIn("orb_metadata = {", text)
+        self.assertIn('"orb_decision_context": orb_decision_context', text)
 
     def test_orb_api_returns_sessions_alongside_legacy_levels(self):
         text = SERVER.read_text(encoding="utf-8")
@@ -54,6 +65,15 @@ class ORBSessionStaticTests(unittest.TestCase):
         self.assertIn("orbSessionLabel", card)
         self.assertIn("orbSessionStatus", card)
         self.assertIn("ORB Session", card)
+
+    def test_frontend_surfaces_orb_decision_context(self):
+        types = TYPES.read_text(encoding="utf-8")
+        feed = DECISION_FEED.read_text(encoding="utf-8")
+
+        self.assertIn("orb_decision_context?: OrbDecisionContext", types)
+        self.assertIn("export interface OrbDecisionContext", types)
+        self.assertIn("entry.orb_decision_context?.signal_timeframe", feed)
+        self.assertIn("entry.orb_decision_context?.active_label", feed)
 
 
 if __name__ == "__main__":

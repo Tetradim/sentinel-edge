@@ -286,6 +286,10 @@ class EvaluationScheduler:
             if 15 in orb_levels and orb_levels[15].is_valid:
                 orb_high = orb_levels[15].high
                 orb_low  = orb_levels[15].low
+            orb_decision_context = self.orb.get_decision_context(symbol, now=now)
+            orb_metadata = {
+                "orb_decision_context": orb_decision_context,
+            }
 
             trend, signal_strength = self.signals.evaluate_signal(
                 symbol=symbol,
@@ -407,8 +411,8 @@ class EvaluationScheduler:
                     action=AutomationAction.BUY,
                     confidence=confidence,
                     reason="Bullish ORB/signal confluence",
-                    orb_session="market_open",
-                    metadata={"signal_strength": signal_strength, "trend": trend.name.lower()},
+                    orb_session=orb_decision_context["signal_session"],
+                    metadata={**orb_metadata, "signal_strength": signal_strength, "trend": trend.name.lower()},
                 )
 
             elif decision == Decision.STOP_BUYING:
@@ -417,8 +421,8 @@ class EvaluationScheduler:
                     action=AutomationAction.STOP_BUYING,
                     confidence=confidence,
                     reason="Bearish ORB/signal risk",
-                    orb_session="market_open",
-                    metadata={"signal_strength": signal_strength, "trend": trend.name.lower()},
+                    orb_session=orb_decision_context["signal_session"],
+                    metadata={**orb_metadata, "signal_strength": signal_strength, "trend": trend.name.lower()},
                 )
 
             elif decision == Decision.ENABLE_TRAILING_STOP:
@@ -431,10 +435,10 @@ class EvaluationScheduler:
                     action=AutomationAction.TRAILING_STOP,
                     confidence=confidence,
                     reason="Position in profit; enable trailing stop",
-                    orb_session="market_open",
+                    orb_session=orb_decision_context["signal_session"],
                     stop_type="trailing",
                     trailing_percent=trailing_pct,
-                    metadata={"atr": atr, "price": price, "pnl_pct": pnl_pct},
+                    metadata={**orb_metadata, "atr": atr, "price": price, "pnl_pct": pnl_pct},
                 )
 
             elif decision == Decision.TIGHTEN_TRAILING_STOP:
@@ -443,10 +447,10 @@ class EvaluationScheduler:
                     action=AutomationAction.TIGHTEN_TRAILING_STOP,
                     confidence=confidence,
                     reason="Strong move while trailing; tighten trailing stop",
-                    orb_session="market_open",
+                    orb_session=orb_decision_context["signal_session"],
                     stop_type="trailing",
                     trailing_percent=0.5,
-                    metadata={"signal_strength": signal_strength, "pnl_pct": pnl_pct},
+                    metadata={**orb_metadata, "signal_strength": signal_strength, "pnl_pct": pnl_pct},
                 )
 
             elif decision == Decision.TIGHTEN_STOP:
@@ -455,9 +459,9 @@ class EvaluationScheduler:
                     action=AutomationAction.TIGHTEN_STOP,
                     confidence=confidence,
                     reason="Bearish reversal detected; tighten stop",
-                    orb_session="market_open",
+                    orb_session=orb_decision_context["signal_session"],
                     stop_type="regular",
-                    metadata={"signal_strength": signal_strength, "trend": trend.name.lower()},
+                    metadata={**orb_metadata, "signal_strength": signal_strength, "trend": trend.name.lower()},
                 )
 
             elif decision == Decision.EMERGENCY_EXIT:
@@ -466,8 +470,8 @@ class EvaluationScheduler:
                     action=AutomationAction.EMERGENCY_EXIT,
                     confidence=max(confidence, 0.95),
                     reason="Emergency risk threshold reached",
-                    orb_session="market_open",
-                    metadata={"drawdown_pct": pos["drawdown_pct"], "pnl_pct": pnl_pct},
+                    orb_session=orb_decision_context["signal_session"],
+                    metadata={**orb_metadata, "drawdown_pct": pos["drawdown_pct"], "pnl_pct": pnl_pct},
                 )
 
             # ── 9a. Notify PositionTracker of decision taken ─────────────────
@@ -492,6 +496,7 @@ class EvaluationScheduler:
                     "price":           round(price, 4),
                     "pnl_pct":         round(pos["pnl_pct"], 3),
                     "has_position":    pos["has_position"],
+                    "orb_decision_context": orb_decision_context,
                     "timestamp":       now.isoformat(),
                 })
                 self.recent_decisions = self.recent_decisions[:50]
@@ -515,6 +520,7 @@ class EvaluationScheduler:
                 "current_price":    round(price, 4),
                 "orb_levels":       orb_data,
                 "orb_session_status": orb_session_status,
+                "orb_decision_context": orb_decision_context,
                 "signal_strength":  round(signal_strength, 2),
                 "trend":            trend.name.lower(),
                 "atr":              round(atr, 4),
@@ -735,6 +741,7 @@ class EvaluationScheduler:
         if self.db is None:
             return
         try:
+            orb_decision_context = self.orb.get_decision_context(symbol, now=now)
             levels_doc: Dict[str, Dict] = {}
             for tf, level in orb_levels.items():
                 if level.is_valid:
@@ -774,6 +781,7 @@ class EvaluationScheduler:
                         "date":       now.strftime("%Y-%m-%d"),
                         "levels":     levels_doc,
                         "sessions": sessions_doc,
+                        "decision_context": orb_decision_context,
                         "updated_at": now,
                     }},
                     upsert=True,
