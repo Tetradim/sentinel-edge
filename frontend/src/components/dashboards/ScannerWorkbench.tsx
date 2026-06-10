@@ -114,6 +114,15 @@ export const ScannerWorkbench: React.FC = () => {
     }));
   };
 
+  const applyStrategyKit = (strategy: ScannerWorkbenchStrategy) => {
+    setWatchState((current) => ({
+      ...current,
+      strategies: Array.from(new Set([...current.strategies, strategy.id])).sort(),
+      scanners: Array.from(new Set([...current.scanners, ...strategy.scanner_ids])).sort(),
+      indicators: Array.from(new Set([...current.indicators, ...strategy.indicator_ids])).sort(),
+    }));
+  };
+
   const clearWatchIntent = () => {
     setWatchState(DEFAULT_WATCH_STATE);
     setValidation(null);
@@ -277,6 +286,7 @@ export const ScannerWorkbench: React.FC = () => {
               strategies={catalog.strategies}
               selectedIds={watchState.strategies}
               onToggle={(id) => toggleWatchValue('strategies', id)}
+              onApplyKit={applyStrategyKit}
               scannerLookup={scannerLookup}
               indicatorLookup={indicatorLookup}
             />
@@ -390,31 +400,41 @@ function StrategyTab({
   strategies,
   selectedIds,
   onToggle,
+  onApplyKit,
   scannerLookup,
   indicatorLookup,
 }: {
   strategies: ScannerWorkbenchStrategy[];
   selectedIds: string[];
   onToggle: (id: string) => void;
+  onApplyKit: (strategy: ScannerWorkbenchStrategy) => void;
   scannerLookup: Map<string, ScannerWorkbenchScanner>;
   indicatorLookup: Map<string, ScannerWorkbenchIndicator>;
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
       {strategies.map((strategy) => (
-        <SelectableCard
-          key={strategy.id}
-          title={strategy.name}
-          checked={selectedIds.includes(strategy.id)}
-          onToggle={() => onToggle(strategy.id)}
-          badge={strategy.default_mode}
-          detail={strategy.description}
-          meta={[
-            `Scanners: ${formatIds(strategy.scanner_ids, scannerLookup)}`,
-            `Indicators: ${formatIds(strategy.indicator_ids, indicatorLookup)}`,
-            strategy.risk_notes,
-          ]}
-        />
+        <div key={strategy.id} className="space-y-2">
+          <SelectableCard
+            title={strategy.name}
+            checked={selectedIds.includes(strategy.id)}
+            onToggle={() => onToggle(strategy.id)}
+            badge={strategy.default_mode}
+            detail={strategy.description}
+            meta={[
+              `Scanners: ${formatIds(strategy.scanner_ids, scannerLookup)}`,
+              `Indicators: ${formatIds(strategy.indicator_ids, indicatorLookup)}`,
+              strategy.risk_notes,
+            ]}
+          />
+          <button
+            type="button"
+            onClick={() => onApplyKit(strategy)}
+            className="w-full rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20"
+          >
+            Add strategy kit
+          </button>
+        </div>
       ))}
     </div>
   );
