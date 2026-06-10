@@ -60,6 +60,7 @@ interface ChartWorkspacePreferencesState {
   selectedIndicators: ChartWorkspaceIndicatorId[];
   barLimit: ChartWorkspaceBarLimit;
   showOrbOverlays: boolean;
+  showVolume: boolean;
   orbOverlaySessions: ChartWorkspaceOrbOverlaySession[];
 }
 
@@ -123,6 +124,7 @@ const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
   selectedIndicators: DEFAULT_INDICATORS,
   barLimit: 240,
   showOrbOverlays: true,
+  showVolume: true,
   orbOverlaySessions: DEFAULT_ORB_OVERLAY_SESSIONS,
 };
 
@@ -183,7 +185,16 @@ export const ChartWorkspace: React.FC = () => {
   const labRunInProgressRef = useRef(false);
   const [layoutMessage, setLayoutMessage] = useState('');
   const [viewMessage, setViewMessage] = useState('');
-  const { activeSymbol, chartType, indicatorPreset, selectedIndicators, barLimit, showOrbOverlays, orbOverlaySessions } =
+  const {
+    activeSymbol,
+    chartType,
+    indicatorPreset,
+    selectedIndicators,
+    barLimit,
+    showOrbOverlays,
+    showVolume,
+    orbOverlaySessions,
+  } =
     workspacePreferences;
 
   useEffect(() => {
@@ -233,8 +244,8 @@ export const ChartWorkspace: React.FC = () => {
   }, []);
 
   const priceData = useMemo(
-    () => buildPriceTraces(snapshot, chartType, showOrbOverlays, orbOverlaySessions),
-    [snapshot, chartType, showOrbOverlays, orbOverlaySessions],
+    () => buildPriceTraces(snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions),
+    [snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions],
   );
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
   const indicatorSnapshotMetrics = useMemo(
@@ -325,6 +336,13 @@ export const ChartWorkspace: React.FC = () => {
     updateWorkspacePreferences((current) => ({
       ...current,
       showOrbOverlays: checked,
+    }));
+  };
+
+  const toggleVolume = (checked: boolean) => {
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      showVolume: checked,
     }));
   };
 
@@ -551,6 +569,7 @@ export const ChartWorkspace: React.FC = () => {
             <Metric label="Range" value={`${barLimit} bars`} />
             <Metric label="Chart" value={formatChartType(chartType)} />
             <Metric label="ORB overlays" value={formatOrbOverlaySessionSummary(showOrbOverlays, orbOverlaySessions)} />
+            <Metric label="Volume" value={formatVolumeOverlay(showVolume)} />
             <Metric label="Lab gate" value={formatSimulationLabGate(simulationLabStatus, simulationLabEnabled)} />
           </div>
           <div className="mt-3 space-y-1 border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
@@ -816,6 +835,15 @@ export const ChartWorkspace: React.FC = () => {
                 />
                 ORB overlays
               </label>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={showVolume}
+                  onChange={(event) => toggleVolume(event.target.checked)}
+                  className="h-3.5 w-3.5 accent-cyan-400"
+                />
+                Volume
+              </label>
               {ORB_OVERLAY_SESSION_OPTIONS.map((option) => (
                 <label
                   key={option.id}
@@ -865,6 +893,9 @@ export const ChartWorkspace: React.FC = () => {
                 legend: { orientation: 'h', y: 1.08, x: 0 },
                 xaxis: { rangeslider: { visible: false } },
                 yaxis: { title: 'Price' },
+                yaxis2: showVolume
+                  ? { title: 'Volume', overlaying: 'y', side: 'right', showgrid: false, rangemode: 'tozero' }
+                  : undefined,
               }}
             />
           )}
@@ -915,6 +946,7 @@ function buildPriceTraces(
   snapshot: ChartWorkspaceSnapshot | null,
   chartType: 'candlestick' | 'line',
   includeOrbOverlays = true,
+  includeVolume = true,
   includeOrbOverlaySession: ChartWorkspaceOrbOverlaySession[] = DEFAULT_ORB_OVERLAY_SESSIONS,
 ) {
   if (!snapshot) return [];
@@ -939,6 +971,18 @@ function buildPriceTraces(
         name: snapshot.symbol,
         line: { color: '#22d3ee', width: 2 },
       };
+  const volumeTrace = includeVolume
+    ? {
+        x,
+        y: snapshot.bars.map((bar) => bar.volume),
+        type: 'bar',
+        name: 'Volume',
+        yaxis: 'y2',
+        marker: { color: 'rgba(148, 163, 184, 0.28)' },
+        opacity: 0.35,
+        hovertemplate: 'Volume %{y:,}<extra></extra>',
+      }
+    : null;
   const indicatorTraces = Object.entries(snapshot.indicators)
     .filter(([, indicator]) => indicator.kind === 'overlay')
     .map(([id, indicator]) => ({
@@ -958,7 +1002,7 @@ function buildPriceTraces(
           orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
         ])
     : [];
-  return [baseTrace, ...indicatorTraces, ...orbTraces];
+  return [baseTrace, ...(volumeTrace ? [volumeTrace] : []), ...indicatorTraces, ...orbTraces];
 }
 
 function buildOscillatorTraces(snapshot: ChartWorkspaceSnapshot | null) {
@@ -1125,6 +1169,10 @@ function formatOrbOverlaySessionSummary(
   return orbOverlaySessions
     .map((session) => ORB_OVERLAY_SESSION_OPTIONS.find((option) => option.id === session)?.label || session)
     .join(', ');
+}
+
+function formatVolumeOverlay(showVolume: boolean) {
+  return showVolume ? 'On' : 'Off';
 }
 
 function formatSimulationLabGate(
@@ -1380,6 +1428,10 @@ function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePrefe
       typeof value.showOrbOverlays === 'boolean'
         ? value.showOrbOverlays
         : DEFAULT_PREFERENCES_STATE.showOrbOverlays,
+    showVolume:
+      typeof value.showVolume === 'boolean'
+        ? value.showVolume
+        : DEFAULT_PREFERENCES_STATE.showVolume,
     orbOverlaySessions: normalizeOrbOverlaySessions(value.orbOverlaySessions),
   };
 }

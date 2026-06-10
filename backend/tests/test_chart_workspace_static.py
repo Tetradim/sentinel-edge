@@ -252,6 +252,10 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("setBarLimit", dashboard)
         self.assertIn("showOrbOverlays", dashboard)
         self.assertIn("toggleOrbOverlays", dashboard)
+        self.assertIn("showVolume", dashboard)
+        self.assertIn("toggleVolume", dashboard)
+        self.assertIn("includeVolume", dashboard)
+        self.assertIn("Volume", dashboard)
         self.assertIn("includeOrbOverlays", dashboard)
         self.assertIn("ORB overlays", dashboard)
         self.assertIn('type="radio"', dashboard)
@@ -290,6 +294,17 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Clean", dashboard)
         self.assertIn("selectedIndicators: [...preset.indicators]", dashboard)
         self.assertIn("indicator presets", text)
+
+    def test_chart_workspace_can_overlay_volume_bars(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("volumeTrace", dashboard)
+        self.assertIn("showVolume", dashboard)
+        self.assertIn("yaxis: 'y2'", dashboard)
+        self.assertIn("name: 'Volume'", dashboard)
+        self.assertIn("yaxis2", dashboard)
+        self.assertIn("persistent volume overlay control", text)
 
     def test_chart_workspace_surfaces_latest_indicator_snapshot(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
