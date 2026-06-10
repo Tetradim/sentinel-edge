@@ -38,7 +38,7 @@ from metrics import (
     ticker_active_count,
     ticker_evaluation_total,
 )
-from orb import MARKET_OPEN_SESSION_ID, ORBTracker, ORBLevel
+from orb import ET, MARKET_OPEN_SESSION_ID, ORBTracker, ORBLevel, _to_et
 from position_tracker import PositionTracker
 from price_fetcher import PriceFetcher
 from providers.ws_manager import WebSocketManager
@@ -46,6 +46,21 @@ from pulse_client import PulseClient
 from signals import SignalEngine, TrendDirection
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_persisted_orb_datetime(
+    value: Any,
+    *,
+    fallback: Optional[datetime] = None,
+) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return _to_et(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return _to_et(datetime.fromisoformat(value.strip().replace("Z", "+00:00")))
+        except ValueError:
+            return fallback
+    return fallback
 
 
 class EvaluationScheduler:
@@ -851,17 +866,18 @@ class EvaluationScheduler:
         except Exception as e:
             logger.error("Failed to persist ORB for %s: %s", symbol, e)
 
-    async def _load_orb_from_db(self):
+    async def _load_orb_from_db(self, now: Optional[datetime] = None):
         """Restore today's ORB levels from MongoDB on startup."""
         if self.db is None:
             return
-        today = datetime.now().strftime("%Y-%m-%d")
+        restore_now = _to_et(now or datetime.now(ET))
+        today = restore_now.strftime("%Y-%m-%d")
         try:
             count = 0
             async for doc in self.db.orb_levels.find({"date": today}, {"_id": 0}):
                 symbol = doc["symbol"]
                 if symbol not in self.orb.orb_sessions:
-                    self.orb._init_symbol(symbol, datetime.now().date())
+                    self.orb._init_symbol(symbol, restore_now.date())
 
                 sessions = doc.get("sessions") or {}
                 for session_id, session_levels in sessions.items():
@@ -873,8 +889,11 @@ class EvaluationScheduler:
                                 high=level_data["high"],
                                 low=level_data["low"],
                                 locked=level_data["locked"],
-                                start_time=level_data.get("start_time") or datetime.now(),
-                                lock_time=level_data.get("lock_time"),
+                                start_time=_coerce_persisted_orb_datetime(
+                                    level_data.get("start_time"),
+                                    fallback=restore_now,
+                                ),
+                                lock_time=_coerce_persisted_orb_datetime(level_data.get("lock_time")),
                                 date=doc.get("date", today),
                                 session_id=level_data.get("session_id", session_id),
                             )
@@ -891,8 +910,11 @@ class EvaluationScheduler:
                             high=level_data["high"],
                             low=level_data["low"],
                             locked=level_data["locked"],
-                            start_time=level_data.get("start_time") or datetime.now(),
-                            lock_time=level_data.get("lock_time"),
+                            start_time=_coerce_persisted_orb_datetime(
+                                level_data.get("start_time"),
+                                fallback=restore_now,
+                            ),
+                            lock_time=_coerce_persisted_orb_datetime(level_data.get("lock_time")),
                             date=doc.get("date", today),
                             session_id=level_data.get("session_id", MARKET_OPEN_SESSION_ID),
                         )

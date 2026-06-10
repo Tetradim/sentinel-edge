@@ -276,6 +276,7 @@ Key runtime endpoints:
 - Update market-hours metrics.
 - Track active ticker state.
 - Calculate ORB levels.
+- Restore session-keyed ORB state on startup using the Eastern-time trading date and normalized persisted timestamps.
 - Calculate ATR and volatility context.
 - Evaluate signal/risk state through the engine.
 - Query local or Pulse-backed position state.
