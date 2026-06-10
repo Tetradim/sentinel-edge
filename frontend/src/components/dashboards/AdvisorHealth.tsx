@@ -101,23 +101,27 @@ export const AdvisorHealth: React.FC = () => {
         api.getAutomationStatus(),
       ]);
 
-      setState({
-        connected: live.status === 'fulfilled' || health.status === 'fulfilled',
+      const failedLoads = [live, ready, health, stats, pulse, killSwitch, providerHealth, providerCatalog, decisions, automation].filter(
+        (result) => result.status === 'rejected',
+      );
+
+      setState((prev) => ({
+        connected: live.status === 'fulfilled' || health.status === 'fulfilled' || prev.connected,
         loading: false,
-        error: null,
-        live: live.status === 'fulfilled' ? live.value : null,
-        ready: ready.status === 'fulfilled' ? ready.value : null,
-        health: health.status === 'fulfilled' ? health.value : null,
-        stats: stats.status === 'fulfilled' ? stats.value : null,
-        pulse: pulse.status === 'fulfilled' ? pulse.value : null,
-        killSwitch: killSwitch.status === 'fulfilled' ? killSwitch.value : null,
-        providers: providerHealth.status === 'fulfilled' ? providerHealth.value.providers || {} : {},
-        providerMeta: providerCatalog.status === 'fulfilled' ? providerCatalog.value.providers || [] : [],
-        fallbackOrder: providerCatalog.status === 'fulfilled' ? providerCatalog.value.fallback_order || [] : [],
-        decisionsCount: decisions.status === 'fulfilled' ? decisions.value.count ?? decisions.value.decisions?.length ?? 0 : 0,
-        automation: automation.status === 'fulfilled' ? automation.value : null,
+        error: failedLoads.length > 0 ? 'Advisor health data failed to refresh. Showing latest available data.' : null,
+        live: live.status === 'fulfilled' ? live.value : prev.live,
+        ready: ready.status === 'fulfilled' ? ready.value : prev.ready,
+        health: health.status === 'fulfilled' ? health.value : prev.health,
+        stats: stats.status === 'fulfilled' ? stats.value : prev.stats,
+        pulse: pulse.status === 'fulfilled' ? pulse.value : prev.pulse,
+        killSwitch: killSwitch.status === 'fulfilled' ? killSwitch.value : prev.killSwitch,
+        providers: providerHealth.status === 'fulfilled' ? providerHealth.value.providers || {} : prev.providers,
+        providerMeta: providerCatalog.status === 'fulfilled' ? providerCatalog.value.providers || [] : prev.providerMeta,
+        fallbackOrder: providerCatalog.status === 'fulfilled' ? providerCatalog.value.fallback_order || [] : prev.fallbackOrder,
+        decisionsCount: decisions.status === 'fulfilled' ? decisions.value.count ?? decisions.value.decisions?.length ?? 0 : prev.decisionsCount,
+        automation: automation.status === 'fulfilled' ? automation.value : prev.automation,
         refreshedAt: new Date().toLocaleTimeString(),
-      });
+      }));
     } catch (err) {
       setState((prev) => ({
         ...prev,
@@ -178,7 +182,7 @@ export const AdvisorHealth: React.FC = () => {
             {state.refreshedAt ? `Refreshed ${state.refreshedAt}` : 'Loading…'}
           </div>
         </div>
-        {state.error && <p className="mt-3 text-sm text-red-300">{state.error}</p>}
+        {state.error && <p role="alert" className="mt-3 text-sm text-red-300">{state.error}</p>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-6">

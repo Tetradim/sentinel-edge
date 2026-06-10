@@ -83,6 +83,18 @@ class FrontendReadinessUiStaticTests(unittest.TestCase):
         self.assertIn("failingReadinessDetails.length > 0 &&", text)
         self.assertIn("failing readiness checks", text)
 
+    def test_advisor_health_surfaces_partial_refresh_failures(self):
+        text = ADVISOR_HEALTH.read_text(encoding="utf-8")
+
+        self.assertIn("const failedLoads = [live, ready, health, stats, pulse, killSwitch, providerHealth, providerCatalog, decisions, automation].filter", text)
+        self.assertIn("setState((prev) => ({", text)
+        self.assertIn("error: failedLoads.length > 0 ? 'Advisor health data failed to refresh. Showing latest available data.' : null", text)
+        self.assertIn("live: live.status === 'fulfilled' ? live.value : prev.live", text)
+        self.assertIn("ready: ready.status === 'fulfilled' ? ready.value : prev.ready", text)
+        self.assertIn("providers: providerHealth.status === 'fulfilled' ? providerHealth.value.providers || {} : prev.providers", text)
+        self.assertIn("{state.error &&", text)
+        self.assertIn('role="alert"', text)
+
 
 if __name__ == "__main__":
     unittest.main()
