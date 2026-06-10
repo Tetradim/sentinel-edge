@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, TrendingUp, TrendingDown, Activity, AlertTriangle, Wifi } from 'lucide-react';
+import { formatCompactAge } from '@/lib/time';
 import type { DecisionEntry } from '@/types';
 
 interface DecisionFeedProps {
@@ -40,13 +41,6 @@ const DECISION_STYLES: Record<string, { bg: string; text: string; label: string;
     Icon: AlertTriangle,
   },
 };
-
-function timeAgo(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
 
 export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = true }) => {
   return (
@@ -139,7 +133,7 @@ export const DecisionFeed: React.FC<DecisionFeedProps> = ({ decisions, live = tr
 
                   {/* Time */}
                   <span className="text-xs text-gray-600 w-14 text-right">
-                    {timeAgo(entry.timestamp)}
+                    {formatCompactAge(entry.timestamp)}
                   </span>
                 </motion.div>
               );
