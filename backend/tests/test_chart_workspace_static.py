@@ -98,6 +98,22 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("2xl:grid-cols-[minmax(0,1fr)_280px]", dashboard)
         self.assertNotIn("lg:grid-cols-[minmax(0,1fr)_280px]", dashboard)
 
+    def test_chart_workspace_exposes_strategy_context_panel(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("strategy: boolean", dashboard)
+        self.assertIn("'strategy'", dashboard)
+        self.assertIn("Strategy Context", dashboard)
+        self.assertIn("formatIndicatorPresetLabel", dashboard)
+        self.assertIn("formatSelectedIndicators", dashboard)
+        self.assertIn("formatOrbOverlaySessionSummary", dashboard)
+        self.assertIn("formatSimulationLabGate", dashboard)
+        self.assertIn("Metric label=\"Preset\"", dashboard)
+        self.assertIn("Metric label=\"ORB overlays\"", dashboard)
+        self.assertIn("Metric label=\"Lab gate\"", dashboard)
+        self.assertIn("strategy context panels", text)
+
     def test_chart_workspace_hides_simulation_lab_until_enabled(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 

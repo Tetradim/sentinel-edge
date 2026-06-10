@@ -29,7 +29,7 @@ interface ChartWorkspaceIndicatorPresetOption {
 const DEFAULT_INDICATORS: ChartWorkspaceIndicatorId[] = ['ema_9', 'ema_20', 'sma_20', 'rsi_14', 'macd'];
 
 type ChartWorkspaceLayoutMode = 'analysis' | 'execution' | 'research';
-type ChartWorkspacePanelId = 'snapshot' | 'lab' | 'oscillators';
+type ChartWorkspacePanelId = 'snapshot' | 'strategy' | 'lab' | 'oscillators';
 type ChartWorkspaceChartType = 'candlestick' | 'line';
 type ChartWorkspaceBarLimit = 120 | 240 | 390;
 type ChartWorkspaceOrbReplaySession = 'market_open' | 'premarket_30m';
@@ -37,6 +37,7 @@ type ChartWorkspaceOrbOverlaySession = 'market_open' | 'premarket_30m';
 
 interface ChartWorkspacePanelVisibility {
   snapshot: boolean;
+  strategy: boolean;
   lab: boolean;
   oscillators: boolean;
 }
@@ -86,6 +87,7 @@ const DEFAULT_ORB_OVERLAY_SESSIONS: ChartWorkspaceOrbOverlaySession[] = ['market
 
 const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
   snapshot: true,
+  strategy: true,
   lab: true,
   oscillators: true,
 };
@@ -113,6 +115,7 @@ const LAYOUT_OPTIONS: { id: ChartWorkspaceLayoutMode; label: string }[] = [
 
 const PANEL_OPTIONS: { id: ChartWorkspacePanelId; label: string }[] = [
   { id: 'snapshot', label: 'Snapshot' },
+  { id: 'strategy', label: 'Strategy' },
   { id: 'lab', label: 'Lab' },
   { id: 'oscillators', label: 'Oscillators' },
 ];
@@ -223,7 +226,8 @@ export const ChartWorkspace: React.FC = () => {
     () => PANEL_OPTIONS.filter((option) => option.id !== 'lab' || simulationLabEnabled),
     [simulationLabEnabled],
   );
-  const hasSidePanels = panelVisibility.snapshot || (panelVisibility.lab && simulationLabEnabled);
+  const hasSidePanels =
+    panelVisibility.snapshot || panelVisibility.strategy || (panelVisibility.lab && simulationLabEnabled);
   const workspaceGridClass = getWorkspaceGridClass(layoutMode);
   const sidePanelClass = getSidePanelClass(layoutMode);
   const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? '2xl:order-last' : ''}`;
@@ -454,6 +458,29 @@ export const ChartWorkspace: React.FC = () => {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {panelVisibility.strategy && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <BarChart3 className="h-4 w-4 text-emerald-300" />
+            Strategy Context
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <Metric label="Preset" value={formatIndicatorPresetLabel(indicatorPreset)} />
+            <Metric label="Indicators" value={formatSelectedIndicators(selectedIndicators)} />
+            <Metric label="Range" value={`${barLimit} bars`} />
+            <Metric label="Chart" value={formatChartType(chartType)} />
+            <Metric label="ORB overlays" value={formatOrbOverlaySessionSummary(showOrbOverlays, orbOverlaySessions)} />
+            <Metric label="Lab gate" value={formatSimulationLabGate(simulationLabStatus, simulationLabEnabled)} />
+          </div>
+          <div className="mt-3 space-y-1 border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
+            <div className="font-semibold uppercase text-slate-500">Workspace posture</div>
+            <div>Layout: {formatLayoutMode(layoutMode)}</div>
+            <div>Replay session: {selectedOrbReplaySession.label}</div>
+            <div>Symbol: {activeSymbol}</div>
+          </div>
         </section>
       )}
 
@@ -749,7 +776,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2">
       <div className="text-[11px] uppercase text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-slate-100">{value}</div>
+      <div className="mt-1 break-words text-sm font-semibold text-slate-100">{value}</div>
     </div>
   );
 }
@@ -889,6 +916,45 @@ function formatOrbSessionLevelSummary(session: OrbSessionSummary) {
   return `${session.timeframes.join(', ')} configured`;
 }
 
+function formatIndicatorPresetLabel(indicatorPreset: ChartWorkspaceIndicatorPresetId) {
+  if (indicatorPreset === 'custom') return 'Custom';
+  return INDICATOR_PRESET_OPTIONS.find((preset) => preset.id === indicatorPreset)?.label || 'Custom';
+}
+
+function formatSelectedIndicators(indicators: ChartWorkspaceIndicatorId[]) {
+  if (!indicators.length) return 'None';
+  return indicators
+    .map((indicator) => INDICATOR_OPTIONS.find((option) => option.id === indicator)?.label || indicator.toUpperCase())
+    .join(', ');
+}
+
+function formatOrbOverlaySessionSummary(
+  showOrbOverlays: boolean,
+  orbOverlaySessions: ChartWorkspaceOrbOverlaySession[],
+) {
+  if (!showOrbOverlays) return 'Off';
+  if (!orbOverlaySessions.length) return 'None';
+  return orbOverlaySessions
+    .map((session) => ORB_OVERLAY_SESSION_OPTIONS.find((option) => option.id === session)?.label || session)
+    .join(', ');
+}
+
+function formatSimulationLabGate(
+  simulationLabStatus: ChartWorkspaceSimulationLabStatus | null,
+  simulationLabEnabled: boolean,
+) {
+  if (!simulationLabStatus) return 'Unknown';
+  return simulationLabEnabled ? 'Enabled' : 'Hidden';
+}
+
+function formatChartType(chartType: ChartWorkspaceChartType) {
+  return chartType === 'candlestick' ? 'Candle' : 'Line';
+}
+
+function formatLayoutMode(layoutMode: ChartWorkspaceLayoutMode) {
+  return layoutMode.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function formatSimulationLabEndpoint(experiment: ChartWorkspaceSimulationLabExperiment) {
   const method = experiment.http_method || 'POST';
   const endpoint = experiment.endpoint_path || 'endpoint unavailable';
@@ -1013,6 +1079,8 @@ function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutStat
     layoutMode: isChartWorkspaceLayoutMode(value.layoutMode) ? value.layoutMode : DEFAULT_LAYOUT_STATE.layoutMode,
     panelVisibility: {
       snapshot: typeof storedPanels.snapshot === 'boolean' ? storedPanels.snapshot : DEFAULT_PANEL_VISIBILITY.snapshot,
+      strategy:
+        typeof storedPanels.strategy === 'boolean' ? storedPanels.strategy : DEFAULT_PANEL_VISIBILITY.strategy,
       lab: typeof storedPanels.lab === 'boolean' ? storedPanels.lab : DEFAULT_PANEL_VISIBILITY.lab,
       oscillators:
         typeof storedPanels.oscillators === 'boolean' ? storedPanels.oscillators : DEFAULT_PANEL_VISIBILITY.oscillators,
