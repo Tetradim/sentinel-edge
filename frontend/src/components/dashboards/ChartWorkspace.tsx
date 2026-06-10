@@ -187,6 +187,7 @@ export const ChartWorkspace: React.FC = () => {
   const pricePanelClass = `${panelClass} ${layoutMode === 'execution' ? '2xl:order-last' : ''}`;
   const selectedOrbReplaySession =
     ORB_REPLAY_SESSION_OPTIONS.find((option) => option.id === orbReplaySession) || ORB_REPLAY_SESSION_OPTIONS[0];
+  const orbSessionStatus = snapshot?.orb_session_status;
   const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
   const priceChartHeight = layoutMode === 'research' ? 500 : 430;
 
@@ -357,6 +358,8 @@ export const ChartWorkspace: React.FC = () => {
             <Metric label="Bars" value={snapshot?.summary.bar_count ?? '--'} />
             <Metric label="Indicators" value={snapshot?.summary.indicator_count ?? '--'} />
             <Metric label="ORB" value={snapshot?.summary.orb_overlay_count ?? '--'} />
+            <Metric label="ORB session" value={orbSessionStatus?.active_label ?? '--'} />
+            <Metric label="ORB status" value={formatOrbSessionStatus(orbSessionStatus?.active_status)} />
           </div>
         </section>
       )}
@@ -703,6 +706,11 @@ function orbLineTrace(x: string[], y: number, name: string, color: string) {
     name,
     line: { color, dash: 'dot', width: 1.5 },
   };
+}
+
+function formatOrbSessionStatus(status?: string) {
+  if (!status) return '--';
+  return status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {

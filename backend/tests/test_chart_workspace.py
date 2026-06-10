@@ -24,6 +24,9 @@ class ChartWorkspacePayloadTests(unittest.TestCase):
             indicators=["ema_3", "sma_3", "rsi_3", "macd"],
             limit=4,
             orb_status={
+                "active_session": "market_open",
+                "active_label": "Market open ORB",
+                "active_status": "locked",
                 "sessions": {
                     "market_open": {
                         "label": "Market open ORB",
@@ -57,6 +60,9 @@ class ChartWorkspacePayloadTests(unittest.TestCase):
         self.assertEqual(result["orb_overlays"][0]["timeframe"], "30m")
         self.assertEqual(result["orb_overlays"][0]["high"], 14.5)
         self.assertEqual(result["orb_overlays"][0]["low"], 9.5)
+        self.assertEqual(result["orb_session_status"]["active_session"], "market_open")
+        self.assertEqual(result["orb_session_status"]["active_label"], "Market open ORB")
+        self.assertEqual(result["orb_session_status"]["active_status"], "locked")
 
     def test_payload_rejects_unknown_indicators(self):
         with self.assertRaises(ValueError):

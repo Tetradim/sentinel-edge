@@ -32,6 +32,7 @@ def build_chart_workspace_payload(
     start_index = max(0, len(normalised_bars) - limit)
     visible_bars = normalised_bars[start_index:]
 
+    orb_overlays = _orb_overlays(orb_status)
     return {
         "schema_version": CHART_WORKSPACE_SCHEMA_VERSION,
         "symbol": symbol.strip().upper(),
@@ -41,7 +42,7 @@ def build_chart_workspace_payload(
             "bar_count": len(visible_bars),
             "available_bar_count": len(normalised_bars),
             "indicator_count": len(requested_indicators),
-            "orb_overlay_count": len(_orb_overlays(orb_status)),
+            "orb_overlay_count": len(orb_overlays),
         },
         "bars": [_bar_payload(bar) for bar in visible_bars],
         "indicators": _indicator_payloads(
@@ -50,7 +51,8 @@ def build_chart_workspace_payload(
             timestamps=timestamps,
             start_index=start_index,
         ),
-        "orb_overlays": _orb_overlays(orb_status),
+        "orb_overlays": orb_overlays,
+        "orb_session_status": orb_status,
     }
 
 

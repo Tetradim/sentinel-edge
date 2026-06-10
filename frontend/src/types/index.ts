@@ -141,6 +141,7 @@ export interface ChartWorkspaceSnapshot {
   bars: ChartWorkspaceBar[];
   indicators: Record<string, ChartWorkspaceIndicator>;
   orb_overlays: ChartWorkspaceOrbOverlay[];
+  orb_session_status?: OrbSessionStatus | null;
 }
 
 export interface DecisionEntry {
