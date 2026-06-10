@@ -74,7 +74,7 @@ Edge is also designed to degrade safely:
 | Area | What Edge provides |
 |------|--------------------|
 | Operator UI | Asset Command Console with monitor, command, protect, operations, and settings modes. |
-| Trading overview | Active tickers, runtime stats, correlation clusters, decisions, add/remove ticker actions, metric toggles, and refresh-failure warnings. |
+| Trading overview | Active tickers, runtime stats, correlation clusters with correlation risk recommendation details, decisions, add/remove ticker actions, metric toggles, and refresh-failure warnings. |
 | Advisor health | Edge service state, readiness, Pulse status, provider health, kill-switch state, recommendation counts, handoff mode, and runtime details. |
 | Protection operations | Scheduler controls, kill switch controls, readiness guard, Pulse queue status, handoff status, synced positions, trailing-stop and emergency-exit bridges. |
 | Settings | Local non-secret config, backend validation, read-only provider metadata, global/per-ticker Pulse handoff controls, Simulation Lab status discovery, and runtime metadata warnings. |
@@ -230,7 +230,7 @@ The current app entry point mounts `AssetCommandConsole`, not a generic landing 
 
 | Module | Details |
 |--------|---------|
-| Trading Overview | Active ticker view, correlation clusters, recent decisions, add/remove ticker actions, metric toggles, and partial-refresh warnings. |
+| Trading Overview | Active ticker view, correlation clusters with risk/trailing-stop recommendations, recent decisions, add/remove ticker actions, metric toggles, and partial-refresh warnings. |
 | Advisor Health | Service liveness/readiness, Pulse state, provider health, fallback order, recommendation count, automation mode, kill switch, and runtime details. |
 | Experience | Browser Web Vitals, backend RUM ingest status, rate-limit pressure, Grafana-style observability panels inside Experience, copyable Prometheus output, and frontend telemetry freshness. |
 | Protection Ops | Safety guardrails, readiness blockers, scheduler controls, kill switch control, Pulse queue, handoff status, positions, trailing stop, and emergency exit bridge. |
@@ -295,7 +295,7 @@ Important backend modules include:
 | `backend/signals.py` and `backend/signals_enhanced.py` | Signal generation and Prometheus metric updates. |
 | `backend/market_hours.py` | Market session logic and market-hours metrics. |
 | `backend/position_tracker.py` | Local/Pulse-aware position tracking mode. |
-| `backend/correlation.py` and `backend/analyst/correlation/engine.py` | Correlation analysis and standalone-safe Pulse override behavior. |
+| `backend/correlation.py` and `backend/analyst/correlation/engine.py` | Correlation analysis, correlation risk recommendation payloads, and standalone-safe Pulse override behavior. |
 | `backend/state_persistence.py` | State reconciliation and restoration helpers. |
 
 ### Rate limiting

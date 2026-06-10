@@ -15,6 +15,7 @@ analyst_correlation_clusters_total{strength="high"} > 1
 ```
 
 Correlation clusters are emitted by `CorrelationEngine` when multiple symbols move in the same direction inside the configured rolling window.
+Each cluster includes a `risk_recommendation` object with `action`, `priority`, `scope`, `trailing_stop_action`, and `operator_summary` fields so operators do not have to infer trailing-stop posture from strength thresholds alone.
 
 ## Impact
 
@@ -50,10 +51,14 @@ sum by (direction, strength) (increase(analyst_correlation_clusters_total[15m]))
 
 1. Identify whether the cluster is bearish or bullish and whether `strength` is `medium` or `high`.
 2. Review `/api/correlation` for affected symbols and breadth percentages before changing per-ticker settings.
-3. If the cluster is high-strength bearish, confirm whether a Pulse override was sent or suppressed.
-4. Check `backend/analyst/correlation/engine.py` for `window_sec`, `min_symbols`, `cooldown_sec`, and Pulse override behavior.
-5. Compare affected symbols with active positions, drawdown alerts, consecutive-loss alerts, and recent market news.
-6. If this coincides with `CriticalBearishCorrelation` or `BearishClusterOverride`, treat the critical alert as the controlling incident.
+3. Read `risk_recommendation.action` and `risk_recommendation.trailing_stop_action` before changing risk controls:
+   - `tighten_trailing_global` / `tighten`: confirm global trailing-stop tightening and pause new long entries.
+   - `review_trailing_stops` / `review`: inspect affected symbols before adding exposure.
+   - `observe_momentum` / `maintain`: keep current trailing-stop policy while monitoring breadth.
+4. If the cluster is high-strength bearish, confirm whether a Pulse override was sent or suppressed.
+5. Check `backend/analyst/correlation/engine.py` for `window_sec`, `min_symbols`, `cooldown_sec`, and Pulse override behavior.
+6. Compare affected symbols with active positions, drawdown alerts, consecutive-loss alerts, and recent market news.
+7. If this coincides with `CriticalBearishCorrelation` or `BearishClusterOverride`, treat the critical alert as the controlling incident.
 
 ## Resolution
 

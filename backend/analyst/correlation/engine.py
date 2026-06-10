@@ -25,6 +25,45 @@ _BULLISH = {"BUY"}
 _BEARISH = {"SELL", "STOP_BUYING", "EMERGENCY_EXIT"}
 
 
+def _build_risk_recommendation(cluster: Dict) -> Dict[str, str]:
+    direction = cluster["direction"]
+    strength = cluster["strength"]
+
+    if direction == "BEARISH" and strength > 0.65:
+        return {
+            "action": "tighten_trailing_global",
+            "priority": "high",
+            "scope": "global",
+            "trailing_stop_action": "tighten",
+            "operator_summary": (
+                "High-strength bearish correlation cluster: tighten trailing stops globally, "
+                "pause new long entries, and verify Pulse override delivery."
+            ),
+        }
+
+    if direction == "BEARISH":
+        return {
+            "action": "review_trailing_stops",
+            "priority": "medium",
+            "scope": "cluster_symbols",
+            "trailing_stop_action": "review",
+            "operator_summary": (
+                "Bearish correlation cluster: review trailing stops for affected symbols "
+                "before adding new exposure."
+            ),
+        }
+
+    return {
+        "action": "observe_momentum",
+        "priority": "low",
+        "scope": "watchlist",
+        "trailing_stop_action": "maintain",
+        "operator_summary": (
+            "Bullish correlation cluster: observe momentum and maintain existing trailing-stop policy."
+        ),
+    }
+
+
 class CorrelationEngine:
     """
     Detect correlation clusters across multiple symbols.
@@ -149,12 +188,10 @@ class CorrelationEngine:
             if len(sym_list) < self.min_symbols:
                 continue
             last = self.last_alert_time.get(direction)
-            if last and (now - last).total_seconds() < self.cooldown_sec:
-                continue
             sym_list.sort(key=lambda x: -x[1])
             top = [s[0] for s in sym_list[:8]]
             strength = round(min(1.0, len(sym_list) / 8), 2)
-            return {
+            cluster = {
                 "direction": direction,
                 "count": len(sym_list),
                 "symbols": top,
@@ -162,22 +199,47 @@ class CorrelationEngine:
                 "score": round(len(sym_list) / max(len(self.events), 1), 2),
                 "timestamp": now.isoformat(),
             }
+            cluster["risk_recommendation"] = _build_risk_recommendation(cluster)
+            if last and (now - last).total_seconds() < self.cooldown_sec:
+                latest = self._latest_cluster_for_direction(direction)
+                if latest and cluster["count"] > latest.get("count", 0):
+                    cluster["_cooldown_update"] = True
+                    return cluster
+                continue
+            return cluster
+        return None
+
+    def _latest_cluster_for_direction(self, direction: str) -> Optional[Dict]:
+        for cluster in self._recent_clusters:
+            if cluster.get("direction") == direction:
+                return cluster
         return None
 
     async def _handle_cluster(self, cluster: Dict) -> None:
         direction = cluster["direction"]
-        self.last_alert_time[direction] = datetime.utcnow()
+        is_cooldown_update = bool(cluster.pop("_cooldown_update", False))
+        previous_cluster = self._latest_cluster_for_direction(direction)
+        previous_strength = previous_cluster.get("strength", 0) if previous_cluster else 0
 
-        self._recent_clusters.insert(0, cluster)
-        self._recent_clusters = self._recent_clusters[:20]
+        if not is_cooldown_update:
+            self.last_alert_time[direction] = datetime.utcnow()
+
+        if is_cooldown_update and previous_cluster:
+            index = self._recent_clusters.index(previous_cluster)
+            self._recent_clusters[index] = cluster
+        else:
+            self._recent_clusters.insert(0, cluster)
+            self._recent_clusters = self._recent_clusters[:20]
 
         strength_label = "high" if cluster["strength"] > 0.7 else "medium"
-        try:
-            _get_counter().labels(
-                direction=direction.lower(), strength=strength_label
-            ).inc()
-        except Exception:
-            pass
+        previous_strength_label = "high" if previous_strength > 0.7 else "medium"
+        if not is_cooldown_update or strength_label != previous_strength_label:
+            try:
+                _get_counter().labels(
+                    direction=direction.lower(), strength=strength_label
+                ).inc()
+            except Exception:
+                pass
 
         logger.warning(
             "🔗 CLUSTER: %d-symbol %s [%s] strength=%.2f",
@@ -187,7 +249,12 @@ class CorrelationEngine:
 
         await self._persist_cluster(cluster)
 
-        if direction == "BEARISH" and cluster["strength"] > 0.65:
+        should_trigger_override = (
+            direction == "BEARISH"
+            and cluster["strength"] > 0.65
+            and (not is_cooldown_update or previous_strength <= 0.65)
+        )
+        if should_trigger_override:
             await self._trigger_pulse_override(cluster)
 
     async def _persist_cluster(self, cluster: Dict) -> None:
@@ -213,6 +280,7 @@ class CorrelationEngine:
                 "count": cluster["count"],
                 "symbols": cluster["symbols"],
                 "strength": cluster["strength"],
+                "risk_recommendation": cluster.get("risk_recommendation"),
             },
         }
         try:

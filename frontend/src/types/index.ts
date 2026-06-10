@@ -155,6 +155,14 @@ export interface DecisionEntry {
   timestamp: string;
 }
 
+export interface CorrelationRiskRecommendation {
+  action: 'tighten_trailing_global' | 'review_trailing_stops' | 'observe_momentum' | string;
+  priority: 'high' | 'medium' | 'low' | string;
+  scope: 'global' | 'cluster_symbols' | 'watchlist' | string;
+  trailing_stop_action: 'tighten' | 'review' | 'maintain' | string;
+  operator_summary: string;
+}
+
 export interface CorrelationCluster {
   direction: 'BULLISH' | 'BEARISH';
   count: number;
@@ -162,6 +170,7 @@ export interface CorrelationCluster {
   strength: number;
   score?: number;
   timestamp: string;
+  risk_recommendation?: CorrelationRiskRecommendation;
 }
 
 export interface MonteCarloResult {

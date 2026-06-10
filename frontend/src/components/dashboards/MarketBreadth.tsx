@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Users, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStore } from '@/store/useStore';
+import type { CorrelationCluster } from '@/types';
 
 interface Breadth {
   bullish: number;
@@ -13,13 +13,7 @@ interface Breadth {
 }
 
 interface CorrelationState {
-  latest: {
-    direction: 'BULLISH' | 'BEARISH';
-    count: number;
-    symbols: string[];
-    strength: number;
-    timestamp: string;
-  } | null;
+  latest: CorrelationCluster | null;
   breadth: Breadth;
 }
 
@@ -31,6 +25,7 @@ export const MarketBreadth: React.FC<MarketBreadthProps> = ({ correlation }) => 
   const latest = correlation.latest;
   const breadth = correlation.breadth;
   const hasSignals = breadth.total > 1 || breadth.bullish > 0 || breadth.bearish > 0;
+  const recommendation = latest?.risk_recommendation;
 
   return (
     <div
@@ -82,6 +77,28 @@ export const MarketBreadth: React.FC<MarketBreadthProps> = ({ correlation }) => 
                 {' '}·{' '}
                 {latest.symbols.slice(0, 5).join(', ')}
               </p>
+              {recommendation && (
+                <div className="mt-3 border-t border-gray-700/70 pt-3 text-xs text-gray-300">
+                  <div className="mb-1 font-semibold text-white">Risk recommendation</div>
+                  <p>{recommendation.operator_summary}</p>
+                  <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div>
+                      <dt className="text-gray-500">Action</dt>
+                      <dd className="font-mono text-gray-100">{formatRecommendationAction(recommendation.action)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Trail</dt>
+                      <dd className="font-mono text-gray-100">
+                        {formatTrailingStopAction(recommendation.trailing_stop_action)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Scope</dt>
+                      <dd className="font-mono text-gray-100">{formatRecommendationScope(recommendation.scope)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
             </div>
 
             {/* Strength ring */}
@@ -154,3 +171,22 @@ export const MarketBreadth: React.FC<MarketBreadthProps> = ({ correlation }) => 
     </div>
   );
 };
+
+function formatRecommendationAction(action: string) {
+  if (action === 'tighten_trailing_global') return 'Tighten trailing stops';
+  if (action === 'review_trailing_stops') return 'Review trailing stops';
+  if (action === 'observe_momentum') return 'Observe momentum';
+  return action.replace(/_/g, ' ');
+}
+
+function formatTrailingStopAction(action: string) {
+  if (action === 'tighten') return 'Tighten';
+  if (action === 'review') return 'Review';
+  if (action === 'maintain') return 'Maintain';
+  return action.replace(/_/g, ' ');
+}
+
+function formatRecommendationScope(scope: string) {
+  if (scope === 'cluster_symbols') return 'Cluster symbols';
+  return scope.replace(/_/g, ' ');
+}
