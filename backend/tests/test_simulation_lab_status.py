@@ -36,7 +36,9 @@ class SimulationLabStatusTests(unittest.TestCase):
         self.assertTrue(status["enabled"])
         self.assertFalse(status["default_hidden"])
         self.assertTrue(all(experiment["state"] == "visible" for experiment in status["experiments"]))
-        self.assertTrue(all(experiment["status"] == "planned" for experiment in status["experiments"]))
+        orb_experiment = next(experiment for experiment in status["experiments"] if experiment["id"] == "orb_backtest")
+        self.assertEqual(orb_experiment["status"], "available")
+        self.assertTrue(orb_experiment["runnable"])
 
 
 if __name__ == "__main__":

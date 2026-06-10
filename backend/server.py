@@ -34,7 +34,12 @@ from alert_handler import router as alert_handler_router, shutdown as alert_hand
 from automation import AutomationMode
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.handoff import pulse_handoff_contract_document
-from simulation_lab import simulation_lab_status
+from simulation_lab import (
+    SimulationLabDisabledError,
+    require_simulation_lab_enabled,
+    run_orb_backtest_replay,
+    simulation_lab_status,
+)
 from metrics import (
     edge_frontend_long_task_duration_ms,
     edge_frontend_rum_active_routes,
@@ -499,6 +504,25 @@ class BacktestRunRequest(BaseModel):
 class BacktestReportRequest(BaseModel):
     """Request for GET /api/backtest/report/{run_id}"""
     run_id: str
+
+
+class SimulationLabOrbBar(BaseModel):
+    """One OHLC bar for Simulation Lab ORB replay."""
+    timestamp: str
+    open: Optional[float] = None
+    high: float
+    low: float
+    close: float
+    volume: Optional[float] = None
+
+
+class SimulationLabOrbBacktestRequest(BaseModel):
+    """Request body for POST /api/simulation-lab/orb/backtest."""
+    symbol: str = "SPY"
+    session_id: str = Field("market_open", pattern="^(premarket_30m|market_open)$")
+    timeframe_minutes: int = Field(30, ge=1, le=390)
+    breakout_side: str = Field("both", pattern="^(both|long|short)$")
+    bars: List[SimulationLabOrbBar] = Field(..., min_length=1, max_length=50000)
 
 
 def _monte_carlo_settings_from_request(request: Any):
@@ -1253,6 +1277,25 @@ async def get_monte_carlo_chart(run_id: str, chart_name: str):
 async def get_simulation_lab_status():
     """Return the default-off Simulation Lab feature gate and roadmap experiments."""
     return simulation_lab_status()
+
+
+@api_router.post("/simulation-lab/orb/backtest")
+async def run_simulation_lab_orb_backtest(request: SimulationLabOrbBacktestRequest):
+    """Run a gated ORB replay against explicit OHLC bars."""
+    try:
+        require_simulation_lab_enabled()
+        bars = [bar.model_dump() if hasattr(bar, "model_dump") else bar.dict() for bar in request.bars]
+        return run_orb_backtest_replay(
+            symbol=request.symbol,
+            session_id=request.session_id,
+            timeframe_minutes=request.timeframe_minutes,
+            breakout_side=request.breakout_side,
+            bars=bars,
+        )
+    except SimulationLabDisabledError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @api_router.post("/backtest/run")

@@ -252,6 +252,13 @@ class ApiClient {
     return fetchJSON('/api/simulation-lab/status');
   }
 
+  async runSimulationLabOrbBacktest(payload: any) {
+    return fetchJSON('/api/simulation-lab/orb/backtest', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async pauseScheduler() {
     return fetchJSON('/api/control/pause', { method: 'POST' });
   }

@@ -480,7 +480,7 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. The initial Lab roadmap covers:
 
-- ORB backtesting.
+- ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint.
 - Buying-power allocation experiments.
 - Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons` roadmap slice).
 
@@ -784,6 +784,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/backtest/monte-carlo/charts` | List Monte Carlo chart artifacts. |
 | GET | `/backtest/monte-carlo/charts/{run_id}/{chart_name}` | Fetch a Monte Carlo chart artifact. |
 | GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate and planned experiment catalog. |
+| POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan. |
 | GET | `/strategies` | Strategy catalog. |
 | GET | `/strategies/puzzle-key/status` | Puzzle Key strategy status. |
 | GET | `/strategies/{strategy_name}` | Strategy details. |
