@@ -34,6 +34,7 @@ from alert_handler import router as alert_handler_router, shutdown as alert_hand
 from automation import AutomationMode
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.handoff import pulse_handoff_contract_document
+from simulation_lab import simulation_lab_status
 from metrics import (
     edge_frontend_long_task_duration_ms,
     edge_frontend_rum_active_routes,
@@ -1246,6 +1247,12 @@ async def get_monte_carlo_chart(run_id: str, chart_name: str):
         return json.loads(chart_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=500, detail="Saved Monte Carlo chart JSON is invalid") from exc
+
+
+@api_router.get("/simulation-lab/status")
+async def get_simulation_lab_status():
+    """Return the default-off Simulation Lab feature gate and roadmap experiments."""
+    return simulation_lab_status()
 
 
 @api_router.post("/backtest/run")

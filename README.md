@@ -478,6 +478,12 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Strategy optimization.
 - Monte Carlo chart listing and chart serving.
 
+The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. The initial Lab roadmap covers:
+
+- ORB backtesting.
+- Buying-power allocation experiments.
+- Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons` roadmap slice).
+
 These capabilities are intended for research, replay, and validation. They should remain clearly separated from live automation unless an operator deliberately promotes a tested workflow into a gated automation path.
 
 ---
@@ -666,6 +672,12 @@ Default exposed services:
 | `EDGE_PULSE_HANDOFF_DEFAULT_TICKERS` | Initial default per-ticker handoff state. |
 | `EDGE_AUTOMATION_STATE_FILE` | Override local automation settings file. |
 
+### Simulation Lab
+
+| Variable | Purpose |
+|----------|---------|
+| `EDGE_SIMULATION_LAB_ENABLED` | Enables default-hidden Simulation Lab discovery and future experimental surfaces. |
+
 ### Market data
 
 | Variable | Purpose |
@@ -771,6 +783,7 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | POST | `/backtest/optimize` | Run strategy optimization. |
 | GET | `/backtest/monte-carlo/charts` | List Monte Carlo chart artifacts. |
 | GET | `/backtest/monte-carlo/charts/{run_id}/{chart_name}` | Fetch a Monte Carlo chart artifact. |
+| GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate and planned experiment catalog. |
 | GET | `/strategies` | Strategy catalog. |
 | GET | `/strategies/puzzle-key/status` | Puzzle Key strategy status. |
 | GET | `/strategies/{strategy_name}` | Strategy details. |

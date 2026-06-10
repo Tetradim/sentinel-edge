@@ -248,6 +248,10 @@ class ApiClient {
     return fetchJSON('/api/dry-run/status');
   }
 
+  async getSimulationLabStatus() {
+    return fetchJSON('/api/simulation-lab/status');
+  }
+
   async pauseScheduler() {
     return fetchJSON('/api/control/pause', { method: 'POST' });
   }
