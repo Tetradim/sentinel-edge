@@ -385,9 +385,15 @@ def run_buying_power_allocation_experiment(
         remaining_position_capacity = max(0.0, max_position_notional - candidate["current_exposure"])
         candidate_cap = min(candidate["requested_notional"], remaining_position_capacity)
         if candidate_cap <= 0:
-            skipped.append(_skipped_allocation(candidate, "position_limit"))
+            skipped.append(_skipped_allocation(candidate, "position_limit", 0.0))
             continue
-        eligible.append({**candidate, "candidate_cap": candidate_cap})
+        eligible.append(
+            {
+                **candidate,
+                "candidate_cap": candidate_cap,
+                "position_limited_notional": max(0.0, candidate["requested_notional"] - candidate_cap),
+            }
+        )
 
     allocations = _allocate_buying_power(
         eligible=eligible,
@@ -399,6 +405,11 @@ def run_buying_power_allocation_experiment(
     unallocated_notional = round(max(0.0, allocatable_notional - allocated_notional), 2)
     requested_notional = round(sum(candidate["requested_notional"] for candidate in normalised), 2)
     unfilled_requested_notional = round(max(0.0, requested_notional - allocated_notional), 2)
+    position_limited_notional = round(
+        sum(candidate.get("position_limited_notional", 0.0) for candidate in eligible)
+        + sum(candidate.get("position_limited_notional", 0.0) for candidate in skipped),
+        2,
+    )
 
     return {
         "schema_version": SIMULATION_LAB_BUYING_POWER_VERSION,
@@ -418,6 +429,12 @@ def run_buying_power_allocation_experiment(
             "requested_notional": requested_notional,
             "unfilled_requested_notional": unfilled_requested_notional,
             "fill_ratio": round(allocated_notional / requested_notional, 4) if requested_notional > 0 else 0.0,
+            "position_limited_count": sum(
+                1
+                for candidate in [*eligible, *skipped]
+                if candidate.get("position_limited_notional", 0.0) > 0
+            ),
+            "position_limited_notional": position_limited_notional,
         },
         "allocations": allocations,
         "skipped": skipped,
@@ -482,23 +499,31 @@ def _normalise_allocation_candidate(candidate: Dict[str, Any], index: int) -> Di
 def _allocation_payload(candidate: Dict[str, Any], allocated: float, buying_power: float) -> Dict[str, Any]:
     allocated = round(allocated, 2)
     requested = candidate["requested_notional"]
+    position_limited_notional = candidate.get("position_limited_notional", 0.0)
     return {
         "symbol": candidate["symbol"],
         "confidence": round(candidate["confidence"], 4),
         "requested_notional": round(requested, 2),
         "current_exposure": round(candidate["current_exposure"], 2),
+        "position_capacity_notional": round(candidate["candidate_cap"], 2),
+        "position_limited": position_limited_notional > 0,
+        "position_limited_notional": round(position_limited_notional, 2),
         "allocated_notional": allocated,
         "allocation_pct_of_buying_power": round(allocated / buying_power, 4),
         "fill_ratio": round(allocated / requested, 4) if requested > 0 else 0.0,
     }
 
 
-def _skipped_allocation(candidate: Dict[str, Any], reason: str) -> Dict[str, Any]:
+def _skipped_allocation(candidate: Dict[str, Any], reason: str, position_capacity_notional: float) -> Dict[str, Any]:
+    position_limited_notional = max(0.0, candidate["requested_notional"] - position_capacity_notional)
     return {
         "symbol": candidate["symbol"],
         "confidence": round(candidate["confidence"], 4),
         "requested_notional": round(candidate["requested_notional"], 2),
         "current_exposure": round(candidate["current_exposure"], 2),
+        "position_capacity_notional": round(position_capacity_notional, 2),
+        "position_limited": position_limited_notional > 0,
+        "position_limited_notional": round(position_limited_notional, 2),
         "reason": reason,
     }
 

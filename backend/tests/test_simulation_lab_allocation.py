@@ -41,8 +41,12 @@ class SimulationLabAllocationTests(unittest.TestCase):
         self.assertEqual(result["summary"]["requested_notional"], 21000.0)
         self.assertEqual(result["summary"]["unfilled_requested_notional"], 12500.0)
         self.assertEqual(result["summary"]["fill_ratio"], 0.4048)
+        self.assertEqual(result["summary"]["position_limited_count"], 3)
+        self.assertEqual(result["summary"]["position_limited_notional"], 9000.0)
         self.assertEqual([item["symbol"] for item in result["allocations"]], ["AAPL", "MSFT", "NVDA"])
         self.assertEqual([item["allocated_notional"] for item in result["allocations"]], [4000.0, 3000.0, 1500.0])
+        self.assertEqual([item["position_limited"] for item in result["allocations"]], [True, True, True])
+        self.assertEqual([item["position_capacity_notional"] for item in result["allocations"]], [4000.0, 4000.0, 4000.0])
 
     def test_equal_weight_allocation_keeps_unused_capacity_when_request_is_smaller_than_slice(self):
         result = run_buying_power_allocation_experiment(

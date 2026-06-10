@@ -1000,6 +1000,7 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
       { label: 'allocated_count', value: formatSimulationLabResultMetric(summary.allocated_count) },
       { label: 'fill_ratio', value: formatSimulationLabResultMetric(summary.fill_ratio, 'ratio') },
       { label: 'unfilled_requested', value: formatSimulationLabResultMetric(summary.unfilled_requested_notional, 'currency') },
+      { label: 'position_limited', value: formatSimulationLabResultMetric(summary.position_limited_count) },
     );
   }
 
