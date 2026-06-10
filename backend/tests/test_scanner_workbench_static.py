@@ -41,16 +41,41 @@ class ScannerWorkbenchStaticTests(unittest.TestCase):
         for phrase in [
             "ORB Momentum Continuation",
             "Squeeze Breakout Confirmation",
+            "Squeeze Entry Long 1-Hour",
+            "Bollinger Band Breakout Long 1-Hour",
+            "Williams %R and MACD Long 15-Min",
+            "Hammer Candlestick Reversal Long 1-Hour",
+            "Williams %R Reversal Long Daily",
+            "DEMA Crossover Long 30-Min",
+            "EMA Crossover Long 30-Min",
             "SuperTrend Scalper Long",
             "Turtle Breakout Long",
             "MACD Crossover Long",
             "Sector Rotation Relative Momentum",
             "Anchored VWAP",
+            "Williams %R",
+            "DEMA Pair",
+            "SMA 20/50 Trend Pair",
+            "Trailing Stop State",
             "Vortex Indicator",
             "Relative Volume",
             "Opening Range",
         ]:
             self.assertIn(phrase, text)
+
+    def test_backend_catalog_keeps_strategy_references_resolvable(self):
+        import sys
+
+        sys.path.insert(0, str(ROOT / "backend"))
+        from scanner_workbench_catalog import INDICATORS, SCANNERS, STRATEGIES  # noqa: E402
+
+        scanner_ids = {scanner["id"] for scanner in SCANNERS}
+        indicator_ids = {indicator["id"] for indicator in INDICATORS}
+
+        for strategy in STRATEGIES:
+            with self.subTest(strategy=strategy["id"]):
+                self.assertTrue(set(strategy["scanner_ids"]).issubset(scanner_ids))
+                self.assertTrue(set(strategy["indicator_ids"]).issubset(indicator_ids))
 
     def test_server_exposes_scanner_workbench_catalog_route(self):
         text = SERVER.read_text(encoding="utf-8")
