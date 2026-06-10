@@ -155,6 +155,7 @@ export const ProtectionDashboard: React.FC = () => {
   const queueSize = numberOrZero(state.queue?.size ?? state.queue?.pending ?? state.stats?.retry_queue?.size ?? state.stats?.retry_queue?.pending);
   const runtimeReady = Boolean(state.ready?.ready);
   const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
+  const readinessDetails = state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
   const readinessFailures: string[] = Array.isArray(state.ready?.failing_checks) ? state.ready.failing_checks : [];
   const handoffBlocked = state.ready ? !runtimeReady : true;
 
@@ -293,11 +294,18 @@ export const ProtectionDashboard: React.FC = () => {
             Edge runtime must be ready before enabling paper handoff.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(readinessFailures.length > 0 ? readinessFailures : ['readiness_unknown']).map((check) => (
-              <span key={check} className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-100">
-                {check}
-              </span>
-            ))}
+            {(readinessFailures.length > 0 ? readinessFailures : ['readiness_unknown']).map((check) => {
+              const detail = readinessDetails[check];
+              return (
+                <span
+                  key={check}
+                  title={detail?.description || check}
+                  className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-100"
+                >
+                  {detail?.label || check}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}

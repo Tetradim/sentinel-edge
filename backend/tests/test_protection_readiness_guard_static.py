@@ -16,6 +16,10 @@ class ProtectionReadinessGuardStaticTests(unittest.TestCase):
         self.assertIn("protection-readiness-guard", text)
         self.assertIn("readinessFailures", text)
         self.assertIn("state.ready?.failing_checks", text)
+        self.assertIn("readinessDetails", text)
+        self.assertIn("state.ready?.check_details", text)
+        self.assertIn("detail?.label || check", text)
+        self.assertIn("title={detail?.description || check}", text)
         self.assertIn("Readiness blockers", text)
 
     def test_paper_handoff_is_disabled_when_runtime_not_ready(self):

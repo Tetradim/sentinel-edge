@@ -125,6 +125,43 @@ _rate_limit_buckets: Dict[str, list[float]] = {}
 _memory_ticker_configs: Dict[str, Dict[str, Any]] = {}
 frontend_rum_registry = FrontendRumRegistry()
 FRONTEND_RUM_WEB_VITAL_METRICS = {"inp", "lcp", "cls", "ttfb", "fcp"}
+READINESS_CHECK_DETAILS: Dict[str, Dict[str, Any]] = {
+    "scheduler_initialized": {
+        "label": "Scheduler initialized",
+        "description": "The evaluation scheduler singleton was created during startup.",
+        "required": True,
+    },
+    "scheduler_running": {
+        "label": "Scheduler running",
+        "description": "The scheduler is actively accepting evaluation cycles.",
+        "required": True,
+    },
+    "scheduler_task_alive": {
+        "label": "Scheduler task alive",
+        "description": "The background scheduler task exists and has not stopped.",
+        "required": True,
+    },
+    "price_fetcher_initialized": {
+        "label": "Market data ready",
+        "description": "The price fetcher was initialized and can route market-data requests.",
+        "required": True,
+    },
+    "analyst_initialized": {
+        "label": "Analyst initialized",
+        "description": "The Sentinel Edge analyst orchestrator was created.",
+        "required": True,
+    },
+    "mongo_available": {
+        "label": "MongoDB available",
+        "description": "MongoDB is connected, or demo mode is intentionally bypassing persistence.",
+        "required": True,
+    },
+    "demo_mode": {
+        "label": "Demo mode",
+        "description": "Demo mode is informational and does not block readiness.",
+        "required": False,
+    },
+}
 
 
 def _symbol(raw: str) -> str:
@@ -171,6 +208,27 @@ def _readiness_checks() -> Dict[str, bool]:
     }
 
 
+def _readiness_check_details(checks: Dict[str, bool]) -> Dict[str, Dict[str, Any]]:
+    """Return operator-facing readiness check metadata."""
+    details: Dict[str, Dict[str, Any]] = {}
+    for check_name, ready in checks.items():
+        metadata = READINESS_CHECK_DETAILS.get(
+            check_name,
+            {
+                "label": check_name.replace("_", " ").title(),
+                "description": "No additional readiness detail is available for this check.",
+                "required": check_name != "demo_mode",
+            },
+        )
+        details[check_name] = {
+            "label": metadata["label"],
+            "description": metadata["description"],
+            "required": metadata["required"],
+            "ready": ready,
+        }
+    return details
+
+
 def _publish_readiness_metrics(checks: Dict[str, bool], ready: bool) -> None:
     """Publish current readiness state using fixed low-cardinality labels."""
     edge_readiness_status.set(1 if ready else 0)
@@ -183,8 +241,9 @@ def _refresh_readiness_metrics() -> Dict[str, Any]:
     checks = _readiness_checks()
     ready = all(value for key, value in checks.items() if key != "demo_mode")
     failing_checks = [key for key, value in checks.items() if key != "demo_mode" and not value]
+    check_details = _readiness_check_details(checks)
     _publish_readiness_metrics(checks, ready)
-    return {"ready": ready, "checks": checks, "failing_checks": failing_checks}
+    return {"ready": ready, "checks": checks, "check_details": check_details, "failing_checks": failing_checks}
 
 
 def _rate_limit_pressure(tracked_clients: int) -> str:
@@ -711,6 +770,7 @@ async def readiness():
         "ready": ready,
         "status": "ready" if ready else "not_ready",
         "checks": checks,
+        "check_details": readiness_state["check_details"],
         "failing_checks": failing_checks,
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }

@@ -158,6 +158,7 @@ export const AdvisorHealth: React.FC = () => {
   const pulseConnected = Boolean(state.pulse?.available || state.health?.pulse_available);
   const processAlive = state.live?.status === 'alive';
   const readinessChecks = state.ready?.checks && typeof state.ready.checks === 'object' ? state.ready.checks : {};
+  const readinessDetails = state.ready?.check_details && typeof state.ready.check_details === 'object' ? state.ready.check_details : {};
   const readinessFailures: string[] = Array.isArray(state.ready?.failing_checks) ? state.ready.failing_checks : [];
   const runtimeReady = Boolean(state.ready?.ready);
   const paused = Boolean(state.health?.paused || state.stats?.paused);
@@ -337,11 +338,18 @@ export const AdvisorHealth: React.FC = () => {
                 {readinessFailures.length} failing readiness checks
               </div>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(readinessChecks).map(([check, ok]) => (
-                  <span key={check} className={`rounded-full px-2 py-0.5 text-xs ${ok ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/15 text-red-200'}`}>
-                    {check}: {ok ? 'ok' : 'blocked'}
-                  </span>
-                ))}
+                {Object.entries(readinessChecks).map(([check, ok]) => {
+                  const detail = readinessDetails[check];
+                  return (
+                    <span
+                      key={check}
+                      title={detail?.description || check}
+                      className={`rounded-full px-2 py-0.5 text-xs ${ok ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/15 text-red-200'}`}
+                    >
+                      {detail?.label || check}: {ok ? 'ok' : 'blocked'}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}

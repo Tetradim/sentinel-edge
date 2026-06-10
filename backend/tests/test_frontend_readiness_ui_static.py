@@ -13,8 +13,10 @@ class FrontendReadinessUiStaticTests(unittest.TestCase):
         text = API.read_text(encoding="utf-8")
 
         self.assertIn("export interface EdgeLiveness", text)
+        self.assertIn("export interface EdgeReadinessCheckDetail", text)
         self.assertIn("export interface EdgeReadiness", text)
         self.assertIn("failing_checks: string[]", text)
+        self.assertIn("check_details?: Record<string, EdgeReadinessCheckDetail>", text)
         self.assertIn("async getLiveness()", text)
         self.assertIn("fetchJSON<EdgeLiveness>('/api/live')", text)
         self.assertIn("async getReadiness()", text)
@@ -30,7 +32,11 @@ class FrontendReadinessUiStaticTests(unittest.TestCase):
         self.assertIn("api.getReadiness()", text)
         self.assertIn("Runtime Readiness", text)
         self.assertIn("readinessFailures", text)
+        self.assertIn("readinessDetails", text)
         self.assertIn("state.ready?.failing_checks", text)
+        self.assertIn("state.ready?.check_details", text)
+        self.assertIn("detail?.label || check", text)
+        self.assertIn("title={detail?.description || check}", text)
         self.assertIn("edge-readiness-checks", text)
         self.assertIn("failing readiness checks", text)
 

@@ -21,10 +21,18 @@ export interface EdgeLiveness {
   timestamp: string;
 }
 
+export interface EdgeReadinessCheckDetail {
+  label: string;
+  description: string;
+  required: boolean;
+  ready: boolean;
+}
+
 export interface EdgeReadiness {
   ready: boolean;
   status: 'ready' | 'not_ready';
   checks: Record<string, boolean>;
+  check_details?: Record<string, EdgeReadinessCheckDetail>;
   failing_checks: string[];
   timestamp?: string;
 }
