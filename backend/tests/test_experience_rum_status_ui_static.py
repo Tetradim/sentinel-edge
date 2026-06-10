@@ -29,6 +29,16 @@ class ExperienceRumStatusUiStaticTests(unittest.TestCase):
         self.assertIn("formatElapsedAge(backendStatus.seconds_since_last)", text)
         self.assertNotIn("function formatAge(value?: number | null)", text)
 
+    def test_copy_prometheus_reports_clipboard_failures(self):
+        text = EXPERIENCE.read_text(encoding="utf-8")
+
+        self.assertIn("const [copyFailed, setCopyFailed] = useState(false)", text)
+        self.assertIn("try {", text)
+        self.assertIn("await navigator.clipboard.writeText(toPrometheusText(snapshot))", text)
+        self.assertIn("catch", text)
+        self.assertIn("setCopyFailed(true)", text)
+        self.assertIn("Copy failed", text)
+
 
 if __name__ == "__main__":
     unittest.main()

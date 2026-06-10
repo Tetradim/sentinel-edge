@@ -63,6 +63,7 @@ const metricColor = (item: WebVitalMetric): 'green' | 'yellow' | 'red' | 'blue' 
 export const ExperienceDashboard: React.FC = () => {
   const [snapshot, setSnapshot] = useState<WebVitalsSnapshot | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [ingestStatus, setIngestStatus] = useState<'idle' | 'sent' | 'failed' | 'rate-limited'>('idle');
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
   const [backendStatus, setBackendStatus] = useState<any | null>(null);
@@ -158,9 +159,16 @@ export const ExperienceDashboard: React.FC = () => {
 
   const copyPrometheus = async () => {
     if (!snapshot) return;
-    await navigator.clipboard.writeText(toPrometheusText(snapshot));
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      setCopyFailed(false);
+      await navigator.clipboard.writeText(toPrometheusText(snapshot));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
+      window.setTimeout(() => setCopyFailed(false), 1800);
+    }
   };
 
   return (
@@ -180,7 +188,7 @@ export const ExperienceDashboard: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition-colors hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Copy className="h-4 w-4" />
-            {copied ? 'Copied' : 'Copy Prometheus'}
+            {copied ? 'Copied' : copyFailed ? 'Copy failed' : 'Copy Prometheus'}
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
