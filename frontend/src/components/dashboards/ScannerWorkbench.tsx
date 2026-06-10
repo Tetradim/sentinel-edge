@@ -131,14 +131,16 @@ export const ScannerWorkbench: React.FC = () => {
 
   const applySanitizedWatchIntent = () => {
     if (!validation) return;
-    setWatchState(validation.sanitized_intent);
+    setWatchState(validation.expanded_intent);
     setValidation({
       ...validation,
       valid: true,
       invalid_count: 0,
+      resolved_counts: validation.expanded_counts,
+      sanitized_intent: validation.expanded_intent,
       invalid_selections: DEFAULT_WATCH_STATE,
     });
-    setValidationMessage('Stale watch selections removed.');
+    setValidationMessage('Stale watch selections removed and strategy kit dependencies applied.');
   };
 
   return (

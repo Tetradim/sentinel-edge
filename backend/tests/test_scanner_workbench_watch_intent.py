@@ -47,6 +47,25 @@ class ScannerWorkbenchWatchIntentTests(unittest.TestCase):
         self.assertEqual(result["sanitized_intent"]["strategies"], [])
         self.assertEqual(result["sanitized_intent"]["indicators"], [])
 
+    def test_validation_expands_strategy_dependencies_for_bot_watch_plan(self):
+        result = validate_scanner_watch_intent({"strategies": ["squeeze_entry_long_1h"]})
+
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["sanitized_intent"]["strategies"], ["squeeze_entry_long_1h"])
+        self.assertEqual(result["sanitized_intent"]["scanners"], [])
+        self.assertEqual(result["sanitized_intent"]["indicators"], [])
+        self.assertEqual(result["expanded_intent"]["strategies"], ["squeeze_entry_long_1h"])
+        self.assertEqual(
+            result["expanded_intent"]["scanners"],
+            ["bb_kc_squeeze_anchored_vwap", "current_bullish_momentum"],
+        )
+        self.assertEqual(
+            result["expanded_intent"]["indicators"],
+            ["atr", "bollinger_bands", "keltner_channels", "relative_volume"],
+        )
+        self.assertEqual(result["expanded_counts"]["scanners"], 2)
+        self.assertEqual(result["expanded_counts"]["indicators"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

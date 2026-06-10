@@ -1151,6 +1151,8 @@ def validate_scanner_watch_intent(intent: Dict[str, Any]) -> Dict[str, Any]:
         resolved_counts[key] = len(sanitized_values)
 
     invalid_count = sum(len(values) for values in invalid_selections.values())
+    expanded_intent = _expand_strategy_dependencies(sanitized_intent)
+    expanded_counts = {key: len(values) for key, values in expanded_intent.items()}
     return {
         "schema_version": SCANNER_WORKBENCH_WATCH_INTENT_VALIDATION_VERSION,
         "catalog_schema_version": SCANNER_WORKBENCH_SCHEMA_VERSION,
@@ -1159,8 +1161,30 @@ def validate_scanner_watch_intent(intent: Dict[str, Any]) -> Dict[str, Any]:
         "invalid_count": invalid_count,
         "ignored_fields": sorted(key for key in intent.keys() if key not in SCANNER_WORKBENCH_WATCH_INTENT_KEYS),
         "resolved_counts": resolved_counts,
+        "expanded_counts": expanded_counts,
         "sanitized_intent": sanitized_intent,
+        "expanded_intent": expanded_intent,
         "invalid_selections": invalid_selections,
+    }
+
+
+def _expand_strategy_dependencies(intent: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    strategy_lookup = {strategy["id"]: strategy for strategy in STRATEGIES}
+    scanners = set(intent["scanners"])
+    indicators = set(intent["indicators"])
+
+    for strategy_id in intent["strategies"]:
+        strategy = strategy_lookup.get(strategy_id)
+        if not strategy:
+            continue
+        scanners.update(strategy["scanner_ids"])
+        indicators.update(strategy["indicator_ids"])
+
+    return {
+        "scanners": sorted(scanners),
+        "tickers": sorted(intent["tickers"]),
+        "strategies": sorted(intent["strategies"]),
+        "indicators": sorted(indicators),
     }
 
 

@@ -195,7 +195,14 @@ export interface ScannerWorkbenchWatchIntentValidation {
     strategies: number;
     indicators: number;
   };
+  expanded_counts: {
+    scanners: number;
+    tickers: number;
+    strategies: number;
+    indicators: number;
+  };
   sanitized_intent: ScannerWorkbenchWatchIntent;
+  expanded_intent: ScannerWorkbenchWatchIntent;
   invalid_selections: ScannerWorkbenchWatchIntent;
 }
 
