@@ -98,6 +98,10 @@ class PulseHandoffRequest(BaseModel):
 
 def pulse_handoff_contract_document() -> Dict[str, Any]:
     """Return the public Edge -> Pulse handoff contract document."""
+    action_values = [action.value for action in PulseHandoffAction]
+    mode_values = [mode.value for mode in PulseHandoffMode]
+    stop_type_values = [stop_type.value for stop_type in PulseHandoffStopType]
+
     return {
         "contract_version": "edge.pulse.handoff.v1",
         "endpoint_env": "PULSE_HANDOFF_ENDPOINT",
@@ -134,5 +138,95 @@ def pulse_handoff_contract_document() -> Dict[str, Any]:
             "action": "One of the versioned PulseHandoffAction values.",
             "trailing_percent": "Required for trailing_stop and tighten_trailing_stop handoffs.",
             "dca": "Required for dca handoffs and preserved as a structured plan.",
+        },
+        "field_semantics": {
+            "contract_version": {
+                "required": False,
+                "default": "edge.pulse.handoff.v1",
+                "transport_header": "X-Edge-Contract-Version",
+            },
+            "symbol": {
+                "required": True,
+                "normalization": "uppercased_by_edge",
+            },
+            "action": {
+                "required": True,
+                "allowed_values": action_values,
+                "conditional_fields": {
+                    "trailing_stop": ["stop_type", "trailing_percent"],
+                    "tighten_trailing_stop": ["stop_type", "trailing_percent"],
+                    "dca": ["dca"],
+                },
+            },
+            "confidence": {
+                "required": True,
+                "range": [0.0, 1.0],
+            },
+            "mode": {
+                "required": True,
+                "allowed_values": mode_values,
+                "paper_semantics": "Pulse may simulate or route to a paper account; Edge still records accepted/rejected feedback.",
+                "live_semantics": "Pulse may route to live execution only after Pulse-side risk checks accept the handoff.",
+                "recommend_only_semantics": "suppressed_by_edge",
+            },
+            "orb_session": {
+                "required": False,
+                "default": "market_open",
+                "known_edge_values": ["premarket_30m", "market_open", "puzzle_key"],
+            },
+            "stop_type": {
+                "required": False,
+                "allowed_values": stop_type_values,
+                "required_when": [
+                    "action=trailing_stop",
+                    "action=tighten_trailing_stop",
+                ],
+            },
+            "trailing_percent": {
+                "required": False,
+                "unit": "percent",
+                "required_when": [
+                    "action=trailing_stop",
+                    "action=tighten_trailing_stop",
+                    "stop_type=trailing",
+                    "stop_type=tighten_trailing",
+                ],
+            },
+            "dca": {
+                "required": False,
+                "required_when": ["action=dca"],
+                "shape": {
+                    "steps": "optional integer >= 1",
+                    "interval_seconds": "optional integer >= 0",
+                    "allocation_pct": "optional percentage from 0 to 100",
+                },
+            },
+            "idempotency_key": {
+                "required": True,
+                "transport_header": "Idempotency-Key",
+                "dedupe_scope": ["symbol", "action", "orb_session", "minute_bucket", "nonce"],
+                "pulse_requirement": "Pulse should treat duplicate keys as the same handoff attempt.",
+            },
+            "metadata": {
+                "required": False,
+                "semantics": "Edge may include decision context, ORB context, price, ATR, PnL, and strategy-specific fields.",
+            },
+        },
+        "feedback_semantics": {
+            "accepted": {
+                "edge_sent": True,
+                "pulse_side_effect": "Pulse accepted the handoff for paper/live processing.",
+                "expected_fields": ["accepted", "status", "reason"],
+            },
+            "rejected": {
+                "edge_sent": False,
+                "pulse_side_effect": "Pulse intentionally declined the handoff; Edge must not mutate local position state.",
+                "expected_fields": ["accepted", "status", "reason"],
+            },
+            "failed": {
+                "edge_sent": False,
+                "pulse_side_effect": "Pulse transport or processing failed; Edge records the failure and may use legacy fallback behavior.",
+                "expected_fields": ["accepted", "status", "error"],
+            },
         },
     }

@@ -101,6 +101,27 @@ class PulseHandoffContractTests(unittest.TestCase):
         self.assertIn("trailing_percent", document["request_schema"]["properties"])
         self.assertIn("dca", document["request_schema"]["properties"])
 
+    def test_contract_document_exposes_field_semantics_for_pulse_acceptance(self):
+        document = pulse_handoff_contract_document()
+
+        self.assertIn("field_semantics", document)
+        self.assertIn("feedback_semantics", document)
+        field_semantics = document["field_semantics"]
+        self.assertTrue(field_semantics["idempotency_key"]["required"])
+        self.assertEqual(field_semantics["idempotency_key"]["transport_header"], "Idempotency-Key")
+        self.assertIn("action", field_semantics["idempotency_key"]["dedupe_scope"])
+        self.assertEqual(field_semantics["mode"]["allowed_values"], ["paper", "live"])
+        self.assertEqual(field_semantics["mode"]["recommend_only_semantics"], "suppressed_by_edge")
+        self.assertIn("trailing_percent", field_semantics["action"]["conditional_fields"]["trailing_stop"])
+        self.assertIn("dca", field_semantics["action"]["conditional_fields"]["dca"])
+        self.assertEqual(field_semantics["trailing_percent"]["unit"], "percent")
+        self.assertIn("action=dca", field_semantics["dca"]["required_when"])
+
+        feedback_semantics = document["feedback_semantics"]
+        self.assertEqual(feedback_semantics["accepted"]["edge_sent"], True)
+        self.assertEqual(feedback_semantics["rejected"]["edge_sent"], False)
+        self.assertEqual(feedback_semantics["failed"]["edge_sent"], False)
+
 
 if __name__ == "__main__":
     unittest.main()
