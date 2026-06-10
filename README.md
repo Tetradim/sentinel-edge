@@ -483,7 +483,7 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Dry-run status.
 - Strategy optimization.
 - Monte Carlo chart listing and chart serving.
-- Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, chart-ready OHLCV bars, UI-ready context for persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last Simulation Lab result with symbol and timestamp context.
+- Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, chart-ready OHLCV bars, UI-ready context for persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last Simulation Lab result with symbol and timestamp context so operators can clear stale persisted Simulation Lab context.
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata for client-side discovery. The initial Lab roadmap covers:
 

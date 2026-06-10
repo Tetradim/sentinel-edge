@@ -161,6 +161,19 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("toLocaleString", dashboard)
         self.assertIn("symbol and timestamp context", text)
 
+    def test_chart_workspace_can_clear_persisted_simulation_lab_result(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("Trash2", dashboard)
+        self.assertIn("forgetSimulationLabResult", dashboard)
+        self.assertIn("clearChartWorkspaceLabResult", dashboard)
+        self.assertIn("setSimulationLabResult(null)", dashboard)
+        self.assertIn("localStorage.removeItem(CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY)", dashboard)
+        self.assertIn('aria-label="Clear lab result"', dashboard)
+        self.assertIn("Lab result cleared", dashboard)
+        self.assertIn("clear stale persisted Simulation Lab context", text)
+
     def test_chart_workspace_orb_replay_can_select_orb_session(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
 
