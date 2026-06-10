@@ -1001,6 +1001,7 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
       { label: 'fill_ratio', value: formatSimulationLabResultMetric(summary.fill_ratio, 'ratio') },
       { label: 'unfilled_requested', value: formatSimulationLabResultMetric(summary.unfilled_requested_notional, 'currency') },
       { label: 'position_limited', value: formatSimulationLabResultMetric(summary.position_limited_count) },
+      { label: 'post_cap_fill', value: formatSimulationLabResultMetric(summary.post_cap_fill_ratio, 'ratio') },
     );
   }
 

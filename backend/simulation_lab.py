@@ -410,6 +410,8 @@ def run_buying_power_allocation_experiment(
         + sum(candidate.get("position_limited_notional", 0.0) for candidate in skipped),
         2,
     )
+    candidate_capacity_notional = round(max(0.0, requested_notional - position_limited_notional), 2)
+    post_cap_unfilled_notional = round(max(0.0, candidate_capacity_notional - allocated_notional), 2)
 
     return {
         "schema_version": SIMULATION_LAB_BUYING_POWER_VERSION,
@@ -435,6 +437,13 @@ def run_buying_power_allocation_experiment(
                 if candidate.get("position_limited_notional", 0.0) > 0
             ),
             "position_limited_notional": position_limited_notional,
+            "candidate_capacity_notional": candidate_capacity_notional,
+            "post_cap_unfilled_notional": post_cap_unfilled_notional,
+            "post_cap_fill_ratio": (
+                round(allocated_notional / candidate_capacity_notional, 4)
+                if candidate_capacity_notional > 0
+                else 0.0
+            ),
         },
         "allocations": allocations,
         "skipped": skipped,
