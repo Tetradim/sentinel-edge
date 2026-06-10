@@ -1285,8 +1285,10 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
     metrics.push(
       { label: 'allocated_notional', value: formatSimulationLabResultMetric(summary.allocated_notional, 'currency') },
       { label: 'allocated_count', value: formatSimulationLabResultMetric(summary.allocated_count) },
+      { label: 'skipped_count', value: formatSimulationLabResultMetric(summary.skipped_count) },
       { label: 'fill_ratio', value: formatSimulationLabResultMetric(summary.fill_ratio, 'ratio') },
       { label: 'unfilled_requested', value: formatSimulationLabResultMetric(summary.unfilled_requested_notional, 'currency') },
+      { label: 'skipped_reason', value: formatSimulationLabAllocationSkipReason(result.result.skipped) },
       { label: 'position_limited', value: formatSimulationLabResultMetric(summary.position_limited_count) },
       { label: 'post_cap_fill', value: formatSimulationLabResultMetric(summary.post_cap_fill_ratio, 'ratio') },
     );
@@ -1302,6 +1304,17 @@ function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResu
   }
 
   return metrics;
+}
+
+function formatSimulationLabAllocationSkipReason(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) return '--';
+  const reasons = Array.from(new Set(value.map((item) => {
+    if (!isRecord(item) || typeof item.reason !== 'string') return '';
+    if (item.reason === 'buying_power_exhausted') return 'buying power exhausted';
+    if (item.reason === 'position_limit') return 'position limit';
+    return item.reason.replace(/[_-]+/g, ' ');
+  }).filter(Boolean)));
+  return reasons.length ? reasons.join(', ') : '--';
 }
 
 function formatSimulationLabResultMetric(value: unknown, mode: 'plain' | 'currency' | 'percent' | 'ratio' = 'plain') {

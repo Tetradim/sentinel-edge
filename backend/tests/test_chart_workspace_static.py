@@ -162,6 +162,16 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("toLocaleString", dashboard)
         self.assertIn("symbol and timestamp context", text)
 
+    def test_chart_workspace_allocation_lab_result_surfaces_skip_explainability(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("skipped_count", dashboard)
+        self.assertIn("skipped_reason", dashboard)
+        self.assertIn("formatSimulationLabAllocationSkipReason", dashboard)
+        self.assertIn("buying_power_exhausted", dashboard)
+        self.assertIn("allocation skip reasons", text)
+
     def test_chart_workspace_can_clear_persisted_simulation_lab_result(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
         text = README.read_text(encoding="utf-8")
