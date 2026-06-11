@@ -197,6 +197,7 @@ export const ScannerWorkbench: React.FC = () => {
                   Invalid: {formatInvalidSelectionSummary(validation.invalid_selections)}
                 </span>
               ) : null}
+              {validation ? <span className="ml-2 text-cyan-300">{formatExpandedWatchPlan(validation)}</span> : null}
             </div>
             {validation?.invalid_count ? (
               <button
@@ -556,6 +557,10 @@ function formatInvalidSelectionSummary(invalidSelections: ScannerWorkbenchWatchI
     .filter(([, values]) => values.length > 0)
     .map(([key, values]) => `${key} ${values.length}`)
     .join(', ');
+}
+
+function formatExpandedWatchPlan(validation: ScannerWorkbenchWatchIntentValidation) {
+  return `Expanded plan: ${validation.expanded_counts.scanners} scanners, ${validation.expanded_counts.tickers} tickers, ${validation.expanded_counts.strategies} strategies, ${validation.expanded_counts.indicators} indicators`;
 }
 
 function readScannerWorkbenchWatchState(): ScannerWorkbenchWatchIntent {
