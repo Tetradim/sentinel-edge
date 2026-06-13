@@ -144,7 +144,7 @@ receivers:
   # This handles BearishClusterOverride, global risk reduction, ticker add/remove, etc.
   - name: 'edge-webhook'
     webhook_configs:
-      - url: 'http://sentinel-edge:8000/alerts'
+      - url: 'http://sentinel-edge:8001/alerts'
         send_resolved: true
         max_alerts: 20
         http_config:

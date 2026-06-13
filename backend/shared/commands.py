@@ -57,6 +57,7 @@ class PositionUpdateCommand(BaseCommand):
 
 
 class AccountUpdateCommand(BaseCommand):
+    symbol: str = "ACCOUNT"
     command_type: Literal[CommandType.ACCOUNT_UPDATE]
     buying_power: float
     total_equity: float
@@ -66,6 +67,7 @@ class AccountUpdateCommand(BaseCommand):
 
 class PulseStatusCommand(BaseCommand):
     """Pulse sends heartbeat/status to Edge."""
+    symbol: str = "PULSE"
     command_type: Literal[CommandType.PULSE_STATUS]
     trading_mode: str = "paper"  # paper or live
     simulate_24_7: bool = False
@@ -77,6 +79,7 @@ class PulseStatusCommand(BaseCommand):
 
 class BrokerStatusCommand(BaseCommand):
     """Broker connectivity update from Pulse."""
+    symbol: str = "BROKER"
     command_type: Literal[CommandType.BROKER_STATUS]
     broker_id: str
     connected: bool
@@ -92,6 +95,7 @@ class AutoStopTriggeredCommand(BaseCommand):
 
 
 class AccountUpdateCommand(BaseCommand):
+    symbol: str = "ACCOUNT"
     command_type: Literal[CommandType.ACCOUNT_UPDATE]
     buying_power: float
     total_equity: float
@@ -200,8 +204,54 @@ Command = (
 )
 
 
+def _normalise_pulse_document(data: dict) -> dict:
+    """Accept Pulse's persisted command shape and convert it to Edge's model shape."""
+    normalised = dict(data)
+    cmd_type = normalised.get("command_type")
+    cmd_value = cmd_type.value if isinstance(cmd_type, CommandType) else str(cmd_type or "")
+
+    if cmd_value == CommandType.ORDER_FILLED.value:
+        if "fill_price" not in normalised and "price" in normalised:
+            normalised["fill_price"] = normalised["price"]
+        if "pnl_realized" not in normalised and "pnl" in normalised:
+            normalised["pnl_realized"] = normalised["pnl"]
+        normalised.setdefault("fees", 0.0)
+
+    elif cmd_value == CommandType.POSITION_UPDATE.value:
+        if "position_size" not in normalised and "quantity" in normalised:
+            normalised["position_size"] = normalised["quantity"]
+        if "entry_price" not in normalised and "avg_entry" in normalised:
+            normalised["entry_price"] = normalised["avg_entry"]
+        if "current_pnl_pct" not in normalised and "unrealized_pnl_percent" in normalised:
+            normalised["current_pnl_pct"] = normalised["unrealized_pnl_percent"]
+        if "current_pnl_dollar" not in normalised and "unrealized_pnl" in normalised:
+            normalised["current_pnl_dollar"] = normalised["unrealized_pnl"]
+
+    elif cmd_value == CommandType.ACCOUNT_UPDATE.value:
+        normalised.setdefault("symbol", "ACCOUNT")
+        if "buying_power" not in normalised and "available" in normalised:
+            normalised["buying_power"] = normalised["available"]
+        if "total_equity" not in normalised and "account_balance" in normalised:
+            normalised["total_equity"] = normalised["account_balance"]
+        if "day_pnl_dollar" not in normalised:
+            normalised["day_pnl_dollar"] = normalised.get("total_realized_pnl", 0.0)
+        normalised.setdefault("day_pnl_pct", 0.0)
+
+    elif cmd_value == CommandType.PULSE_STATUS.value:
+        normalised.setdefault("symbol", "PULSE")
+
+    elif cmd_value == CommandType.BROKER_STATUS.value:
+        broker_id = str(normalised.get("broker_id") or "BROKER").upper()
+        normalised.setdefault("symbol", broker_id)
+        if "error" not in normalised and "error_message" in normalised:
+            normalised["error"] = normalised["error_message"]
+
+    return normalised
+
+
 def command_from_dict(data: dict) -> BaseCommand:
     """Create appropriate command object from MongoDB document."""
+    data = _normalise_pulse_document(data)
     cmd_type = data.get("command_type")
 
     command_map = {

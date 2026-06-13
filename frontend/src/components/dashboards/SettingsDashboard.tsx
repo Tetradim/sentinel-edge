@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Settings, Save, RefreshCw, Database, Zap, Shield, Globe, AlertCircle, TrendingUp, ShieldAlert, BarChart3, CheckCircle, XCircle, FlaskConical, Bell } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface ConfigSection {
   name: string;
@@ -289,49 +290,46 @@ export function SettingsDashboard() {
           simulationLabResponse,
           notificationsResponse,
         ] = await Promise.allSettled([
-          fetch('/api/market-data/providers'),
-          fetch('/api/automation'),
-          fetch('/api/tickers'),
-          fetch('/api/pulse/handoff/schema'),
-          fetch('/api/simulation-lab/status'),
-          fetch('/api/notifications/status'),
+          api.getMarketDataProviders(),
+          api.getAutomationStatus(),
+          api.getTickers(),
+          api.getPulseHandoffSchema(),
+          api.getSimulationLabStatus(),
+          api.getNotificationsStatus(),
         ]);
         if (cancelled) return;
 
         const failedRuntimeLoads = [
-          providerResponse.status === 'rejected' || !providerResponse.value.ok,
-          automationResponse.status === 'rejected' || !automationResponse.value.ok,
-          tickersResponse.status === 'rejected' || !tickersResponse.value.ok,
-          pulseContractResponse.status === 'rejected' || !pulseContractResponse.value.ok,
-          simulationLabResponse.status === 'rejected' || !simulationLabResponse.value.ok,
-          notificationsResponse.status === 'rejected' || !notificationsResponse.value.ok,
+          providerResponse.status === 'rejected',
+          automationResponse.status === 'rejected',
+          tickersResponse.status === 'rejected',
+          pulseContractResponse.status === 'rejected',
+          simulationLabResponse.status === 'rejected',
+          notificationsResponse.status === 'rejected',
         ].filter(Boolean);
         setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '');
 
-        if (providerResponse.status === 'fulfilled' && providerResponse.value.ok) {
-          const data = await providerResponse.value.json();
+        if (providerResponse.status === 'fulfilled') {
+          const data = providerResponse.value;
           setProviders(data.providers || []);
           setProviderOrder(data.fallback_order || []);
         }
-        if (automationResponse.status === 'fulfilled' && automationResponse.value.ok) {
-          const data = await automationResponse.value.json();
+        if (automationResponse.status === 'fulfilled') {
+          const data = automationResponse.value;
           setAutomation(data.settings || null);
         }
-        if (tickersResponse.status === 'fulfilled' && tickersResponse.value.ok) {
-          const data = await tickersResponse.value.json();
+        if (tickersResponse.status === 'fulfilled') {
+          const data = tickersResponse.value;
           setTickers((data.tickers || []).map((ticker: any) => ticker.symbol).filter(Boolean));
         }
-        if (pulseContractResponse.status === 'fulfilled' && pulseContractResponse.value.ok) {
-          const data = await pulseContractResponse.value.json();
-          setPulseHandoffContract(data);
+        if (pulseContractResponse.status === 'fulfilled') {
+          setPulseHandoffContract(pulseContractResponse.value);
         }
-        if (simulationLabResponse.status === 'fulfilled' && simulationLabResponse.value.ok) {
-          const data = await simulationLabResponse.value.json();
-          setSimulationLabStatus(data);
+        if (simulationLabResponse.status === 'fulfilled') {
+          setSimulationLabStatus(simulationLabResponse.value);
         }
-        if (notificationsResponse.status === 'fulfilled' && notificationsResponse.value.ok) {
-          const data = await notificationsResponse.value.json();
-          setNotificationsStatus(data);
+        if (notificationsResponse.status === 'fulfilled') {
+          setNotificationsStatus(notificationsResponse.value);
         }
       } catch (e) {
         if (!cancelled) {
@@ -366,13 +364,7 @@ export function SettingsDashboard() {
     setSettingsError('');
     setAutomation(next);
     try {
-      const response = await fetch('/api/automation', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      if (!response.ok) throw new Error('Automation settings failed to save');
-      const data = await response.json();
+      const data = await api.updateAutomationSettings(patch);
       setAutomation(data.settings || next);
     } catch (error) {
       setAutomation(previous);
@@ -386,13 +378,7 @@ export function SettingsDashboard() {
     setSettingsError('');
     setAutomation((prev) => prev ? { ...prev, per_ticker_enabled: perTicker } : prev);
     try {
-      const response = await fetch(`/api/automation/tickers/${symbol}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
-      });
-      if (!response.ok) throw new Error(`Failed to save ${symbol} handoff setting`);
-      const data = await response.json();
+      const data = await api.updateTickerAutomation(symbol, enabled);
       setAutomation(data.settings || null);
     } catch (error) {
       setAutomation(previous);
@@ -418,13 +404,7 @@ export function SettingsDashboard() {
     
     // Validate against backend schema when available; browser storage remains the source.
     try {
-      const response = await fetch('/api/config/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      if (!response.ok) throw new Error('Backend config validation failed');
-      const validation = await response.json();
+      const validation = await api.validateConfig(config);
       if (validation.valid === false) throw new Error('Backend config validation reported issues');
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : 'Backend config validation unavailable');

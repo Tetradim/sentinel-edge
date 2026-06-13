@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DollarSign, TrendingDown, TrendingUp, Percent, RefreshCw } from 'lucide-react';
 import { MetricCard } from '../cards/MetricCard';
+import { api } from '@/lib/api';
 
 interface PulseAccount {
   status?: string;
@@ -40,9 +41,7 @@ export const PnLTracking: React.FC = () => {
 
   const loadAccount = async () => {
     try {
-      const response = await fetch('/api/pulse/account');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      const data = await api.getPulseAccount();
       if (data.status === 'unavailable' || data.error) {
         setAccount(null);
         setError(typeof data.error === 'string' ? data.error : 'Pulse account data unavailable');

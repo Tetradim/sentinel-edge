@@ -18,9 +18,11 @@ The WebSocket connection is fully optional. When Pulse is not reachable:
     continue normally in standalone mode.
 """
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import time
 from typing import Any, Optional
 
 import httpx
@@ -350,9 +352,14 @@ class SentinelEdge:
                             continue
 
                         cmd_type = doc.get("command_type")
-                        symbol = doc.get("symbol")
+                        symbol = (
+                            doc.get("symbol")
+                            or ("ACCOUNT" if cmd_type == "ACCOUNT_UPDATE" else None)
+                            or ("PULSE" if cmd_type == "PULSE_STATUS" else None)
+                            or ("BROKER" if cmd_type == "BROKER_STATUS" else None)
+                        )
 
-                        if not cmd_type or not symbol:
+                        if not cmd_type:
                             continue
 
                         await self._handle_pulse_command(cmd_type, symbol, doc)
@@ -448,8 +455,99 @@ class SentinelEdge:
 
     # ── Pulse REST override ───────────────────────────────────────────────────
 
+    @staticmethod
+    def _override_trailing_percent(payload: dict) -> float:
+        metadata = payload.get("metadata", {}) if isinstance(payload.get("metadata"), dict) else {}
+        for value in (
+            payload.get("trailing_percent"),
+            payload.get("trail_percent"),
+            metadata.get("trailing_percent"),
+            os.getenv("ALERT_TRAILING_PERCENT"),
+        ):
+            if value is None:
+                continue
+            try:
+                parsed = float(value)
+            except (TypeError, ValueError):
+                continue
+            if parsed > 0:
+                return parsed
+        return 1.0
+
+    @staticmethod
+    def _override_idempotency_key(symbol: str, handoff_action: str, payload: dict) -> str:
+        minute_bucket = int(time.time() // 60)
+        fingerprint = (
+            payload.get("fingerprint")
+            or payload.get("cluster_id")
+            or payload.get("alertname")
+            or f"{symbol}:{handoff_action}"
+        )
+        nonce = hashlib.sha1(str(fingerprint).encode("utf-8")).hexdigest()[:10]
+        return f"edge:{symbol}:{handoff_action}:market_open:{minute_bucket}:{nonce}"
+
+    def _override_handoff_payload(self, action: str, payload: dict) -> Optional[dict]:
+        action_key = str(action or "").strip().lower()
+        symbol = str(payload.get("symbol") or "GLOBAL").strip().upper()
+        metadata = {"source": "sentinel_edge_override", **payload}
+        base = {
+            "contract_version": "edge.pulse.handoff.v1",
+            "symbol": symbol,
+            "confidence": float(payload.get("confidence", 1.0) or 1.0),
+            "reason": str(payload.get("reason") or payload.get("summary") or action_key),
+            "mode": os.getenv("PULSE_HANDOFF_MODE", "paper"),
+            "orb_session": "market_open",
+            "source": "sentinel_edge",
+            "created_at": time.time(),
+            "metadata": metadata,
+        }
+
+        if action_key in {"tighten_trailing_global", "tighten_trailing_stops"}:
+            handoff_action = "tighten_trailing_stop"
+            return {
+                **base,
+                "symbol": "GLOBAL",
+                "action": handoff_action,
+                "stop_type": "tighten_trailing",
+                "trailing_percent": self._override_trailing_percent(payload),
+                "idempotency_key": self._override_idempotency_key("GLOBAL", handoff_action, payload),
+            }
+
+        if action_key in {"pause_new_entries", "stop_all", "global_stop"}:
+            handoff_action = "stop_all"
+            return {
+                **base,
+                "symbol": "GLOBAL",
+                "action": handoff_action,
+                "idempotency_key": self._override_idempotency_key("GLOBAL", handoff_action, payload),
+            }
+
+        if action_key in {"emergency_exit_all", "emergency_exit"}:
+            handoff_action = "emergency_exit"
+            return {
+                **base,
+                "symbol": "GLOBAL",
+                "action": handoff_action,
+                "idempotency_key": self._override_idempotency_key("GLOBAL", handoff_action, payload),
+            }
+
+        if action_key in {"stop_buying", "pause_symbol"} and symbol != "GLOBAL":
+            handoff_action = "stop_buying"
+            return {
+                **base,
+                "action": handoff_action,
+                "idempotency_key": self._override_idempotency_key(symbol, handoff_action, payload),
+            }
+
+        return None
+
     async def send_override(self, action: str, payload: dict) -> None:
-        """Send a REST override to Pulse. Suppressed silently in standalone mode."""
+        """Send an override to Pulse through the structured handoff contract."""
+        handoff_payload = self._override_handoff_payload(action, payload)
+        if not handoff_payload:
+            logger.warning("Pulse override action has no handoff mapping: %s", action)
+            return
+
         sched = self._scheduler
         if sched and hasattr(sched, "pulse") and not sched.pulse.pulse_available:
             logger.debug("STANDALONE: override suppressed (%s)", action)
@@ -457,10 +555,28 @@ class SentinelEdge:
 
         with self.tracer.start_as_current_span("edge.send_override"):
             try:
+                if sched and hasattr(sched, "pulse") and hasattr(sched.pulse, "send_handoff_command"):
+                    result = await sched.pulse.send_handoff_command(handoff_payload)
+                    if not bool(result.get("sent", False)):
+                        logger.warning("Pulse override handoff not accepted: %s", result)
+                    return
+
+                headers = {}
+                edge_api_key = os.getenv("PULSE_API_KEY") or os.getenv("EDGE_API_KEY")
+                if edge_api_key:
+                    headers["X-API-Key"] = edge_api_key
+
                 async with httpx.AsyncClient(timeout=10.0) as client:
-                    await client.post(
-                        f"{self.pulse_url}/control/override",
-                        json={"source": "sentinel-edge", "action": action, **payload},
+                    response = await client.post(
+                        f"{self.pulse_url}/api/edge/handoff",
+                        json=handoff_payload,
+                        headers=headers,
                     )
+                    if response.status_code >= 400:
+                        logger.error(
+                            "Pulse override handoff failed: HTTP %s %s",
+                            response.status_code,
+                            response.text,
+                        )
             except Exception as exc:
-                logger.error("Pulse REST override failed: %s", exc)
+                logger.error("Pulse override handoff failed: %s", exc)

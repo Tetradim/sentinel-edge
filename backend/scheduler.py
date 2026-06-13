@@ -432,7 +432,7 @@ class EvaluationScheduler:
                     confidence=confidence,
                     reason="Bullish ORB/signal confluence",
                     orb_session=orb_decision_context["signal_session"],
-                    metadata={**orb_metadata, "signal_strength": signal_strength, "trend": trend.name.lower()},
+                    metadata={**orb_metadata, "price": price, "signal_strength": signal_strength, "trend": trend.name.lower()},
                 )
 
             elif decision == Decision.STOP_BUYING:
@@ -594,7 +594,7 @@ class EvaluationScheduler:
                                 plugin_action = (
                                     AutomationAction.BUY
                                     if plugin_signal.action == "BUY"
-                                    else AutomationAction.STOP_BUYING
+                                    else AutomationAction.SELL
                                 )
                                 plugin_handoff_sent = await self._handoff_to_pulse(
                                     symbol=symbol,

@@ -102,6 +102,26 @@ class PulseHandoffContractTests(unittest.TestCase):
 
         self.assertIn("trailing_percent", str(ctx.exception))
 
+    def test_contract_allows_sell_handoffs(self):
+        request = PulseHandoffRequest.from_edge_payload(valid_payload(action="sell"))
+
+        self.assertEqual(request.model_dump(mode="json", exclude_none=True)["action"], "sell")
+
+    def test_opening_trailing_handoff_requires_trailing_context(self):
+        with self.assertRaises(ValidationError) as ctx:
+            PulseHandoffRequest.from_edge_payload(
+                valid_payload(action="opening_trailing_stop", stop_type="trailing", trailing_percent=None)
+            )
+        self.assertIn("trailing_percent", str(ctx.exception))
+
+        request = PulseHandoffRequest.from_edge_payload(
+            valid_payload(action="opening_trailing_stop", stop_type="trailing", trailing_percent=0.75)
+        )
+
+        payload = request.model_dump(mode="json", exclude_none=True)
+        self.assertEqual(payload["action"], "opening_trailing_stop")
+        self.assertEqual(payload["trailing_percent"], 0.75)
+
     def test_stop_handoffs_require_matching_stop_type(self):
         stop_cases = [
             ("regular_stop", "regular", {}),

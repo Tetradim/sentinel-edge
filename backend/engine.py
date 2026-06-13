@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 class Decision(Enum):
     BUY = "buy"
+    SELL = "sell"
     STOP_BUYING = "stop_buying"
     ENABLE_TRAILING_STOP = "enable_trailing_stop"
     TIGHTEN_TRAILING_STOP = "tighten_trailing_stop"   # auto-tighten on strong move

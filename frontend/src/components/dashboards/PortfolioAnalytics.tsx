@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, Scale, Wallet } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface PulsePosition {
   symbol: string;
@@ -42,9 +43,7 @@ export function PortfolioAnalytics() {
 
   const fetchPortfolio = async () => {
     try {
-      const response = await fetch('/api/pulse/account');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      const data = await api.getPulseAccount();
       if (data.status === 'unavailable' || data.error) {
         setAccount(null);
         setError(typeof data.error === 'string' ? data.error : 'Pulse portfolio data unavailable');

@@ -114,7 +114,7 @@ class SimulationLabStatusStaticTests(unittest.TestCase):
 
         self.assertIn("SimulationLabStatus", text)
         self.assertIn("simulationLabStatus", text)
-        self.assertIn("fetch('/api/simulation-lab/status')", text)
+        self.assertIn("api.getSimulationLabStatus()", text)
         self.assertIn("Simulation Lab status", text)
         self.assertIn("EDGE_SIMULATION_LAB_ENABLED", text)
         self.assertIn("default_hidden", text)

@@ -30,6 +30,7 @@ class LocalVerificationScriptStaticTests(unittest.TestCase):
         self.assertIn("frontend node_modules are missing", script)
         self.assertIn("-m unittest discover -s backend/tests", script)
         self.assertIn('-m unittest discover -s backend/tests -p "test_*static.py"', script)
+        self.assertIn("-m pytest backend/tests -q", script)
         self.assertIn("npm run lint", script)
         self.assertIn("npm run build", script)
         self.assertIn("npm audit --audit-level=moderate", script)

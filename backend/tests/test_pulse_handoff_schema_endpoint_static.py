@@ -29,7 +29,7 @@ class PulseHandoffSchemaEndpointStaticTests(unittest.TestCase):
 
         self.assertIn("PulseHandoffContract", text)
         self.assertIn("pulseHandoffContract", text)
-        self.assertIn("fetch('/api/pulse/handoff/schema')", text)
+        self.assertIn("api.getPulseHandoffSchema()", text)
         self.assertIn("Pulse handoff contract", text)
         self.assertIn("PULSE_HANDOFF_ENDPOINT", text)
         self.assertIn("contract_version", text)

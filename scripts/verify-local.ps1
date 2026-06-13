@@ -205,6 +205,12 @@ if (-not $SkipBackend) {
         -FilePath $BackendPython `
         -ArgumentList @("-m", "unittest", "discover", "-s", "backend/tests", "-p", "test_*static.py") `
         -WorkingDirectory $ProjectRoot
+
+    Invoke-ExternalCommand `
+        -Name "Backend pytest discovery: -m pytest backend/tests -q" `
+        -FilePath $BackendPython `
+        -ArgumentList @("-m", "pytest", "backend/tests", "-q") `
+        -WorkingDirectory $ProjectRoot
 } else {
     Add-VerificationSkipped `
         -Name "Backend verification" `

@@ -30,7 +30,7 @@ class NotificationChannelStaticTests(unittest.TestCase):
         readme = README.read_text(encoding="utf-8")
 
         self.assertIn("notificationsStatus", text)
-        self.assertIn("/api/notifications/status", text)
+        self.assertIn("api.getNotificationsStatus()", text)
         self.assertIn("Operator notification paths", text)
         self.assertIn("Telegram", text)
         self.assertIn("Discord", text)

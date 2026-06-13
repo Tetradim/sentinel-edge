@@ -101,7 +101,7 @@ class PulseClient:
     def _build_headers(self) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
-            headers["X-API-KEY"] = self.api_key
+            headers["X-API-Key"] = self.api_key
         return headers
 
     def _should_allow_request(self) -> bool:
@@ -199,22 +199,10 @@ class PulseClient:
         body = response_body if isinstance(response_body, dict) else {}
         status_text = str(body.get("status") or body.get("result") or "").lower()
         accepted_flag = body.get("accepted")
+        sent_flag = body.get("sent")
         ok = status_code in (200, 201, 202, 204)
         rejected_statuses = {"rejected", "denied", "declined", "ignored"}
         failed_statuses = {"failed", "error"}
-
-        if ok and accepted_flag is not False and status_text not in rejected_statuses | failed_statuses:
-            return PulseClient._enrich_handoff_feedback(
-                {
-                    "sent": True,
-                    "status": "accepted",
-                    "reason": "pulse_accepted",
-                    "endpoint": endpoint,
-                    "status_code": status_code,
-                    "response": body,
-                    "legacy_fallback": legacy_fallback,
-                }
-            )
 
         if ok and status_text in failed_statuses:
             reason = body.get("error") or body.get("reason") or body.get("message") or "pulse_failed"
@@ -230,7 +218,7 @@ class PulseClient:
                 }
             )
 
-        if ok:
+        if ok and (accepted_flag is False or sent_flag is False or status_text in rejected_statuses):
             reason = (
                 body.get("rejection_reason")
                 or body.get("reason")
@@ -243,6 +231,19 @@ class PulseClient:
                     "sent": False,
                     "status": "rejected",
                     "reason": str(reason),
+                    "endpoint": endpoint,
+                    "status_code": status_code,
+                    "response": body,
+                    "legacy_fallback": legacy_fallback,
+                }
+            )
+
+        if ok:
+            return PulseClient._enrich_handoff_feedback(
+                {
+                    "sent": True,
+                    "status": "accepted",
+                    "reason": "pulse_accepted",
                     "endpoint": endpoint,
                     "status_code": status_code,
                     "response": body,
@@ -412,23 +413,8 @@ class PulseClient:
             logger.error("Pulse GET %s error: %s", endpoint, exc)
             return None
 
-    async def get_position(self, symbol: str) -> Optional[Dict[str, Any]]:
-        data = await self._get(f"/api/positions/{symbol}")
-        if data is None:
-            return None
-
-        return {
-            "has_position": bool(data.get("has_position", data.get("active", False))),
-            "pnl": float(data.get("pnl", data.get("unrealized_pnl", 0.0))),
-            "pnl_pct": float(data.get("pnl_pct", data.get("unrealized_pnl_pct", 0.0))),
-            "trailing_enabled": bool(data.get("trailing_enabled", data.get("trailing_stop_enabled", False))),
-            "trailing_percent": data.get("trailing_percent"),
-            "entry_price": data.get("entry_price"),
-            "drawdown_pct": float(data.get("drawdown_pct", 0.0)),
-        }
-
     async def send_decision(self, symbol: str, decision: str, **kwargs) -> bool:
-        endpoint = f"/api/tickers/{symbol}/decision"
+        endpoint = f"/api/edge/tickers/{symbol}/decision"
         payload = {"symbol": symbol, "decision": decision, **kwargs}
         sent = await self._post(endpoint, payload)
         if (not sent) and self.pulse_available and self.state == CircuitState.OPEN:
@@ -440,9 +426,9 @@ class PulseClient:
     async def send_handoff_command(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Send a structured autonomous handoff command to Pulse.
 
-        Pulse may implement the richer `/api/edge/handoff` contract later. Until
-        then, fall back to the existing per-ticker decision endpoint while
-        preserving idempotency/reason metadata in the payload.
+        The versioned `/api/edge/handoff` contract is the primary broker-control
+        path. Set `PULSE_HANDOFF_ENDPOINT` to an empty string to force the
+        legacy per-ticker decision fallback for older Pulse builds.
         """
         symbol = str(payload.get("symbol", "")).upper()
         if not symbol:
@@ -466,7 +452,7 @@ class PulseClient:
             reason = "pulse_unavailable" if not self.pulse_available else "circuit_open"
             return self.suppressed_handoff_feedback("/api/edge/handoff", reason)
 
-        handoff_endpoint = os.getenv("PULSE_HANDOFF_ENDPOINT", "").strip()
+        handoff_endpoint = os.getenv("PULSE_HANDOFF_ENDPOINT", "/api/edge/handoff").strip()
         if handoff_endpoint:
             if not handoff_endpoint.startswith("/"):
                 handoff_endpoint = f"/{handoff_endpoint}"
@@ -480,7 +466,7 @@ class PulseClient:
         else:
             handoff_feedback = None
 
-        legacy_endpoint = f"/api/tickers/{symbol}/decision"
+        legacy_endpoint = f"/api/edge/tickers/{symbol}/decision"
         legacy_payload = self.legacy_handoff_payload(payload)
         legacy_sent = await self.send_decision(symbol, action, **legacy_payload)
         legacy_feedback = self.normalise_handoff_feedback(
@@ -537,7 +523,7 @@ class PulseClient:
         )
         
         payload = cmd.model_dump()
-        endpoint = f"/api/signals/{symbol}"
+        endpoint = f"/api/edge/signals/{symbol}"
         sent = await self._post(endpoint, payload)
         
         if sent:
@@ -624,7 +610,7 @@ class PulseClient:
         Returns:
             Dict with account info or None if unavailable
         """
-        data = await self._get("/api/account/status")
+        data = await self._get("/api/edge/account/status")
         if data:
             logger.debug(f"Account status: equity={data.get('total_equity')}")
         return data
@@ -635,14 +621,32 @@ class PulseClient:
         Returns:
             Dict mapping symbol -> position data
         """
-        data = await self._get("/api/positions")
+        data = await self._get("/api/edge/account/status")
         if isinstance(data, dict):
-            return data
+            positions = data.get("positions", [])
+            if isinstance(positions, list):
+                return {
+                    str(position.get("symbol", "")).upper(): position
+                    for position in positions
+                    if isinstance(position, dict) and position.get("symbol")
+                }
         return {}
 
     async def get_position(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Get position for a specific symbol from Pulse."""
-        return await self.get_position(symbol)
+        data = await self._get(f"/api/edge/positions/{symbol}")
+        if data is None:
+            return None
+
+        return {
+            "has_position": bool(data.get("has_position", data.get("active", False))),
+            "pnl": float(data.get("pnl", data.get("unrealized_pnl", 0.0))),
+            "pnl_pct": float(data.get("pnl_pct", data.get("unrealized_pnl_pct", 0.0))),
+            "trailing_enabled": bool(data.get("trailing_enabled", data.get("trailing_stop_enabled", False))),
+            "trailing_percent": data.get("trailing_percent"),
+            "entry_price": data.get("entry_price"),
+            "drawdown_pct": float(data.get("drawdown_pct", 0.0)),
+        }
 
     async def health_check_detailed(self) -> Dict[str, Any]:
         """Perform detailed health check of Pulse connection.
@@ -668,7 +672,7 @@ class PulseClient:
         return await self.send_decision(symbol, "emergency_stop")
 
     async def get_tickers(self) -> list:
-        data = await self._get("/api/tickers")
+        data = await self._get("/api/edge/tickers")
         return data if isinstance(data, list) else []
 
     def queue_stats(self) -> Dict[str, Any]:

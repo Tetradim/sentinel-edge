@@ -14,7 +14,7 @@ class SettingsActionErrorsStaticTests(unittest.TestCase):
         self.assertIn("const [settingsError, setSettingsError] = useState('')", text)
         self.assertIn("const previous = automation", text)
         self.assertIn("setSettingsError('')", text)
-        self.assertIn("if (!response.ok) throw new Error('Automation settings failed to save')", text)
+        self.assertIn("const data = await api.updateAutomationSettings(patch)", text)
         self.assertIn("setAutomation(previous)", text)
         self.assertIn("setSettingsError(error instanceof Error ? error.message : 'Automation settings failed to save')", text)
         self.assertIn("{settingsError &&", text)
@@ -23,14 +23,13 @@ class SettingsActionErrorsStaticTests(unittest.TestCase):
     def test_ticker_handoff_save_failures_are_visible(self):
         text = SETTINGS.read_text(encoding="utf-8")
 
-        self.assertIn("if (!response.ok) throw new Error(`Failed to save ${symbol} handoff setting`)", text)
+        self.assertIn("const data = await api.updateTickerAutomation(symbol, enabled)", text)
         self.assertIn("setSettingsError(error instanceof Error ? error.message : `Failed to save ${symbol} handoff setting`)", text)
 
     def test_config_validation_failures_are_visible_after_local_save(self):
         text = SETTINGS.read_text(encoding="utf-8")
 
-        self.assertIn("const response = await fetch('/api/config/validate'", text)
-        self.assertIn("if (!response.ok) throw new Error('Backend config validation failed')", text)
+        self.assertIn("const validation = await api.validateConfig(config)", text)
         self.assertIn("if (validation.valid === false) throw new Error('Backend config validation reported issues')", text)
         self.assertIn("setSettingsError(error instanceof Error ? error.message : 'Backend config validation unavailable')", text)
         self.assertIn("setSaved(true)", text)
@@ -47,9 +46,9 @@ class SettingsActionErrorsStaticTests(unittest.TestCase):
 
         self.assertIn("const [runtimeSettingsError, setRuntimeSettingsError] = useState('')", text)
         self.assertIn("const failedRuntimeLoads = [", text)
-        self.assertIn("providerResponse.status === 'rejected' || !providerResponse.value.ok", text)
-        self.assertIn("automationResponse.status === 'rejected' || !automationResponse.value.ok", text)
-        self.assertIn("tickersResponse.status === 'rejected' || !tickersResponse.value.ok", text)
+        self.assertIn("providerResponse.status === 'rejected'", text)
+        self.assertIn("automationResponse.status === 'rejected'", text)
+        self.assertIn("tickersResponse.status === 'rejected'", text)
         self.assertIn("setRuntimeSettingsError(failedRuntimeLoads.length > 0 ? 'Settings metadata failed to refresh. Showing latest available data.' : '')", text)
         self.assertIn("setRuntimeSettingsError('Settings metadata failed to refresh. Showing latest available data.')", text)
         self.assertIn("{runtimeSettingsError &&", text)

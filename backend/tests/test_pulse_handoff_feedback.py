@@ -18,6 +18,112 @@ from pulse_client import PulseClient  # noqa: E402
 
 
 class PulseHandoffFeedbackTests(unittest.TestCase):
+    def test_legacy_handoff_fallback_uses_edge_decision_route(self):
+        captured_requests = []
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(200, json={"accepted": True}, request=request)
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                with patch.dict(os.environ, {"PULSE_HANDOFF_ENDPOINT": ""}):
+                    return await client.send_handoff_command(
+                        {
+                            "symbol": "AAPL",
+                            "action": "buy",
+                            "confidence": 0.8,
+                            "reason": "route test",
+                            "mode": "paper",
+                            "orb_session": "market_open",
+                            "idempotency_key": "edge:AAPL:buy:market_open:123:route",
+                            "source": "sentinel_edge",
+                            "created_at": 1760000000.0,
+                            "metadata": {},
+                        }
+                    )
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(run())
+
+        self.assertTrue(result["sent"])
+        self.assertEqual("/api/edge/tickers/AAPL/decision", captured_requests[0].url.path)
+
+    def test_get_position_uses_edge_position_route_without_recursing(self):
+        captured_requests = []
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(
+                200,
+                json={
+                    "symbol": "AAPL",
+                    "has_position": True,
+                    "pnl": 12.5,
+                    "pnl_pct": 1.25,
+                    "trailing_enabled": True,
+                    "trailing_percent": 1.5,
+                    "entry_price": 100.0,
+                    "drawdown_pct": 0.5,
+                },
+                request=request,
+            )
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                return await client.get_position("AAPL")
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(run())
+
+        self.assertEqual("/api/edge/positions/AAPL", captured_requests[0].url.path)
+        self.assertTrue(result["has_position"])
+        self.assertEqual(1.25, result["pnl_pct"])
+
+    def test_get_account_status_uses_edge_account_route(self):
+        captured_requests = []
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(200, json={"account_balance": 1000.0, "available": 750.0}, request=request)
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                return await client.get_account_status()
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(run())
+
+        self.assertEqual("/api/edge/account/status", captured_requests[0].url.path)
+        self.assertEqual(1000.0, result["account_balance"])
+
     def test_structured_handoff_sends_idempotency_and_mode_headers(self):
         captured_requests = []
         idempotency_key = "edge:AAPL:buy:market_open:123:test"
@@ -160,6 +266,19 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
         self.assertEqual(result["reason"], "risk_limit")
         self.assertEqual(result["message"], "Buying power exhausted")
         self.assertEqual(result["response"]["message"], "Buying power exhausted")
+
+    def test_sent_false_feedback_is_not_treated_as_accepted(self):
+        result = PulseClient.normalise_handoff_feedback(
+            endpoint="/api/edge/handoff",
+            status_code=200,
+            response_body={"sent": False, "reason": "risk_limit", "message": "Buying power exhausted"},
+        )
+
+        self.assertFalse(result["sent"])
+        self.assertEqual(result["status"], "rejected")
+        self.assertEqual(result["reason"], "risk_limit")
+        self.assertEqual(result["message"], "Buying power exhausted")
+        self.assertEqual(result["response"]["sent"], False)
 
     def test_failed_feedback_promotes_operator_message(self):
         result = PulseClient.normalise_handoff_feedback(

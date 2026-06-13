@@ -27,10 +27,12 @@ class AutomationMode(str, Enum):
 
 class AutomationAction(str, Enum):
     BUY = "buy"
+    SELL = "sell"
     STOP_BUYING = "stop_buying"
     STOP_ALL = "stop_all"
     REGULAR_STOP = "regular_stop"
     TRAILING_STOP = "trailing_stop"
+    OPENING_TRAILING_STOP = "opening_trailing_stop"
     TIGHTEN_STOP = "tighten_stop"
     TIGHTEN_TRAILING_STOP = "tighten_trailing_stop"
     DCA = "dca"

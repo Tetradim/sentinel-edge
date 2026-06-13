@@ -135,12 +135,20 @@ class ApiClient {
     return fetchJSON('/api/pulse/status');
   }
 
+  async getPulseAccount() {
+    return fetchJSON('/api/pulse/account');
+  }
+
   async getPulsePositions() {
     return fetchJSON('/api/pulse/positions');
   }
 
   async getPulseQueue() {
     return fetchJSON('/api/pulse/queue');
+  }
+
+  async getPulseHandoffSchema() {
+    return fetchJSON('/api/pulse/handoff/schema');
   }
 
   async postFrontendRum(snapshot: any) {
@@ -277,6 +285,17 @@ class ApiClient {
 
   async getSimulationLabStatus() {
     return fetchJSON('/api/simulation-lab/status');
+  }
+
+  async getNotificationsStatus() {
+    return fetchJSON('/api/notifications/status');
+  }
+
+  async validateConfig(config: any) {
+    return fetchJSON('/api/config/validate', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
   }
 
   async runSimulationLabOrbBacktest(payload: any) {

@@ -3,7 +3,10 @@
 Canonical location.  The root correlation.py is now a backward-compat shim
 that re-exports from here.
 """
+import hashlib
 import logging
+import os
+import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -271,11 +274,33 @@ class CorrelationEngine:
             logger.info("Pulse override suppressed: standalone/demo mode")
             return
 
+        handoff_action = "tighten_trailing_stop"
+        trailing_percent = 1.0
+        try:
+            configured_trailing_percent = float(os.getenv("ALERT_TRAILING_PERCENT", "1.0"))
+            if configured_trailing_percent > 0:
+                trailing_percent = configured_trailing_percent
+        except (TypeError, ValueError):
+            pass
+
+        fingerprint = f"correlation:{cluster['direction']}:{cluster['count']}:{cluster['strength']:.4f}"
+        nonce = hashlib.sha1(fingerprint.encode("utf-8")).hexdigest()[:10]
+        minute_bucket = int(time.time() // 60)
         payload = {
-            "action": "tighten_trailing_global",
+            "contract_version": "edge.pulse.handoff.v1",
+            "symbol": "GLOBAL",
+            "action": handoff_action,
+            "confidence": max(0.0, min(float(cluster["strength"]), 1.0)),
             "reason": "correlation_bearish_cluster",
-            "source": "sentinel-edge",
-            "cluster": {
+            "mode": os.getenv("PULSE_HANDOFF_MODE", "paper"),
+            "orb_session": "market_open",
+            "stop_type": "tighten_trailing",
+            "trailing_percent": trailing_percent,
+            "idempotency_key": f"edge:GLOBAL:{handoff_action}:market_open:{minute_bucket}:{nonce}",
+            "source": "sentinel_edge",
+            "created_at": time.time(),
+            "metadata": {
+                "source": "correlation_engine",
                 "direction": cluster["direction"],
                 "count": cluster["count"],
                 "symbols": cluster["symbols"],
@@ -283,10 +308,16 @@ class CorrelationEngine:
                 "risk_recommendation": cluster.get("risk_recommendation"),
             },
         }
+        headers = {}
+        edge_api_key = os.getenv("PULSE_API_KEY") or os.getenv("EDGE_API_KEY")
+        if edge_api_key:
+            headers["X-API-Key"] = edge_api_key
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 resp = await client.post(
-                    f"{self.pulse_base_url}/control/override", json=payload
+                    f"{self.pulse_base_url}/api/edge/handoff",
+                    json=payload,
+                    headers=headers,
                 )
                 logger.info("Pulse override → %s %s", resp.status_code, resp.text[:80])
         except Exception as exc:
