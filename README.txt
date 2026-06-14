@@ -695,15 +695,14 @@ This software is for educational purposes. Past backtest results do not guarante
 
 ---
 
-## 🚀 Quick Start — Standalone Local Mode
+## 🚀 Quick Start — Local Source Mode
 
-No paid market-data keys or Pulse instance are required for local Edge analysis. Start Edge in standalone mode:
+Start Edge from the local source tree with production dependencies configured:
 
 ```bash
 # Start the backend
 cd backend
 pip install -r requirements.txt
-set DEMO_MODE=true
 python -m uvicorn server:app --reload
 
 # Start the frontend

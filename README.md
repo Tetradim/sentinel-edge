@@ -62,7 +62,7 @@ Edge is designed for Windows-local beta operation first, with Docker and observa
 Edge is also designed to degrade safely:
 
 - Missing Pulse should not make Edge noisy or unusable.
-- Demo mode can run without MongoDB.
+- MongoDB is required for startup; Edge does not run an in-memory trading path.
 - Missing paid market-data keys should not break keyless or configured provider paths.
 - Partial dashboard refresh failures are surfaced in the UI instead of silently clearing stale data.
 - Runtime readiness is exposed separately from process liveness.
@@ -583,10 +583,9 @@ Useful flags:
 | Flag | Purpose |
 |------|---------|
 | `-BackendPort 8001` | Choose backend port. |
-| `-FrontendPort 3000` | Choose frontend port. |
+| `-FrontendPort 3001` | Choose frontend port. |
 | `-NoBrowser` | Do not open a browser automatically. |
 | `-InstallDeps` | Install backend/frontend dependencies before launch. |
-| `-NoDemoMode` | Do not force demo mode. |
 
 The launcher looks for Python 3.11, 3.12, or 3.13, creates/uses the backend virtualenv, starts Vite, starts the backend, waits for readiness, and logs to `Sentinel-Edge-Local.log` on the Desktop.
 
@@ -598,7 +597,6 @@ From the repository root:
 cd backend
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
-$env:DEMO_MODE = "true"
 $env:SENTINEL_EDGE_PORT = "8001"
 .\.venv\Scripts\python.exe server.py
 ```
@@ -620,7 +618,7 @@ npm install
 npm run dev
 ```
 
-The frontend dev server defaults to Vite behavior. The local launcher uses port `3000`.
+The frontend dev server defaults to Vite behavior. The local launcher uses port `3001` to avoid Pulse's local UI on `3000`.
 
 ### Option 4: Docker stack
 
@@ -648,7 +646,6 @@ Default exposed services:
 
 | Variable | Purpose | Default/notes |
 |----------|---------|---------------|
-| `DEMO_MODE` | Run without MongoDB and suppress expected-absent Pulse behavior. | `false`; launcher usually uses demo mode unless `-NoDemoMode`. |
 | `MONGO_URL` | MongoDB connection string. | Used by Docker and backend runtime. |
 | `DB_NAME` | MongoDB database name. | `sentinel_edge`. |
 | `DB_HOST` | MongoDB host for local code paths. | `localhost`. |
@@ -671,7 +668,6 @@ Default exposed services:
 |----------|---------|
 | `PULSE_API_URL` | Sentinel Pulse API base URL. |
 | `PULSE_API_KEY` | Optional Pulse API key header. |
-| `PULSE_PROBE_IN_DEMO` | Probe Pulse even in demo mode. |
 | `PULSE_HANDOFF_ENDPOINT` | Optional structured Pulse handoff endpoint. If unset, Edge can fall back to legacy decision endpoint behavior. |
 
 ### Automation

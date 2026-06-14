@@ -3,10 +3,9 @@
 
 param(
     [int]$BackendPort = 8001,
-    [int]$FrontendPort = 3000,
+    [int]$FrontendPort = 3001,
     [switch]$NoBrowser,
-    [switch]$InstallDeps,
-    [switch]$NoDemoMode
+    [switch]$InstallDeps
 )
 
 $ErrorActionPreference = "Stop"
@@ -81,6 +80,25 @@ function Wait-HttpOk {
         Start-Sleep -Milliseconds 750
     }
     return $false
+}
+
+function Get-Json {
+    param([string]$Url)
+    try {
+        return Invoke-RestMethod -Uri $Url -TimeoutSec 3
+    } catch {
+        return $null
+    }
+}
+
+function Test-FrontendIdentity {
+    param([string]$Url)
+    try {
+        $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+        return ($response.Content -match "Sentinel Edge")
+    } catch {
+        return $false
+    }
 }
 
 function Get-PythonVersion {
@@ -353,9 +371,11 @@ try {
     $env:SENTINEL_EDGE_UI_URL = $frontendUrl
     $env:REACT_APP_BACKEND_URL = $backendUrl
     $backendReadyUrl = "$backendUrl/api/ready"
-    if (-not $NoDemoMode -and -not $env:DEMO_MODE) {
-        $env:DEMO_MODE = "true"
+
+    if ($env:DEMO_MODE -and ($env:DEMO_MODE).ToLowerInvariant() -in @("true", "1", "yes")) {
+        Write-Status "Clearing removed DEMO_MODE=$env:DEMO_MODE; local source launcher requires production dependencies" "WARN"
     }
+    $env:DEMO_MODE = "false"
 
     $localCorsOrigins = @(
         "http://localhost:$FrontendPort",
@@ -384,15 +404,26 @@ try {
         }
     }
 
+    $readySnapshot = Get-Json -Url $backendReadyUrl
+    if ($readySnapshot -and $readySnapshot.checks -and $readySnapshot.checks.demo_mode -eq $true) {
+        throw "Backend on port $BackendPort reports removed demo_mode=true. Stop that backend and relaunch in production mode."
+    }
+
     if (-not (Test-PortOpen -Port $FrontendPort)) {
         Write-Status "Starting Vite frontend from source on port $FrontendPort"
         Start-OwnedProcess -FilePath $npm -ArgumentList @("run", "dev", "--", "--host", "127.0.0.1", "--port", "$FrontendPort") -WorkingDirectory $Frontend | Out-Null
         if (-not (Wait-Port -Port $FrontendPort -Seconds 60)) {
             throw "Frontend did not open port $FrontendPort. Check $LogFile."
         }
+        if (-not (Wait-HttpOk -Url $frontendUrl -Seconds 60) -or -not (Test-FrontendIdentity -Url $frontendUrl)) {
+            throw "Frontend opened port $FrontendPort but did not serve the Sentinel Edge UI. Check $LogFile."
+        }
         Write-Status "Frontend is ready" "OK"
     } else {
         Write-Status "Frontend already running on port $FrontendPort" "WARN"
+        if (-not (Test-FrontendIdentity -Url $frontendUrl)) {
+            throw "Frontend port $FrontendPort is already in use, but it is not serving the Sentinel Edge UI. Choose -FrontendPort or stop the conflicting service."
+        }
     }
 
     if (-not $NoBrowser) {
@@ -402,7 +433,7 @@ try {
     Write-Host ""
     Write-Host "Ready: $frontendUrl" -ForegroundColor Green
     Write-Host "Backend: $backendUrl" -ForegroundColor Gray
-    Write-Host "Mode: DEMO_MODE=$env:DEMO_MODE" -ForegroundColor Gray
+    Write-Host "Mode: production" -ForegroundColor Gray
     Write-Host "Close this window or press Ctrl+C to stop processes started by this launcher." -ForegroundColor Gray
     Write-Host ""
 

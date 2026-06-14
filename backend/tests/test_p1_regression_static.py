@@ -28,7 +28,7 @@ class P1RegressionStaticTests(unittest.TestCase):
         self.assertIn("_extract_daily_pnl_pct", text)
         self.assertNotIn("# For now, return 0.0", text)
 
-    def test_ticker_config_handles_demo_mode_without_mongo(self):
+    def test_ticker_config_handles_missing_mongo_for_unit_paths(self):
         text = read("backend/server.py")
         self.assertIn("_get_ticker_config_doc", text)
         self.assertIn("_save_ticker_config", text)

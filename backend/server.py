@@ -100,18 +100,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 PROCESS_STARTED_AT = time.time()
 
-# Demo mode - runs without external dependencies
-DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+# Production mode requires all configured dependencies. Reject the old
+# environment switch explicitly so stale shells cannot start a partial runtime.
+_removed_demo_mode_requested = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+if _removed_demo_mode_requested:
+    raise RuntimeError(
+        "DEMO_MODE has been removed from Sentinel Edge. "
+        "Unset DEMO_MODE and configure MongoDB/Pulse for production mode."
+    )
 
 # MongoDB — client created once; motor handles pooling internally.
-# In demo/standalone mode, avoid creating a lazy Motor client for an absent
-# localhost MongoDB. That prevents noisy background ServerSelectionTimeout
-# futures while still allowing full analysis to run without persistence.
+# The service fails startup if MongoDB is unavailable; no in-memory fallback is used.
 mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-if DEMO_MODE:
-    logger.info("DEMO_MODE enabled: MongoDB disabled; using in-memory/self-sovereign state")
-else:
-    logger.info("MongoDB configured for %s", mongo_url)
+logger.info("MongoDB configured for %s", mongo_url)
 db = None
 _mongo_client = None
 
@@ -169,13 +170,8 @@ READINESS_CHECK_DETAILS: Dict[str, Dict[str, Any]] = {
     },
     "mongo_available": {
         "label": "MongoDB available",
-        "description": "MongoDB is connected, or demo mode is intentionally bypassing persistence.",
+        "description": "MongoDB is connected and available for persistence.",
         "required": True,
-    },
-    "demo_mode": {
-        "label": "Demo mode",
-        "description": "Demo mode is informational and does not block readiness.",
-        "required": False,
     },
 }
 
@@ -219,8 +215,7 @@ def _readiness_checks() -> Dict[str, bool]:
         "scheduler_task_alive": scheduler_task_alive,
         "price_fetcher_initialized": price_fetcher is not None,
         "analyst_initialized": edge is not None,
-        "mongo_available": DEMO_MODE or db is not None,
-        "demo_mode": DEMO_MODE,
+        "mongo_available": db is not None,
     }
 
 
@@ -233,7 +228,7 @@ def _readiness_check_details(checks: Dict[str, bool]) -> Dict[str, Dict[str, Any
             {
                 "label": check_name.replace("_", " ").title(),
                 "description": "No additional readiness detail is available for this check.",
-                "required": check_name != "demo_mode",
+                "required": True,
             },
         )
         details[check_name] = {
@@ -256,8 +251,8 @@ def _publish_readiness_metrics(checks: Dict[str, bool], ready: bool) -> None:
 def _refresh_readiness_metrics() -> Dict[str, Any]:
     """Refresh readiness gauges and return the current readiness payload."""
     checks = _readiness_checks()
-    ready = all(value for key, value in checks.items() if key != "demo_mode")
-    failing_checks = [key for key, value in checks.items() if key != "demo_mode" and not value]
+    ready = all(checks.values())
+    failing_checks = [key for key, value in checks.items() if not value]
     check_details = _readiness_check_details(checks)
     failing_check_details = [check_details[key] for key in failing_checks]
     _publish_readiness_metrics(checks, ready)
@@ -692,19 +687,14 @@ async def lifespan(app: FastAPI):
 
     logger.info("🚀 Starting Sentinel Edge...")
     
-    if DEMO_MODE:
-        logger.info("🎯 DEMO MODE enabled - will run without MongoDB")
-        db = None
-        _mongo_client = None
-    else:
-        try:
-            _mongo_client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=2000)
-            await _mongo_client.admin.command("ping")
-            db = _mongo_client[os.environ.get("DB_NAME", "sentinel_edge")]
-            logger.info("MongoDB connected to %s", mongo_url)
-        except Exception as e:
-            logger.error("MongoDB connection failed: %s", e)
-            raise
+    try:
+        _mongo_client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=2000)
+        await _mongo_client.admin.command("ping")
+        db = _mongo_client[os.environ.get("DB_NAME", "sentinel_edge")]
+        logger.info("MongoDB connected to %s", mongo_url)
+    except Exception as e:
+        logger.error("MongoDB connection failed: %s", e)
+        raise
 
     pulse_url = os.getenv("PULSE_API_URL", "http://localhost:8002")
 
@@ -722,30 +712,19 @@ async def lifespan(app: FastAPI):
     market_hours   = MarketHours()
 
     # ── Startup Pulse probe ────────────────────────────────────────────────
-    # Non-blocking: Edge starts regardless of the result. In demo mode,
-    # avoid probing an expected-absent Pulse service unless explicitly enabled.
-    if DEMO_MODE and os.getenv("PULSE_PROBE_IN_DEMO", "false").lower() not in ("true", "1", "yes"):
-        pulse_available = False
-        logger.info(
-            "DEMO_MODE enabled: skipping Pulse health probe; running standalone analysis"
-        )
+    # Non-blocking: Edge starts regardless of the result, but it always probes Pulse.
+    pulse_available = await pulse_client.check_pulse()
+    if pulse_available:
+        logger.info("🔗 Pulse connected — running in connected mode")
     else:
-        pulse_available = await pulse_client.check_pulse()
-        if pulse_available:
-            logger.info("🔗 Pulse connected — running in connected mode")
-        else:
-            logger.warning(
-                "🔌 Pulse not available — running in standalone mode. "
-                "All analysis runs normally. Decisions will be sent once Pulse comes online."
-            )
+        logger.warning(
+            "🔌 Pulse not available — running in standalone mode. "
+            "All analysis runs normally. Decisions will be sent once Pulse comes online."
+        )
     pulse_client.start_retry_drain_loop()
 
     # SentinelEdge orchestrator — OTel tracing, WebSocket, MongoDB change stream
-    if db is not None:
-        edge = SentinelEdge(db=db, pulse_url=pulse_url)
-    else:
-        logger.info("DEMO_MODE/no database: MongoDB change streams disabled")
-        edge = SentinelEdge(db=None, pulse_url=pulse_url)
+    edge = SentinelEdge(db=db, pulse_url=pulse_url)
 
     scheduler = EvaluationScheduler(
         pulse_client=pulse_client,
@@ -755,7 +734,7 @@ async def lifespan(app: FastAPI):
         signal_engine=signal_engine,
         decision_engine=decision_engine,
         market_hours=market_hours,
-        db=db,  # Can be None in demo mode
+        db=db,
     )
     # Share the correlation engine and wire plugin discovery
     edge.set_scheduler(scheduler)

@@ -271,7 +271,7 @@ class CorrelationEngine:
 
     async def _trigger_pulse_override(self, cluster: Dict) -> None:
         if not self.pulse_overrides_enabled or not self.pulse_base_url:
-            logger.info("Pulse override suppressed: standalone/demo mode")
+            logger.info("Pulse override suppressed: standalone mode")
             return
 
         handoff_action = "tighten_trailing_stop"

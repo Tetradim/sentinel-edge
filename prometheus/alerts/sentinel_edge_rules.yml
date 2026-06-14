@@ -116,7 +116,7 @@ groups:
           runbook_url: "docs/runbooks/edge-runtime-not-ready.md"
 
       - alert: EdgeReadinessCheckFailed
-        expr: edge_readiness_check_status{check!="demo_mode"} == 0
+        expr: edge_readiness_check_status == 0
         for: 2m
         labels:
           severity: critical

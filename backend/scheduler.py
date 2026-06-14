@@ -113,7 +113,7 @@ class EvaluationScheduler:
         self.correlation = CorrelationEngine(
             db=self.db,
             pulse_base_url=os.getenv("PULSE_API_URL", "http://pulse:8001"),
-            pulse_overrides_enabled=os.getenv("DEMO_MODE", "false").lower() not in ("true", "1", "yes"),
+            pulse_overrides_enabled=True,
             window_sec=120,
             min_symbols=3,
             cooldown_sec=300,

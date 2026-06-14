@@ -50,7 +50,7 @@ class ReadinessMetricsStaticTests(unittest.TestCase):
         text = ALERTS.read_text(encoding="utf-8")
 
         self.assertIn("EdgeReadinessCheckFailed", text)
-        self.assertIn('edge_readiness_check_status{check!="demo_mode"} == 0', text)
+        self.assertIn("edge_readiness_check_status == 0", text)
         self.assertIn("{{ $labels.check }}", text)
         self.assertIn('runbook_url: "docs/runbooks/edge-runtime-not-ready.md"', text)
 

@@ -16,7 +16,6 @@ class ReadinessDetailsTests(unittest.TestCase):
         details = server._readiness_check_details(
             {
                 "scheduler_initialized": False,
-                "demo_mode": True,
                 "new_runtime_check": False,
             }
         )
@@ -25,9 +24,8 @@ class ReadinessDetailsTests(unittest.TestCase):
         self.assertEqual(details["scheduler_initialized"]["label"], "Scheduler initialized")
         self.assertTrue(details["scheduler_initialized"]["required"])
         self.assertFalse(details["scheduler_initialized"]["ready"])
-        self.assertEqual(details["demo_mode"]["name"], "demo_mode")
-        self.assertFalse(details["demo_mode"]["required"])
         self.assertEqual(details["new_runtime_check"]["label"], "New Runtime Check")
+        self.assertTrue(details["new_runtime_check"]["required"])
 
     def test_refresh_readiness_payload_includes_failing_check_details(self):
         previous_scheduler = server.scheduler
@@ -35,14 +33,12 @@ class ReadinessDetailsTests(unittest.TestCase):
         previous_price_fetcher = server.price_fetcher
         previous_edge = server.edge
         previous_db = server.db
-        previous_demo_mode = server.DEMO_MODE
         try:
             server.scheduler = None
             server.scheduler_task = None
             server.price_fetcher = None
             server.edge = None
             server.db = None
-            server.DEMO_MODE = False
 
             state = server._refresh_readiness_metrics()
         finally:
@@ -51,7 +47,6 @@ class ReadinessDetailsTests(unittest.TestCase):
             server.price_fetcher = previous_price_fetcher
             server.edge = previous_edge
             server.db = previous_db
-            server.DEMO_MODE = previous_demo_mode
 
         self.assertFalse(state["ready"])
         self.assertIn("failing_check_details", state)

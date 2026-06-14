@@ -20,7 +20,6 @@ class ReadinessEndpointStaticTests(unittest.TestCase):
         self.assertIn('"scheduler_task_alive"', text)
         self.assertIn('"price_fetcher_initialized"', text)
         self.assertIn('"mongo_available"', text)
-        self.assertIn('"demo_mode"', text)
         self.assertIn('"label"', text)
         self.assertIn('"description"', text)
         self.assertIn('"required"', text)
@@ -28,7 +27,8 @@ class ReadinessEndpointStaticTests(unittest.TestCase):
         self.assertIn('"failing_checks": failing_checks', text)
         self.assertIn('"failing_check_details": failing_check_details', text)
         self.assertIn('"check_details": check_details', text)
-        self.assertIn('if key != "demo_mode" and not value', text)
+        self.assertIn("ready = all(checks.values())", text)
+        self.assertIn("failing_checks = [key for key, value in checks.items() if not value]", text)
 
     def test_readiness_endpoint_returns_503_when_not_ready(self):
         text = SERVER.read_text(encoding="utf-8")
