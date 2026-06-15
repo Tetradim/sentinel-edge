@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# Sentinel Edge Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React/Vite operator console for Sentinel Edge.
 
-## Available Scripts
+The frontend is the local browser experience for Edge's analysis, readiness, protection, automation, and operations workflows. It is not a broker client and it does not hold provider or broker secrets. All sensitive configuration stays in the backend environment.
 
-In the project directory, you can run:
+## Stack
 
-### `npm start`
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- Zustand state store
+- Framer Motion
+- Recharts
+- Lucide icons
+- Radix/shadcn-style primitives
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Runtime Role
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+The app talks to the Edge FastAPI backend through the API helpers in `src/lib/api.ts`. The Windows source launcher normally sets the backend URL and starts this app on `127.0.0.1:3001`.
 
-### `npm test`
+Primary UI surfaces:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Asset Command Console
+- Monitor, Command, Protect, Operations, and Settings modes
+- Trading Overview
+- Advisor Health
+- Experience/RUM observability
+- Protection Ops
+- P&L Tracking
+- Market Coverage
+- Portfolio
+- System Settings
+- Tutorials and Learning Center
 
-### `npm run build`
+## Local Development
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+From this folder:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```powershell
+npm install
+npm run dev
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Typical local URLs:
 
-### `npm run eject`
+```text
+Frontend: http://127.0.0.1:3001
+Backend:  http://127.0.0.1:8001
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+The preferred full-stack source workflow is from the repository root:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```powershell
+.\Launch-Sentinel-Edge-Local.ps1 -InstallDeps
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+That launcher starts the backend and frontend, opens the UI in a dedicated temporary browser profile, and shuts down owned tasks when the dedicated browser window closes.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Environment
 
-## Learn More
+Common frontend-facing variables:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| Variable | Purpose |
+|----------|---------|
+| `VITE_BACKEND_URL` | Explicit backend API base URL for Vite builds. |
+| `REACT_APP_BACKEND_URL` | Compatibility fallback used by older code paths and launcher environments. |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Do not add raw broker keys or market-data keys to frontend variables. Browser-visible variables are not secret storage.
 
-### Code Splitting
+## Verification
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```powershell
+npm run lint
+npm run build
+npm audit --audit-level=moderate
+```
 
-### Analyzing the Bundle Size
+The root verification script also runs the frontend gates:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```powershell
+..\scripts\verify-local.ps1 -InstallFrontendDeps
+```
 
-### Making a Progressive Web App
+## Design Notes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Keep operator workflows dense and scan-friendly.
+- Preserve stale-but-known data when a partial refresh fails, and show a visible warning.
+- Use backend endpoints for provider catalogs, Pulse state, readiness blockers, and automation state.
+- Keep Pulse handoff controls explicit; recommendation display and execution handoff are separate concerns.
+- Keep long-running local browser sessions tied to the launcher lifecycle rather than opening bot pages in a normal personal browser profile.

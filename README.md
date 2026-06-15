@@ -35,6 +35,7 @@ Edge is intentionally not a broker adapter. It does not place broker orders dire
 - [Learning Center](#learning-center)
 - [Repository Layout](#repository-layout)
 - [Quick Start](#quick-start)
+- [Local Launcher Lifecycle](#local-launcher-lifecycle)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Verification](#verification)
@@ -89,6 +90,7 @@ Edge is also designed to degrade safely:
 | Backtesting | Backtest execution, run reports, strategy optimization, Monte Carlo chart endpoints, dry-run status, and strategy catalog endpoints. |
 | Chart workspace | Chart-ready OHLCV snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels with Simulation Lab disabled reason visibility, chart replay actions, crosshair-style hover context, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
 | Safety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
+| Local launcher | Windows source launcher starts backend and frontend, opens a dedicated browser profile, shuts down owned tasks when the browser closes, and closes the browser/tasks if the launcher window exits. |
 
 ---
 
@@ -589,6 +591,8 @@ Useful flags:
 
 The launcher looks for Python 3.11, 3.12, or 3.13, creates/uses the backend virtualenv, starts Vite, starts the backend, waits for readiness, and logs to `Sentinel-Edge-Local.log` on the Desktop.
 
+The launcher also mirrors the Sentinel Pulse local launcher lifecycle. When it can find Edge or Chrome, it opens the UI in an isolated temporary browser profile. Closing that dedicated browser window shuts down the Edge backend/frontend processes started by this launcher. Closing the launcher window or pressing Ctrl+C starts cleanup in the other direction: the browser profile is closed, temporary profile files are removed, and the owned backend/frontend process trees are stopped. Use `-NoBrowser` for headless runs where browser-close monitoring is intentionally disabled.
+
 ### Option 2: Manual backend
 
 From the repository root:
@@ -637,6 +641,37 @@ Default exposed services:
 | Alertmanager | `http://localhost:9093` |
 | Loki | `http://localhost:3100` |
 | Tempo | `http://localhost:3200` |
+
+---
+
+## Local Launcher Lifecycle
+
+`Launch-Sentinel-Edge-Local.ps1` is the recommended Windows-local operator entrypoint for source-tree work. It intentionally owns only the processes it starts; it does not kill unrelated Edge, Pulse, Tandem, browser, or broker software unless that process is occupying the selected local port and the launcher is explicitly replacing it during startup.
+
+Lifecycle behavior:
+
+1. The launcher resolves Python, npm, backend, and frontend paths.
+2. It starts the backend from `backend/server.py` through uvicorn on `127.0.0.1:$BackendPort`.
+3. It starts the Vite frontend on `127.0.0.1:$FrontendPort`.
+4. It verifies backend readiness at `/api/ready` and frontend identity before reporting the UI as ready.
+5. Unless `-NoBrowser` is set, it opens the frontend in a dedicated Edge/Chrome app window using a temporary `--user-data-dir`.
+6. It records all browser processes tied to that temporary profile, including the visible window process.
+7. A hidden watchdog watches the launcher process. If the command window exits unexpectedly, the watchdog closes the browser profile and stops the owned backend/frontend process trees.
+8. The foreground loop watches the browser window. If the dedicated browser window closes, the launcher logs `Browser window closed; shutting down Sentinel Edge` and cleans up owned tasks.
+
+This behavior keeps local tests tidy: closing the UI closes the local services, and closing the command window closes the UI. It also avoids mixing the operator's normal browser profile with bot-control pages.
+
+Launcher logs are written to:
+
+```text
+%USERPROFILE%\Desktop\Sentinel-Edge-Local.log
+```
+
+Temporary browser profiles use the system temp folder and names like:
+
+```text
+SentinelEdge-Local-Browser-<launcher-pid>
+```
 
 ---
 
@@ -866,6 +901,7 @@ Focused commands:
 ```powershell
 backend\.venv\Scripts\python.exe -m unittest discover -s backend/tests
 backend\.venv\Scripts\python.exe -m unittest discover -s backend/tests -p "test_*static.py"
+python -m unittest backend.tests.test_local_launcher_lifecycle_static -v
 
 cd frontend
 npm run lint
