@@ -562,6 +562,8 @@ sentinel-edge/
 |-- prometheus/                         # Prometheus rules and Alertmanager config
 |-- scripts/
 |   `-- verify-local.ps1               # Local verification gate
+|-- Launch-Sentinel-Bot-Suite.ps1      # Windows suite launcher for Edge, Pulse, Darkpool, Discord, Crypto, and Tandem
+|-- Launch-Sentinel-Bot-Suite.bat
 |-- Launch-Sentinel-Edge-Local.ps1      # Windows source launcher
 |-- Launch-Sentinel-Edge-Local.bat
 |-- docker-compose.yml
@@ -571,6 +573,26 @@ sentinel-edge/
 ---
 
 ## Quick Start
+
+### Option 0: Windows bot suite launcher
+
+From this repository root, double-click `Launch-Sentinel-Bot-Suite.bat` or run:
+
+```powershell
+.\Launch-Sentinel-Bot-Suite.ps1
+```
+
+The suite launcher starts the local Sentinel Edge, Sentinel Pulse, Darkpool Monitor, Discord options bot, Auto-Crypto, and Sentinel Tandem Suite launchers from the local paths used on this workstation. By default it suppresses individual component browser windows, then opens Tandem as the main operator console.
+
+Useful flags:
+
+| Flag | Purpose |
+|------|---------|
+| `-InstallDeps` | Forward dependency installation to child launchers. |
+| `-OpenComponentBrowsers` | Also open Edge, Pulse, Darkpool, Discord, and Crypto browser windows. |
+| `-NoBrowser` | Do not open Tandem automatically. |
+| `-SkipEdge`, `-SkipPulse`, `-SkipDarkpool`, `-SkipDiscord`, `-SkipCrypto`, `-SkipTandem` | Launch a smaller local set. |
+| `-NoWait` | Send launch requests and let this suite window exit. |
 
 ### Option 1: Windows local source launcher
 
@@ -584,8 +606,8 @@ Useful flags:
 
 | Flag | Purpose |
 |------|---------|
-| `-BackendPort 8001` | Choose backend port. |
-| `-FrontendPort 3001` | Choose frontend port. |
+| `-BackendPort 8000` | Choose backend port. |
+| `-FrontendPort 3000` | Choose frontend port. |
 | `-NoBrowser` | Do not open a browser automatically. |
 | `-InstallDeps` | Install backend/frontend dependencies before launch. |
 
@@ -601,7 +623,7 @@ From the repository root:
 cd backend
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
-$env:SENTINEL_EDGE_PORT = "8001"
+$env:SENTINEL_EDGE_PORT = "8000"
 .\.venv\Scripts\python.exe server.py
 ```
 
@@ -609,7 +631,7 @@ Or with uvicorn:
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8001 --reload
+.\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### Option 3: Manual frontend
@@ -622,7 +644,7 @@ npm install
 npm run dev
 ```
 
-The frontend dev server defaults to Vite behavior. The local launcher uses port `3001` to avoid Pulse's local UI on `3000`.
+The frontend dev server defaults to Vite behavior. The local launcher uses port `3000` in the workstation bot-suite map.
 
 ### Option 4: Docker stack
 

@@ -31,11 +31,15 @@ class FakeOrbCollection:
         self.docs = docs
         self.last_query = None
         self.last_projection = None
+        self.updates = []
 
     def find(self, query, projection):
         self.last_query = query
         self.last_projection = projection
         return FakeOrbCursor(self.docs)
+
+    async def update_one(self, query, update, upsert=False):
+        self.updates.append({"query": query, "update": update, "upsert": upsert})
 
 
 class FakeDb:
@@ -83,6 +87,52 @@ class ORBPersistenceRestoreTests(unittest.IsolatedAsyncioTestCase):
         restored_level = status["sessions"]["premarket_30m"]["levels"]["30m"]
         self.assertEqual(restored_level["start_time"], "2026-06-10T09:00:00-04:00")
         self.assertEqual(restored_level["lock_time"], "2026-06-10T09:30:00-04:00")
+
+    async def test_persist_skips_stale_levels_during_next_day_preopen(self):
+        scheduler = object.__new__(EvaluationScheduler)
+        scheduler.orb = ORBTracker()
+        scheduler.db = FakeDb([])
+
+        scheduler.orb.update("SPY", 100.0, datetime(2026, 6, 15, 9, 31, tzinfo=ET))
+        stale_levels = scheduler.orb.get_levels("SPY")
+
+        await scheduler._persist_orb(
+            "SPY",
+            stale_levels,
+            datetime(2026, 6, 16, 8, 30, tzinfo=ET),
+        )
+
+        self.assertEqual(scheduler.db.orb_levels.updates, [])
+
+    async def test_restore_skips_doc_with_cross_date_level_timestamps(self):
+        scheduler = object.__new__(EvaluationScheduler)
+        scheduler.orb = ORBTracker()
+        scheduler.db = FakeDb(
+            [
+                {
+                    "symbol": "SPY",
+                    "date": "2026-06-16",
+                    "sessions": {
+                        "market_open": {
+                            "15": {
+                                "high": 450.0,
+                                "low": 445.0,
+                                "locked": True,
+                                "is_valid": True,
+                                "session_id": "market_open",
+                                "start_time": "2026-06-15T09:30:00-04:00",
+                                "lock_time": "2026-06-15T09:45:00-04:00",
+                            }
+                        }
+                    },
+                }
+            ]
+        )
+
+        await scheduler._load_orb_from_db(now=datetime(2026, 6, 16, 8, 30, tzinfo=ET))
+
+        level = scheduler.orb.get_session_levels("SPY")["market_open"][15]
+        self.assertFalse(level.is_valid)
 
 
 if __name__ == "__main__":

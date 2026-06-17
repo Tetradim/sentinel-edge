@@ -18,7 +18,7 @@ The frontend is the local browser experience for Edge's analysis, readiness, pro
 
 ## Runtime Role
 
-The app talks to the Edge FastAPI backend through the API helpers in `src/lib/api.ts`. The Windows source launcher normally sets the backend URL and starts this app on `127.0.0.1:3001`.
+The app talks to the Edge FastAPI backend through the API helpers in `src/lib/api.ts`. The Windows source launcher normally sets the backend URL and starts this app on `127.0.0.1:3000`.
 
 Primary UI surfaces:
 
@@ -46,8 +46,8 @@ npm run dev
 Typical local URLs:
 
 ```text
-Frontend: http://127.0.0.1:3001
-Backend:  http://127.0.0.1:8001
+Frontend: http://127.0.0.1:3000
+Backend:  http://127.0.0.1:8000
 ```
 
 The preferred full-stack source workflow is from the repository root:

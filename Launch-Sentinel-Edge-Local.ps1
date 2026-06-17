@@ -2,8 +2,8 @@
 # Runs the edited local source tree without building an installer.
 
 param(
-    [int]$BackendPort = 8001,
-    [int]$FrontendPort = 3001,
+    [int]$BackendPort = 8000,
+    [int]$FrontendPort = 3000,
     [switch]$NoBrowser,
     [switch]$InstallDeps
 )

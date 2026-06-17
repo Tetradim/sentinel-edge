@@ -63,6 +63,23 @@ def _coerce_persisted_orb_datetime(
     return fallback
 
 
+def _orb_level_matches_trading_date(level: ORBLevel, trading_date: str) -> bool:
+    if level.date != trading_date:
+        return False
+    for value in (level.start_time, level.lock_time):
+        if value is not None and _to_et(value).strftime("%Y-%m-%d") != trading_date:
+            return False
+    return True
+
+
+def _persisted_orb_level_matches_date(level_data: Dict[str, Any], trading_date: str) -> bool:
+    for field in ("start_time", "lock_time"):
+        value = _coerce_persisted_orb_datetime(level_data.get(field))
+        if value is not None and value.strftime("%Y-%m-%d") != trading_date:
+            return False
+    return True
+
+
 class EvaluationScheduler:
     """Continuously evaluate tickers and make decisions."""
 
@@ -818,10 +835,11 @@ class EvaluationScheduler:
         if self.db is None:
             return
         try:
+            trading_date = _to_et(now).strftime("%Y-%m-%d")
             orb_decision_context = self.orb.get_decision_context(symbol, now=now)
             levels_doc: Dict[str, Dict] = {}
             for tf, level in orb_levels.items():
-                if level.is_valid:
+                if level.is_valid and _orb_level_matches_trading_date(level, trading_date):
                     safe_low = level.low if level.low != float("inf") else 0.0
                     levels_doc[str(tf)] = {
                         "high":   level.high,
@@ -836,7 +854,7 @@ class EvaluationScheduler:
             for session_id, session_levels in self.orb.get_session_levels(symbol).items():
                 session_doc: Dict[str, Dict] = {}
                 for tf, level in session_levels.items():
-                    if level.is_valid:
+                    if level.is_valid and _orb_level_matches_trading_date(level, trading_date):
                         safe_low = level.low if level.low != float("inf") else 0.0
                         session_doc[str(tf)] = {
                             "high": level.high,
@@ -852,10 +870,10 @@ class EvaluationScheduler:
 
             if levels_doc or sessions_doc:
                 await self.db.orb_levels.update_one(
-                    {"symbol": symbol, "date": now.strftime("%Y-%m-%d")},
+                    {"symbol": symbol, "date": trading_date},
                     {"$set": {
                         "symbol":     symbol,
-                        "date":       now.strftime("%Y-%m-%d"),
+                        "date":       trading_date,
                         "levels":     levels_doc,
                         "sessions": sessions_doc,
                         "decision_context": orb_decision_context,
@@ -876,6 +894,7 @@ class EvaluationScheduler:
             count = 0
             async for doc in self.db.orb_levels.find({"date": today}, {"_id": 0}):
                 symbol = doc["symbol"]
+                doc_date = doc.get("date", today)
                 if symbol not in self.orb.orb_sessions:
                     self.orb._init_symbol(symbol, restore_now.date())
 
@@ -884,7 +903,7 @@ class EvaluationScheduler:
                     session_bucket = self.orb.orb_sessions[symbol].setdefault(session_id, {})
                     for tf_str, level_data in session_levels.items():
                         tf = int(tf_str)
-                        if level_data.get("is_valid"):
+                        if level_data.get("is_valid") and _persisted_orb_level_matches_date(level_data, doc_date):
                             session_bucket[tf] = ORBLevel(
                                 high=level_data["high"],
                                 low=level_data["low"],
@@ -901,7 +920,11 @@ class EvaluationScheduler:
 
                 for tf_str, level_data in doc.get("levels", {}).items():
                     tf = int(tf_str)
-                    if tf in [5, 15, 30] and level_data.get("is_valid"):
+                    if (
+                        tf in [5, 15, 30]
+                        and level_data.get("is_valid")
+                        and _persisted_orb_level_matches_date(level_data, doc_date)
+                    ):
                         market_open_levels = self.orb.orb_sessions[symbol].setdefault(
                             MARKET_OPEN_SESSION_ID,
                             {},
