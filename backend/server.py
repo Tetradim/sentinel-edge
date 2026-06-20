@@ -37,6 +37,7 @@ from scheduler import EvaluationScheduler
 from signals import SignalEngine
 from alert_handler import router as alert_handler_router, shutdown as alert_handler_shutdown
 from automation import AutomationMode
+from bot_event_bus_routes import router as bot_event_bus_router
 from chart_workspace import build_chart_workspace_payload
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.handoff import pulse_handoff_contract_document
@@ -2093,6 +2094,7 @@ async def metrics():
 # ─────────────────────────────────────────────────────────────────────────────
 
 app.include_router(api_router)
+app.include_router(bot_event_bus_router, prefix="/api")
 
 # Alertmanager webhook receiver — /api/webhook/alert, /api/webhook/health
 app.include_router(webhook_router, prefix="/api")

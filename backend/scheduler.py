@@ -43,6 +43,7 @@ from position_tracker import PositionTracker
 from price_fetcher import PriceFetcher
 from providers.ws_manager import WebSocketManager
 from pulse_client import PulseClient
+from shared.bot_event_bus import build_edge_action_event_payload, publish_event
 from signals import SignalEngine, TrendDirection
 
 logger = logging.getLogger(__name__)
@@ -765,13 +766,33 @@ class EvaluationScheduler:
                 "idempotency_key": command.idempotency_key,
             }
 
-        handoff_result = await self.pulse.send_handoff_command(command.payload())
+        command_payload = command.payload()
+        bus_event = publish_event(
+            "edge.action",
+            payload=build_edge_action_event_payload(command_payload),
+            correlation_id=command_payload.get("idempotency_key"),
+            dedupe_key=command_payload.get("idempotency_key"),
+            target_bots=["sentinel-pulse", "consolidation", "auto-crypto", "darkpool-mon"],
+            trace={"transport": "cross-bot-event-bus", "pulse_handoff_attempted": True},
+        )
+        handoff_result = await self.pulse.send_handoff_command(command_payload)
         if not isinstance(handoff_result, dict):
             handoff_result = {
                 "sent": bool(handoff_result),
                 "status": "accepted" if handoff_result else "failed",
                 "reason": "pulse_accepted" if handoff_result else "pulse_send_failed",
             }
+        publish_event(
+            "edge.action.feedback",
+            payload=build_edge_action_event_payload(command_payload, feedback=handoff_result),
+            correlation_id=command_payload.get("idempotency_key"),
+            dedupe_key=f"{command_payload.get('idempotency_key')}:feedback:{handoff_result.get('status')}",
+            target_bots=["sentinel-pulse", "consolidation", "auto-crypto", "darkpool-mon"],
+            trace={
+                "edge_action_event_id": bus_event.event_id,
+                "transport": "cross-bot-event-bus",
+            },
+        )
         self.automation.record_sent(command, handoff_result)
         handoff_sent = bool(handoff_result.get("sent", False))
         if handoff_sent:
