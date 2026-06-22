@@ -4,6 +4,10 @@ export type Mode = 'monitor' | 'command' | 'protect' | 'operations' | 'settings'
 export type OperationsView = 'overview' | 'charts' | 'scanners' | 'advisor' | 'experience' | 'protection' | 'pnl' | 'markets' | 'portfolio' | 'settings' | 'tutorials';
 export type Tone = 'green' | 'cyan' | 'gold' | 'red';
 export type EventFilter = 'all' | 'selected' | 'system';
+export type CoreColorMetric = 'risk' | 'signal' | 'flow' | 'drawdown';
+export type CoreSizeMetric = 'exposure' | 'liquidity' | 'volatility';
+export type CoreUniverse = 'watchlist' | 'watchers' | 'all';
+export type CoreLabelMode = 'symbol' | 'signal' | 'heat';
 
 export interface Watcher {
   plugin: string;
@@ -87,4 +91,17 @@ export interface SignalIntelligenceModel {
   state: string;
   pressure: string;
   contributors: { label: string; value: string; tone: Tone }[];
+}
+
+export interface CoreHeatmapConfig {
+  colorMetric: CoreColorMetric;
+  sizeMetric: CoreSizeMetric;
+  universe: CoreUniverse;
+  horizon: string;
+  density: number;
+  alertThreshold: number;
+  includeIdle: boolean;
+  autoFocusTicker: boolean;
+  labelMode: CoreLabelMode;
+  operatorNote: string;
 }

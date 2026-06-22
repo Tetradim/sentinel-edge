@@ -32,6 +32,13 @@ export default function AssetCommandConsole() {
     setMenuOpen,
     customHorizon,
     setCustomHorizon,
+    coreConfig,
+    coreConfigOpen,
+    setCoreConfigOpen,
+    updateCoreConfig,
+    resetCoreConfig,
+    applyCoreConfig,
+    selectCoreTicker,
     visibleReels,
     setVisibleReels,
     selectedMetrics,
@@ -138,6 +145,13 @@ export default function AssetCommandConsole() {
               setMenuOpen={setMenuOpen}
               customHorizon={customHorizon}
               setCustomHorizon={setCustomHorizon}
+              coreConfig={coreConfig}
+              coreConfigOpen={coreConfigOpen}
+              setCoreConfigOpen={setCoreConfigOpen}
+              updateCoreConfig={updateCoreConfig}
+              resetCoreConfig={resetCoreConfig}
+              applyCoreConfig={applyCoreConfig}
+              selectCoreTicker={selectCoreTicker}
               setPrediction={setPrediction}
               reels={reels}
             />

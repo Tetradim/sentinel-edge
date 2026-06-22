@@ -1,0 +1,350 @@
+.edge-core-shell {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(100%, 250px);
+}
+
+.edge-core-map {
+  position: relative;
+  width: min(100%, 230px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+.edge-core-map::before {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border: 1px solid rgba(246, 193, 74, .32);
+  background:
+    linear-gradient(rgba(2, 7, 10, .34), rgba(2, 7, 10, .72)),
+    url("/assets/edge-hex-gold.jpg") center / cover no-repeat;
+  clip-path: polygon(50% 0, 92% 25%, 92% 75%, 50% 100%, 8% 75%, 8% 25%);
+  box-shadow: 0 0 34px rgba(246, 193, 74, .13), inset 0 0 22px rgba(0, 0, 0, .72);
+  content: "";
+}
+
+.edge-core-map::after {
+  position: absolute;
+  inset: 22px;
+  z-index: -1;
+  border: 1px solid rgba(32, 215, 255, .26);
+  background:
+    radial-gradient(circle at center, rgba(32, 215, 255, .15), transparent 42%),
+    rgba(2, 8, 14, .52);
+  clip-path: polygon(50% 0, 92% 25%, 92% 75%, 50% 100%, 8% 75%, 8% 25%);
+  content: "";
+}
+
+.edge-core-center,
+.edge-core-cell {
+  font-family: "Share Tech Mono", monospace;
+  text-transform: uppercase;
+  transition: border-color 180ms ease, color 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+.edge-core-center {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 94px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(32, 215, 255, .64);
+  background:
+    radial-gradient(circle at center, rgba(32, 215, 255, .24), rgba(3, 11, 16, .9) 68%),
+    rgba(3, 11, 16, .9);
+  color: #dff7ff;
+  clip-path: polygon(50% 0, 92% 25%, 92% 75%, 50% 100%, 8% 75%, 8% 25%);
+  box-shadow: 0 0 30px rgba(32, 215, 255, .28), inset 0 0 22px rgba(255, 255, 255, .06);
+}
+
+.edge-core-center:hover,
+.edge-core-center:focus-visible {
+  border-color: rgba(246, 193, 74, .84);
+  color: #fff6d7;
+  outline: none;
+  transform: scale(1.04);
+}
+
+.edge-core-center span,
+.edge-core-center em,
+.edge-core-summary span,
+.edge-core-modal span,
+.edge-core-modal small,
+.edge-core-toggle-row {
+  color: #9fb2bf;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.1;
+}
+
+.edge-core-center strong {
+  color: var(--cyan);
+  font-size: 32px;
+  line-height: .9;
+}
+
+.edge-core-cell {
+  --cell-angle: calc((360deg / max(var(--edge-cell-count), 1)) * var(--cell-index, 0));
+  --cell-radius: 78px;
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .08), transparent),
+    color-mix(in srgb, var(--cell-color, var(--cyan)) calc(var(--cell-heat) * .72), rgba(5, 13, 19, .92));
+  color: #e8f9ff;
+  clip-path: polygon(50% 0, 92% 25%, 92% 75%, 50% 100%, 8% 75%, 8% 25%);
+  opacity: .9;
+  transform:
+    rotate(calc((360deg / max(var(--edge-cell-count), 1)) * var(--cell-order)))
+    translateY(calc(var(--cell-radius) * -1))
+    rotate(calc((360deg / max(var(--edge-cell-count), 1)) * var(--cell-order) * -1))
+    scale(var(--cell-scale));
+  animation: edge-core-cell-in 360ms ease both;
+  animation-delay: var(--cell-delay);
+}
+
+.edge-core-cell:nth-of-type(2) { --cell-order: 0; }
+.edge-core-cell:nth-of-type(3) { --cell-order: 1; }
+.edge-core-cell:nth-of-type(4) { --cell-order: 2; }
+.edge-core-cell:nth-of-type(5) { --cell-order: 3; }
+.edge-core-cell:nth-of-type(6) { --cell-order: 4; }
+.edge-core-cell:nth-of-type(7) { --cell-order: 5; }
+.edge-core-cell:nth-of-type(8) { --cell-order: 6; }
+
+.edge-core-cell.heat-low { --cell-color: #50ff86; }
+.edge-core-cell.heat-mid { --cell-color: #f6c14a; }
+.edge-core-cell.heat-high { --cell-color: #ff4141; }
+
+.edge-core-cell strong {
+  white-space: pre-line;
+  color: #fff;
+  font-size: 13px;
+  line-height: .98;
+  text-align: center;
+}
+
+.edge-core-cell span {
+  color: rgba(229, 242, 248, .78);
+  font-size: 8px;
+}
+
+.edge-core-cell.active {
+  border-color: rgba(32, 215, 255, .9);
+  box-shadow: 0 0 18px rgba(32, 215, 255, .34), inset 0 0 12px rgba(255, 255, 255, .08);
+}
+
+.edge-core-cell:hover,
+.edge-core-cell:focus-visible {
+  z-index: 3;
+  border-color: rgba(255, 255, 255, .72);
+  outline: none;
+  transform:
+    rotate(calc((360deg / max(var(--edge-cell-count), 1)) * var(--cell-order)))
+    translateY(calc((var(--cell-radius) + 4px) * -1))
+    rotate(calc((360deg / max(var(--edge-cell-count), 1)) * var(--cell-order) * -1))
+    scale(calc(var(--cell-scale) + .05));
+}
+
+.edge-core-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.edge-core-summary div {
+  min-width: 0;
+  border: 1px solid rgba(104, 213, 255, .16);
+  background: rgba(0, 0, 0, .2);
+  padding: 7px 6px;
+  text-align: center;
+}
+
+.edge-core-summary strong {
+  display: block;
+  overflow: hidden;
+  color: #dff7ff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.edge-core-config-button {
+  width: 100%;
+  border: 1px solid rgba(246, 193, 74, .36);
+  background: rgba(246, 193, 74, .1);
+  color: var(--gold);
+  padding: 8px 10px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-core-config-button:hover,
+.edge-core-config-button:focus-visible {
+  border-color: rgba(246, 193, 74, .72);
+  color: #fff6d7;
+  outline: none;
+}
+
+.edge-core-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, .62);
+  backdrop-filter: blur(8px);
+}
+
+.edge-core-modal {
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100dvh - 36px));
+  overflow: auto;
+  border: 1px solid rgba(246, 193, 74, .3);
+  border-radius: 6px;
+  background:
+    linear-gradient(rgba(4, 10, 15, .9), rgba(4, 10, 15, .96)),
+    url("/assets/edge-circuit-matte.jpg") center / cover no-repeat;
+  box-shadow: 0 26px 90px rgba(0, 0, 0, .58);
+  color: var(--text);
+}
+
+.edge-core-modal header,
+.edge-core-modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.edge-core-modal footer {
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-bottom: 0;
+}
+
+.edge-core-modal h2 {
+  margin: 3px 0 0;
+  color: #e8f9ff;
+  font-size: 28px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.edge-core-modal button,
+.edge-core-modal select,
+.edge-core-modal input,
+.edge-core-modal textarea {
+  border: 1px solid rgba(104, 213, 255, .22);
+  background: rgba(0, 0, 0, .3);
+  color: #e8f9ff;
+  font: inherit;
+}
+
+.edge-core-modal header button,
+.edge-core-modal footer button {
+  padding: 9px 12px;
+  color: var(--cyan);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-core-modal footer button:last-child {
+  border-color: rgba(80, 255, 134, .38);
+  background: rgba(80, 255, 134, .13);
+  color: var(--green);
+}
+
+.edge-core-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.edge-core-modal label {
+  display: grid;
+  gap: 6px;
+  color: #a6b7c3;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-core-modal label strong {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.edge-core-modal select,
+.edge-core-modal input[type="text"],
+.edge-core-modal textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 10px;
+}
+
+.edge-core-modal textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.edge-core-note {
+  grid-column: 1 / -1;
+}
+
+.edge-core-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.edge-core-toggle-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(0, 0, 0, .22);
+  padding: 8px 10px;
+}
+
+@keyframes edge-core-cell-in {
+  from { opacity: 0; transform: scale(.76); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-core-cell {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .edge-core-shell {
+    width: min(100%, 310px);
+  }
+
+  .edge-core-map {
+    width: min(100%, 250px);
+  }
+
+  .edge-core-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}

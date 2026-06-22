@@ -1,7 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { initialEvents, money, nowTime, tickers } from '../data';
-import type { EventFilter, EventLine, SignalIntelligenceModel, Tone } from '../types';
+import { defaultCoreHeatmapConfig, initialEvents, money, nowTime, tickers } from '../data';
+import type { CoreHeatmapConfig, EventFilter, EventLine, SignalIntelligenceModel, Tone } from '../types';
+
+const CORE_CONFIG_STORAGE_KEY = 'edge_core_heatmap_config';
 
 export function useAssetCommandState() {
   const [selectedSymbol, setSelectedSymbol] = useState('SPY');
@@ -10,6 +12,8 @@ export function useAssetCommandState() {
   const [customHorizon, setCustomHorizon] = useState('90m');
   const [visibleReels, setVisibleReels] = useState(5);
   const [selectedMetrics, setSelectedMetrics] = useState(['hist', 'vscore', 'emaTop', 'invalid', 'momentum']);
+  const [coreConfig, setCoreConfig] = useState<CoreHeatmapConfig>(() => loadCoreConfig());
+  const [coreConfigOpen, setCoreConfigOpen] = useState(false);
   const [events, setEvents] = useState<EventLine[]>(() => initialEvents.map((event) => ({ ...event, time: nowTime() })));
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
   const [feedPaused, setFeedPaused] = useState(false);
@@ -31,6 +35,11 @@ export function useAssetCommandState() {
     if (eventFilter === 'system') return event.symbol === 'EDGE' || event.symbol === 'PROTECT';
     return true;
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(CORE_CONFIG_STORAGE_KEY, JSON.stringify(coreConfig));
+  }, [coreConfig]);
 
   const intelligence: SignalIntelligenceModel = useMemo(() => {
     const pluginBoost = selected.watchers.length ? 18 : 4;
@@ -135,6 +144,25 @@ export function useAssetCommandState() {
     setSelectedMetrics((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   };
 
+  const updateCoreConfig = <K extends keyof CoreHeatmapConfig>(key: K, value: CoreHeatmapConfig[K]) => {
+    setCoreConfig((current) => ({ ...current, [key]: value }));
+  };
+
+  const resetCoreConfig = () => {
+    setCoreConfig(defaultCoreHeatmapConfig);
+    addEvent('EDGE', 'Core heatmap reset', 'Visualization settings restored to the default risk view');
+  };
+
+  const applyCoreConfig = () => {
+    setCoreConfigOpen(false);
+    addEvent('EDGE', 'Core heatmap configured', `${coreConfig.colorMetric} color / ${coreConfig.sizeMetric} size / ${coreConfig.horizon}`);
+  };
+
+  const selectCoreTicker = (symbol: string) => {
+    if (coreConfig.autoFocusTicker) selectSymbol(symbol);
+    addEvent(symbol, 'Core heat cell inspected', `${coreConfig.colorMetric} view with ${coreConfig.sizeMetric} sizing`);
+  };
+
   const pickerItems = Array.from({ length: 7 }, (_, offset) => tickers[(selectedIndex + offset - 3 + tickers.length) % tickers.length]);
 
   return {
@@ -146,6 +174,9 @@ export function useAssetCommandState() {
     setMenuOpen,
     customHorizon,
     setCustomHorizon,
+    coreConfig,
+    coreConfigOpen,
+    setCoreConfigOpen,
     visibleReels,
     setVisibleReels,
     selectedMetrics,
@@ -167,5 +198,36 @@ export function useAssetCommandState() {
     runMonitorAction,
     runProtectionAction,
     toggleMetric,
+    updateCoreConfig,
+    resetCoreConfig,
+    applyCoreConfig,
+    selectCoreTicker,
   };
+}
+
+function loadCoreConfig(): CoreHeatmapConfig {
+  if (typeof window === 'undefined') return defaultCoreHeatmapConfig;
+
+  try {
+    const savedConfig = window.localStorage.getItem(CORE_CONFIG_STORAGE_KEY);
+    if (!savedConfig) return defaultCoreHeatmapConfig;
+
+    const parsed = JSON.parse(savedConfig) as Partial<CoreHeatmapConfig>;
+    return {
+      ...defaultCoreHeatmapConfig,
+      ...parsed,
+      density: clampConfigNumber(parsed.density, 3, 7, defaultCoreHeatmapConfig.density),
+      alertThreshold: clampConfigNumber(parsed.alertThreshold, 30, 90, defaultCoreHeatmapConfig.alertThreshold),
+      horizon: typeof parsed.horizon === 'string' && parsed.horizon.trim() ? parsed.horizon : defaultCoreHeatmapConfig.horizon,
+      operatorNote: typeof parsed.operatorNote === 'string' ? parsed.operatorNote : defaultCoreHeatmapConfig.operatorNote,
+    };
+  } catch {
+    return defaultCoreHeatmapConfig;
+  }
+}
+
+function clampConfigNumber(value: unknown, min: number, max: number, fallback: number) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.max(min, Math.min(max, numberValue));
 }

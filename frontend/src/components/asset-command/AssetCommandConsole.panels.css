@@ -1,9 +1,9 @@
 .edge-console-grid {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(168px, 1fr) 150px 210px 96px;
+  grid-template-columns: minmax(168px, 1fr) 150px minmax(230px, 270px) 96px;
   gap: 12px;
-  min-height: 290px;
+  min-height: 342px;
   margin: 14px;
   padding: 14px;
   overflow: hidden;
@@ -134,7 +134,7 @@
 }
 
 .edge-hex-wrap {
-  min-height: 250px;
+  min-height: 316px;
   display: grid;
   place-items: center;
 }

@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSET_COMMAND = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.tsx"
 ASSET_COMMAND_CSS = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.css"
 ASSET_COMMAND_ACTIVITY_CSS = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.activity.css"
+ASSET_COMMAND_CORE_CSS = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.core.css"
+ASSET_COMMAND_ITERATIONS_CSS = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.iterations.css"
 ASSET_COMMAND_PICKER_CSS = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.picker.css"
 ASSET_COMMAND_PANELS_CSS = ROOT / "frontend" / "src" / "components" / "asset-command" / "AssetCommandConsole.panels.css"
 ASSET_COMMAND_TYPES = ROOT / "frontend" / "src" / "components" / "asset-command" / "types.ts"
@@ -15,8 +17,10 @@ ASSET_COMMAND_STATE_HOOK = ROOT / "frontend" / "src" / "components" / "asset-com
 ASSET_COMMAND_ACTIVITY = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "ActivityLog.tsx"
 ASSET_COMMAND_PICKER = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "TickerPicker.tsx"
 ASSET_COMMAND_COMMAND_MODE = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "CommandModePanel.tsx"
+ASSET_COMMAND_CORE_HEATMAP = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "EdgeCoreHeatmap.tsx"
 ASSET_COMMAND_MODE_TABS = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "ModeTabs.tsx"
 ASSET_COMMAND_OPERATIONS = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "OperationsPanel.tsx"
+ASSET_COMMAND_UI_ITERATION_LAB = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "UiIterationLab.tsx"
 ASSET_COMMAND_SHARED = ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "shared.tsx"
 ASSET_COMMAND_NAVIGATION_HOOK = ROOT / "frontend" / "src" / "components" / "asset-command" / "hooks" / "useAssetCommandNavigation.ts"
 ASSET_COMMAND_RUNTIME_HOOK = ROOT / "frontend" / "src" / "components" / "asset-command" / "hooks" / "useRuntimeStatus.ts"
@@ -28,7 +32,14 @@ def read_existing(*paths: Path) -> str:
 
 
 def read_asset_command_styles() -> str:
-    return read_existing(ASSET_COMMAND_CSS, ASSET_COMMAND_ACTIVITY_CSS, ASSET_COMMAND_PICKER_CSS, ASSET_COMMAND_PANELS_CSS)
+    return read_existing(
+        ASSET_COMMAND_CSS,
+        ASSET_COMMAND_ACTIVITY_CSS,
+        ASSET_COMMAND_CORE_CSS,
+        ASSET_COMMAND_ITERATIONS_CSS,
+        ASSET_COMMAND_PICKER_CSS,
+        ASSET_COMMAND_PANELS_CSS,
+    )
 
 
 class AssetCommandUiStaticTests(unittest.TestCase):
@@ -184,6 +195,48 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("grid-auto-flow: column", css)
         self.assertIn("grid-auto-columns", css)
 
+    def test_command_core_heatmap_is_clickable_and_configurable(self):
+        text = read_existing(
+            ASSET_COMMAND,
+            ASSET_COMMAND_TYPES,
+            ASSET_COMMAND_DATA,
+            ASSET_COMMAND_STATE_HOOK,
+            ASSET_COMMAND_COMMAND_MODE,
+            ASSET_COMMAND_CORE_HEATMAP,
+        )
+        css = read_asset_command_styles()
+
+        self.assertIn("EdgeCoreHeatmap", text)
+        self.assertIn("CoreHeatmapConfig", text)
+        self.assertIn("defaultCoreHeatmapConfig", text)
+        self.assertIn("coreColorMetricOptions", text)
+        self.assertIn("selectCoreTicker", text)
+        self.assertIn("edge_core_heatmap_config", text)
+        self.assertIn("window.localStorage.setItem", text)
+        self.assertIn("Configure heatmap", text)
+        self.assertIn('role="dialog"', text)
+        self.assertIn("event.key === 'Escape'", text)
+        self.assertIn("event.target === event.currentTarget", text)
+        self.assertIn("Color metric", text)
+        self.assertIn("Alert threshold", text)
+        self.assertIn(".edge-core-cell", css)
+        self.assertIn(".edge-core-modal", css)
+
+    def test_ui_iteration_lab_surfaces_new_and_original_modified_directions(self):
+        text = read_existing(ASSET_COMMAND_UI_ITERATION_LAB, ASSET_COMMAND_PICKER, ASSET_COMMAND_COMMAND_MODE)
+        settings_text = read_existing(ROOT / "frontend" / "src" / "components" / "asset-command" / "components" / "SettingsPanel.tsx")
+        css = read_asset_command_styles()
+
+        self.assertEqual(text.count("id: 'new-"), 5)
+        self.assertEqual(text.count("id: 'mod-"), 5)
+        self.assertIn("5 new UI", text)
+        self.assertIn("5 original mods", text)
+        self.assertIn("Preview ticker", text)
+        self.assertIn("Font scale", text)
+        self.assertIn("Readability layer", text)
+        self.assertIn("UiIterationLab", settings_text)
+        self.assertIn(".edge-ui-lab", css)
+
     def test_activity_log_can_be_filtered_without_losing_total_context(self):
         text = read_existing(ASSET_COMMAND, ASSET_COMMAND_TYPES, ASSET_COMMAND_DATA, ASSET_COMMAND_STATE_HOOK, ASSET_COMMAND_ACTIVITY)
         css = read_asset_command_styles()
@@ -199,6 +252,15 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn("visibleEvents.length === 0", text)
         self.assertIn(".edge-event-filters", css)
         self.assertIn(".edge-event-empty", css)
+
+    def test_activity_log_stays_bounded_when_center_content_is_tall(self):
+        css = read_asset_command_styles()
+
+        self.assertIn("align-self: start", css)
+        self.assertIn("max-height: min(760px, calc(100dvh - 40px))", css)
+        self.assertIn("flex-direction: column", css)
+        self.assertIn("overflow-y: auto", css)
+        self.assertIn("overscroll-behavior: contain", css)
 
     def test_activity_log_filter_buttons_expose_event_counts(self):
         text = read_existing(ASSET_COMMAND, ASSET_COMMAND_TYPES, ASSET_COMMAND_DATA, ASSET_COMMAND_STATE_HOOK, ASSET_COMMAND_ACTIVITY)

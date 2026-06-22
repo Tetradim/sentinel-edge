@@ -1,5 +1,10 @@
 .edge-events {
-  min-height: 760px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  height: min(760px, calc(100dvh - 40px));
+  max-height: min(760px, calc(100dvh - 40px));
+  min-height: 520px;
 }
 
 .edge-event-filters {
@@ -49,7 +54,12 @@
 }
 
 .edge-event-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px 16px 20px;
+  scrollbar-gutter: stable;
 }
 
 .edge-event-empty {
@@ -118,4 +128,11 @@
   font-family: Rajdhani, sans-serif;
   font-size: 15px;
   font-weight: 600;
+}
+
+@media (max-width: 1180px) {
+  .edge-events {
+    max-height: 760px;
+    min-height: 520px;
+  }
 }

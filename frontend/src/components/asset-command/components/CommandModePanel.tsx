@@ -1,5 +1,7 @@
 import type React from 'react';
-import type { Metric, SignalIntelligenceModel, Ticker, Watcher } from '../types';
+import { tickers } from '../data';
+import type { CoreHeatmapConfig, Metric, SignalIntelligenceModel, Ticker, Watcher } from '../types';
+import { EdgeCoreHeatmap } from './EdgeCoreHeatmap';
 
 export function CommandModePanel({
   selected,
@@ -10,6 +12,13 @@ export function CommandModePanel({
   setMenuOpen,
   customHorizon,
   setCustomHorizon,
+  coreConfig,
+  coreConfigOpen,
+  setCoreConfigOpen,
+  updateCoreConfig,
+  resetCoreConfig,
+  applyCoreConfig,
+  selectCoreTicker,
   setPrediction,
   reels,
 }: {
@@ -21,6 +30,13 @@ export function CommandModePanel({
   setMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   customHorizon: string;
   setCustomHorizon: React.Dispatch<React.SetStateAction<string>>;
+  coreConfig: CoreHeatmapConfig;
+  coreConfigOpen: boolean;
+  setCoreConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  updateCoreConfig: <K extends keyof CoreHeatmapConfig>(key: K, value: CoreHeatmapConfig[K]) => void;
+  resetCoreConfig: () => void;
+  applyCoreConfig: () => void;
+  selectCoreTicker: (symbol: string) => void;
   setPrediction: (next: string) => void;
   reels: Metric[];
 }) {
@@ -44,7 +60,19 @@ export function CommandModePanel({
             <span>{watcher ? `${watcher.source} / ${watcher.status}` : 'Sentinel Pulse / idle'}</span>
           </div>
         </section>
-        <section className="edge-hex-wrap" aria-label="Edge core"><div className="edge-target-core" /></section>
+        <section className="edge-hex-wrap" aria-label="Edge core">
+          <EdgeCoreHeatmap
+            tickers={tickers}
+            selectedSymbol={selected.symbol}
+            config={coreConfig}
+            open={coreConfigOpen}
+            setOpen={setCoreConfigOpen}
+            updateConfig={updateCoreConfig}
+            resetConfig={resetCoreConfig}
+            applyConfig={applyCoreConfig}
+            onSelectTicker={selectCoreTicker}
+          />
+        </section>
         <section className="edge-prediction" aria-label="Prediction horizon">
           <button type="button" className="edge-predict-button" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
             <span>Predict</span><strong>{horizon}</strong><b>v</b>

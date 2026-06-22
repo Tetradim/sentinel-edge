@@ -11,7 +11,22 @@ import {
   Target,
   Zap,
 } from 'lucide-react';
-import type { EventFilter, EventLine, Metric, Mode, OperationViewItem, ProtectionRow, Ticker, Tone, Watcher } from './types';
+import type {
+  CoreColorMetric,
+  CoreHeatmapConfig,
+  CoreLabelMode,
+  CoreSizeMetric,
+  CoreUniverse,
+  EventFilter,
+  EventLine,
+  Metric,
+  Mode,
+  OperationViewItem,
+  ProtectionRow,
+  Ticker,
+  Tone,
+  Watcher,
+} from './types';
 
 export const money = (value: number) => `$${value.toFixed(2)}`;
 
@@ -82,6 +97,44 @@ export const eventFilterOptions: { id: EventFilter; label: string }[] = [
 export const allMetricOptions = Array.from(
   new Map(tickers.flatMap((ticker) => ticker.metrics.map((metric) => [metric.id, { id: metric.id, label: metric.value }]))).values(),
 );
+
+export const defaultCoreHeatmapConfig: CoreHeatmapConfig = {
+  colorMetric: 'risk',
+  sizeMetric: 'exposure',
+  universe: 'watchlist',
+  horizon: '30m',
+  density: 7,
+  alertThreshold: 65,
+  includeIdle: true,
+  autoFocusTicker: true,
+  labelMode: 'symbol',
+  operatorNote: 'Watch heat against signal confirmation before staging a command.',
+};
+
+export const coreColorMetricOptions: { id: CoreColorMetric; label: string; detail: string }[] = [
+  { id: 'risk', label: 'Risk heat', detail: 'Heat, invalidation, and watcher risk' },
+  { id: 'signal', label: 'Signal strength', detail: 'Bull/bear score from active signal' },
+  { id: 'flow', label: 'Flow pressure', detail: 'Sweep, volume, and liquidity pressure' },
+  { id: 'drawdown', label: 'Drawdown', detail: 'Loss corridor and downside pressure' },
+];
+
+export const coreSizeMetricOptions: { id: CoreSizeMetric; label: string }[] = [
+  { id: 'exposure', label: 'Exposure' },
+  { id: 'liquidity', label: 'Liquidity' },
+  { id: 'volatility', label: 'Volatility' },
+];
+
+export const coreUniverseOptions: { id: CoreUniverse; label: string }[] = [
+  { id: 'watchlist', label: 'Active watchlist' },
+  { id: 'watchers', label: 'Watcher only' },
+  { id: 'all', label: 'All tracked assets' },
+];
+
+export const coreLabelModeOptions: { id: CoreLabelMode; label: string }[] = [
+  { id: 'symbol', label: 'Symbol' },
+  { id: 'signal', label: 'Signal' },
+  { id: 'heat', label: 'Heat' },
+];
 
 export const serviceRows = [
   ['Market data feed', 'online', '22ms', '1.8k msg/min'],

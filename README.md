@@ -615,7 +615,42 @@ The launcher looks for Python 3.11, 3.12, or 3.13, creates/uses the backend virt
 
 The launcher also mirrors the Sentinel Pulse local launcher lifecycle. When it can find Edge or Chrome, it opens the UI in an isolated temporary browser profile. Closing that dedicated browser window shuts down the Edge backend/frontend processes started by this launcher. Closing the launcher window or pressing Ctrl+C starts cleanup in the other direction: the browser profile is closed, temporary profile files are removed, and the owned backend/frontend process trees are stopped. Use `-NoBrowser` for headless runs where browser-close monitoring is intentionally disabled.
 
-### Option 2: Manual backend
+### Option 2: macOS beta installer
+
+MacBook beta testers can install the local source build with the bundled macOS installer script. It creates the backend virtual environment, installs frontend dependencies, and adds a double-click launcher to the Desktop.
+
+Prerequisites:
+
+- macOS with Python 3.11, 3.12, or 3.13 on `PATH`
+- Node.js 20+ with `npm`
+- MongoDB Community with `mongod` available on `PATH`
+
+Install MongoDB with Homebrew if needed:
+
+```bash
+brew tap mongodb/brew
+brew install mongodb-community
+```
+
+From the repository root:
+
+```bash
+chmod +x install-macos.sh
+./install-macos.sh
+```
+
+After installation, double-click `Sentinel Edge.command` on the Desktop. The launcher starts MongoDB when it is not already listening on port `27017`, starts the backend on `8000`, starts the frontend on `3000`, and opens the console. Logs are written to `~/Desktop/Sentinel-Edge-Local.log` and `~/Desktop/Sentinel-Edge-MongoDB.log`.
+
+Manual launch options:
+
+```bash
+./install-macos.sh --launch
+./install-macos.sh --launch --install-deps
+./install-macos.sh --launch --backend-port 8000 --frontend-port 3000 --no-browser
+./install-macos.sh --launch --skip-mongo
+```
+
+### Option 3: Manual backend
 
 From the repository root:
 
@@ -634,7 +669,7 @@ cd backend
 .\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Option 3: Manual frontend
+### Option 4: Manual frontend
 
 In a second terminal:
 

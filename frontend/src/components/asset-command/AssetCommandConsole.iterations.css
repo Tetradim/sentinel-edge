@@ -1,0 +1,399 @@
+.edge-ui-lab {
+  margin: 14px;
+  border: 1px solid rgba(246, 193, 74, .22);
+  background:
+    linear-gradient(rgba(4, 10, 15, .72), rgba(4, 10, 15, .9)),
+    url("/assets/edge-hud-frame.jpg") center / cover no-repeat;
+}
+
+.edge-ui-lab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.edge-ui-lab-head span,
+.edge-ui-lab-controls label,
+.edge-ui-iteration-list button,
+.edge-ui-mini-top,
+.edge-ui-preview-copy dt {
+  color: #a6b7c3;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-ui-lab-head h2 {
+  margin: 3px 0 0;
+  color: #e8f9ff;
+  font-size: 28px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.edge-ui-family-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.edge-ui-family-switch button,
+.edge-ui-lab-controls select,
+.edge-ui-lab-controls input,
+.edge-ui-iteration-list button,
+.edge-ui-mini-drawer button {
+  border: 1px solid rgba(104, 213, 255, .2);
+  background: rgba(0, 0, 0, .24);
+  color: #dff7ff;
+  font: inherit;
+}
+
+.edge-ui-family-switch button {
+  padding: 8px 10px;
+  color: var(--cyan);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-ui-family-switch button.active {
+  border-color: rgba(246, 193, 74, .58);
+  background: rgba(246, 193, 74, .14);
+  color: var(--gold);
+}
+
+.edge-ui-lab-controls {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(0, 0, 0, .18);
+}
+
+.edge-ui-lab-controls label {
+  display: grid;
+  gap: 6px;
+}
+
+.edge-ui-lab-controls label strong {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.edge-ui-lab-controls select,
+.edge-ui-lab-controls input {
+  min-height: 36px;
+  width: 100%;
+  padding: 7px 8px;
+}
+
+.edge-ui-lab-controls input[type="color"] {
+  padding: 3px;
+}
+
+.edge-ui-check {
+  align-content: center;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.edge-ui-check input {
+  min-height: auto;
+  width: auto;
+}
+
+.edge-ui-lab-layout {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px 16px;
+}
+
+.edge-ui-iteration-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(132px, 1fr));
+  align-content: start;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.edge-ui-iteration-list button {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 8px;
+  text-align: left;
+}
+
+.edge-ui-iteration-list button b {
+  display: grid;
+  place-items: center;
+  min-height: 26px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: var(--gold);
+}
+
+.edge-ui-iteration-list button.active {
+  border-color: rgba(32, 215, 255, .56);
+  background: rgba(32, 215, 255, .12);
+  color: #e8f9ff;
+  box-shadow: inset 3px 0 0 var(--cyan);
+}
+
+.edge-ui-preview {
+  --ui-accent: var(--gold);
+  --ui-scale: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  min-height: 430px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  background-position: center;
+  background-size: cover;
+  font-size: var(--ui-scale);
+}
+
+.edge-ui-preview.readable {
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .1);
+}
+
+.edge-ui-preview.density-compact {
+  --preview-gap: 7px;
+  --preview-pad: 8px;
+}
+
+.edge-ui-preview.density-balanced {
+  --preview-gap: 10px;
+  --preview-pad: 12px;
+}
+
+.edge-ui-preview.density-spacious {
+  --preview-gap: 14px;
+  --preview-pad: 16px;
+}
+
+.edge-ui-preview-media {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--preview-gap, 10px);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 42%, transparent);
+  background:
+    radial-gradient(circle at 72% 20%, color-mix(in srgb, var(--ui-accent) 20%, transparent), transparent 32%),
+    rgba(2, 7, 12, .72);
+  padding: var(--preview-pad, 12px);
+  min-height: 320px;
+}
+
+.edge-ui-mini-top {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  padding-bottom: 8px;
+}
+
+.edge-ui-mini-top b {
+  color: #fff;
+  font-size: 18px;
+}
+
+.edge-ui-mini-top em {
+  color: var(--ui-accent);
+  font-style: normal;
+}
+
+.edge-ui-mini-main {
+  display: grid;
+  grid-template-columns: .78fr 1.3fr .82fr;
+  gap: var(--preview-gap, 10px);
+  min-height: 0;
+}
+
+.edge-ui-mini-rail,
+.edge-ui-mini-stage,
+.edge-ui-mini-drawer {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(0, 0, 0, .25);
+  padding: var(--preview-pad, 12px);
+}
+
+.edge-ui-mini-rail span,
+.edge-ui-mini-stage span,
+.edge-ui-mini-drawer span {
+  display: block;
+  color: #9fb2bf;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.edge-ui-mini-rail strong,
+.edge-ui-mini-stage strong,
+.edge-ui-mini-drawer strong {
+  display: block;
+  margin-top: 8px;
+  color: #e8f9ff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.edge-ui-mini-rail i {
+  display: inline-block;
+  margin-top: 14px;
+  border: 1px solid rgba(80, 255, 134, .28);
+  color: var(--green);
+  padding: 5px 7px;
+  font-family: "Share Tech Mono", monospace;
+  font-style: normal;
+}
+
+.edge-ui-mini-stage {
+  display: grid;
+  align-content: center;
+  text-align: center;
+}
+
+.edge-ui-mini-heat {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.edge-ui-mini-heat i {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: color-mix(in srgb, var(--ui-accent) calc((var(--heat-index) + 2) * 8%), rgba(0, 0, 0, .34));
+  color: #fff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  font-style: normal;
+  text-align: center;
+}
+
+.edge-ui-mini-drawer {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.edge-ui-mini-drawer button {
+  padding: 8px;
+  color: var(--ui-accent);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-ui-preview-media.hex .edge-ui-mini-main,
+.edge-ui-preview-media.original-core .edge-ui-mini-main {
+  grid-template-columns: .75fr 1.5fr .75fr;
+}
+
+.edge-ui-preview-media.hex .edge-ui-mini-heat i,
+.edge-ui-preview-media.original-core .edge-ui-mini-heat i {
+  clip-path: polygon(50% 0, 92% 25%, 92% 75%, 50% 100%, 8% 75%, 8% 25%);
+  min-height: 58px;
+}
+
+.edge-ui-preview-media.risk .edge-ui-mini-stage,
+.edge-ui-preview-media.original-redline .edge-ui-mini-stage {
+  box-shadow: inset 0 -4px 0 #ff4141;
+}
+
+.edge-ui-preview-media.analyst .edge-ui-mini-main,
+.edge-ui-preview-media.original-readable .edge-ui-mini-main {
+  grid-template-columns: 1fr;
+}
+
+.edge-ui-preview-media.scanner .edge-ui-mini-main,
+.edge-ui-preview-media.original-drawer .edge-ui-mini-main {
+  grid-template-columns: .72fr 1.55fr .95fr;
+}
+
+.edge-ui-preview-media.ledger .edge-ui-mini-heat {
+  grid-template-columns: 1fr;
+}
+
+.edge-ui-preview-copy {
+  min-width: 0;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  padding: 14px 0 4px;
+}
+
+.edge-ui-preview-copy h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.edge-ui-preview-copy p {
+  max-width: 62ch;
+  margin: 10px 0 14px;
+  color: #c5d4de;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.edge-ui-preview-copy dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.edge-ui-preview-copy div {
+  border: 1px solid rgba(255, 255, 255, .11);
+  background: rgba(0, 0, 0, .2);
+  padding: 10px;
+}
+
+.edge-ui-preview-copy dd {
+  margin: 4px 0 0;
+  color: #e5f0f5;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+@media (max-width: 1180px) {
+  .edge-ui-lab-controls,
+  .edge-ui-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .edge-ui-iteration-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edge-ui-preview-copy { padding-bottom: 0; }
+}
+
+@media (max-width: 720px) {
+  .edge-ui-lab-head,
+  .edge-ui-mini-main {
+    grid-template-columns: 1fr;
+  }
+
+  .edge-ui-lab-head {
+    display: grid;
+  }
+
+  .edge-ui-iteration-list {
+    grid-template-columns: 1fr;
+  }
+}
