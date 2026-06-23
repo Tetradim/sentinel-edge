@@ -239,6 +239,7 @@ try {
         $args = New-ArgumentList
         $args.Add("-BackendPort"); $args.Add("$EdgeBackendPort")
         $args.Add("-FrontendPort"); $args.Add("$EdgeFrontendPort")
+        $args.Add("-PulseApiUrl"); $args.Add("http://127.0.0.1:$PulseBackendPort")
         Add-OptionalSwitch -Arguments $args -SwitchName "-InstallDeps" -Enabled $InstallDeps
         Add-OptionalSwitch -Arguments $args -SwitchName "-NoBrowser" -Enabled (-not $OpenComponentBrowsers)
         Start-ComponentLauncher -Name "Sentinel Edge" -Root $EdgeRoot -LauncherName "Launch-Sentinel-Edge-Local.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $EdgeBackendPort

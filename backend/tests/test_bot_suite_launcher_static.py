@@ -86,6 +86,11 @@ class BotSuiteLauncherStaticTests(unittest.TestCase):
         self.assertIn('"All" {', script)
         self.assertIn("Use -Profile Core, -Profile Discord, -Profile All, or -All", script)
 
+    def test_edge_launcher_receives_suite_pulse_api_url(self):
+        script = PS1.read_text(encoding="utf-8")
+
+        self.assertIn('$args.Add("-PulseApiUrl"); $args.Add("http://127.0.0.1:$PulseBackendPort")', script)
+
 
 if __name__ == "__main__":
     unittest.main()

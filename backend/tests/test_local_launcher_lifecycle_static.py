@@ -8,6 +8,12 @@ LAUNCHER = ROOT / "Launch-Sentinel-Edge-Local.ps1"
 
 
 class LocalLauncherLifecycleStaticTests(unittest.TestCase):
+    def test_launcher_sets_local_pulse_api_url(self):
+        script = LAUNCHER.read_text(encoding="utf-8")
+
+        self.assertIn('[string]$PulseApiUrl = "http://127.0.0.1:8001"', script)
+        self.assertIn('$env:PULSE_API_URL = $PulseApiUrl', script)
+
     def test_browser_window_close_stops_owned_processes(self):
         script = LAUNCHER.read_text(encoding="utf-8")
 

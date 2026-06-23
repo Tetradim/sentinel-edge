@@ -4,6 +4,7 @@
 param(
     [int]$BackendPort = 8000,
     [int]$FrontendPort = 3000,
+    [string]$PulseApiUrl = "http://127.0.0.1:8001",
     [switch]$NoBrowser,
     [switch]$InstallDeps
 )
@@ -609,6 +610,7 @@ try {
     $env:SENTINEL_EDGE_HOST = "127.0.0.1"
     $env:SENTINEL_EDGE_OPEN_BROWSER = "false"
     $env:SENTINEL_EDGE_UI_URL = $frontendUrl
+    $env:PULSE_API_URL = $PulseApiUrl
     $env:REACT_APP_BACKEND_URL = $backendUrl
     $backendReadyUrl = "$backendUrl/api/ready"
 
