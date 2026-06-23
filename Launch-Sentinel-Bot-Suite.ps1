@@ -138,7 +138,7 @@ function Start-ComponentLauncher {
 
 function New-ArgumentList {
     $list = New-Object System.Collections.Generic.List[string]
-    return $list
+    return ,$list
 }
 
 try {

@@ -58,6 +58,13 @@ class BotSuiteLauncherStaticTests(unittest.TestCase):
             with self.subTest(default=default):
                 self.assertIn(default, script)
 
+    def test_powershell_argument_list_is_not_enumerated_to_null(self):
+        script = PS1.read_text(encoding="utf-8")
+
+        self.assertIn("return ,$list", script)
+        self.assertIn("$args = New-ArgumentList", script)
+        self.assertIn('$args.Add("-BackendPort")', script)
+
 
 if __name__ == "__main__":
     unittest.main()
