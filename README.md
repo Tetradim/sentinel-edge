@@ -491,7 +491,7 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 
 ### Market Map
 
-The Operations deck exposes Market Map as the operator chart cockpit. It keeps the legacy `/api/chart-workspace/{symbol}` compatibility endpoint while adding Market Map presets for Morning Plan, Intraday Alerts, and Replay Proof. Market Map is read-only for broker activity and does not arm or submit live trades.
+The Operations deck exposes Market Map as the operator chart cockpit. It keeps the legacy `/api/chart-workspace/{symbol}` compatibility endpoint while adding Market Map presets for Morning Plan, Intraday Alerts, and Replay Proof. Market Map overlays support/resistance levels from the chart snapshot so operators can inspect session high/low, premarket high/low, VWAP, ATR bands, and ORB context without turning the chart into an order-entry surface. Market Map is read-only for broker activity and does not arm or submit live trades.
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata, plus result metadata fields, for client-side discovery. Runnable lab results include a deterministic `run_id`, full `input_fingerprint`, and `input_fingerprint_algorithm` (`sha256.canonical_json.v1`) so operators can compare repeated replays and correlate saved UI context without implying live execution. The initial Lab roadmap covers:
 

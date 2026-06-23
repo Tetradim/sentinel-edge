@@ -614,6 +614,31 @@ export const ChartWorkspace: React.FC = () => {
         </section>
       )}
 
+      {panelVisibility.snapshot && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <LineChart className="h-4 w-4 text-emerald-300" />
+            Market Map Briefing
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <Metric label="Bias" value={buildMarketMapBias(snapshot)} />
+            <Metric label="Level proximity" value={formatNearestMarketMapLevel(snapshot)} />
+          </div>
+          <div className="mt-3 text-[11px] font-semibold uppercase text-slate-500">Morning Levels</div>
+          <div className="mt-2 space-y-1">
+            {(snapshot?.levels?.items ?? []).slice(0, 8).map((level) => (
+              <div key={level.id} className="flex items-center justify-between gap-2 border-t border-slate-800/80 pt-1 first:border-t-0">
+                <span className="truncate text-slate-300">{level.label}</span>
+                <span className="shrink-0 font-mono text-slate-100">{formatMarketMapLevelPrice(level.price)}</span>
+              </div>
+            ))}
+            {!(snapshot?.levels?.items ?? []).length && (
+              <div className="text-[11px] text-slate-500">No support/resistance levels loaded</div>
+            )}
+          </div>
+        </section>
+      )}
+
       {panelVisibility.strategy && (
         <section className={panelClass}>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
@@ -1077,7 +1102,35 @@ function buildPriceTraces(
           orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
         ])
     : [];
-  return [baseTrace, ...(volumeTrace ? [volumeTrace] : []), ...indicatorTraces, ...orbTraces];
+  return [
+    baseTrace,
+    ...(volumeTrace ? [volumeTrace] : []),
+    ...indicatorTraces,
+    ...buildMarketMapLevelTraces(snapshot),
+    ...orbTraces,
+  ];
+}
+
+function buildMarketMapLevelTraces(snapshot: ChartWorkspaceSnapshot | null) {
+  const bars = snapshot?.bars ?? [];
+  const levels = snapshot?.levels?.items ?? [];
+  if (!bars.length || !levels.length) return [];
+  const x = [bars[0].timestamp, bars[bars.length - 1].timestamp];
+  return levels
+    .filter((level) => Number.isFinite(level.price))
+    .map((level) => ({
+      x,
+      y: [level.price, level.price],
+      type: 'scatter',
+      mode: 'lines',
+      name: level.label,
+      line: {
+        color: marketMapLevelColor(level.kind),
+        dash: level.locked ? 'solid' : 'dot',
+        width: 1.25,
+      },
+      hovertemplate: `${level.label}: ${formatMarketMapLevelPrice(level.price)}<extra></extra>`,
+    }));
 }
 
 function buildOscillatorTraces(snapshot: ChartWorkspaceSnapshot | null) {
@@ -1233,6 +1286,40 @@ function formatSelectedIndicators(indicators: ChartWorkspaceIndicatorId[]) {
 
 function formatIndicatorOptionLabel(indicator: ChartWorkspaceIndicatorId) {
   return INDICATOR_OPTIONS.find((option) => option.id === indicator)?.label || indicator.toUpperCase();
+}
+
+function formatMarketMapLevelPrice(value: number) {
+  return Number.isFinite(value) ? `$${value.toFixed(2)}` : '--';
+}
+
+function buildMarketMapBias(snapshot: ChartWorkspaceSnapshot | null) {
+  const latest = snapshot?.bars?.[snapshot.bars.length - 1];
+  const vwap = snapshot?.levels?.items?.find((level) => level.kind === 'vwap');
+  if (!latest || !vwap) return 'Review';
+  if (latest.close > vwap.price) return 'Above VWAP';
+  if (latest.close < vwap.price) return 'Below VWAP';
+  return 'At VWAP';
+}
+
+function formatNearestMarketMapLevel(snapshot: ChartWorkspaceSnapshot | null) {
+  const latest = snapshot?.bars?.[snapshot.bars.length - 1];
+  const levels = snapshot?.levels?.items ?? [];
+  if (!latest || !levels.length) return '--';
+  const nearest = levels.reduce(
+    (best, level) => {
+      const distance = Math.abs(level.price - latest.close);
+      return distance < best.distance ? { level, distance } : best;
+    },
+    { level: levels[0], distance: Math.abs(levels[0].price - latest.close) },
+  );
+  return `${nearest.level.label} ${formatMarketMapLevelPrice(nearest.level.price)}`;
+}
+
+function marketMapLevelColor(kind: string) {
+  if (kind.includes('high') || kind.includes('upper')) return '#f59e0b';
+  if (kind.includes('low') || kind.includes('lower')) return '#38bdf8';
+  if (kind === 'vwap') return '#22c55e';
+  return '#a78bfa';
 }
 
 function formatOrbOverlaySessionSummary(

@@ -368,6 +368,18 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("spikesnap: 'cursor'", dashboard)
         self.assertIn("crosshair-style hover context", text)
 
+    def test_market_map_renders_levels_and_briefing_panel(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("buildMarketMapLevelTraces", dashboard)
+        self.assertIn("Market Map Briefing", dashboard)
+        self.assertIn("Morning Levels", dashboard)
+        self.assertIn("Level proximity", dashboard)
+        self.assertIn("formatMarketMapLevelPrice", dashboard)
+        self.assertIn("snapshot?.levels?.items", dashboard)
+        self.assertIn("support/resistance levels", text)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 
