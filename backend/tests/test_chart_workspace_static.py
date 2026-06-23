@@ -380,6 +380,19 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("snapshot?.levels?.items", dashboard)
         self.assertIn("support/resistance levels", text)
 
+    def test_market_map_exposes_proof_marker_endpoint_and_ui(self):
+        server = SERVER.read_text(encoding="utf-8")
+        api = API.read_text(encoding="utf-8")
+        types = TYPES.read_text(encoding="utf-8")
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn('@api_router.get("/market-map/proof-markers/{symbol}")', server)
+        self.assertIn("async getMarketMapProofMarkers", api)
+        self.assertIn("export interface MarketMapProofMarker", types)
+        self.assertIn("buildMarketMapProofMarkerTraces", dashboard)
+        self.assertIn("Alert Proof", dashboard)
+        self.assertIn("parser confidence", dashboard)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 

@@ -13,6 +13,7 @@ import type {
   ChartWorkspaceIndicatorId,
   ChartWorkspaceIndicatorPoint,
   ChartWorkspaceSnapshot,
+  MarketMapProofMarker,
   OrbSessionSummary,
 } from '@/types';
 import { PlotlyChart } from '../ui/PlotlyCharts';
@@ -219,6 +220,8 @@ export const ChartWorkspace: React.FC = () => {
   const [symbolInput, setSymbolInput] = useState(workspacePreferences.activeSymbol);
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
+  const [proofMarkers, setProofMarkers] = useState<MarketMapProofMarker[]>([]);
+  const [proofMarkerMessage, setProofMarkerMessage] = useState('');
   const [simulationLabStatus, setSimulationLabStatus] = useState<ChartWorkspaceSimulationLabStatus | null>(null);
   const [simulationLabResult, setSimulationLabResult] = useState<ChartWorkspaceSimulationLabResult | null>(readChartWorkspaceLabResult);
   const [orbReplaySession, setOrbReplaySession] = useState<ChartWorkspaceOrbReplaySession>('market_open');
@@ -287,9 +290,27 @@ export const ChartWorkspace: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setProofMarkerMessage('');
+    api.getMarketMapProofMarkers(activeSymbol)
+      .then((payload) => {
+        if (cancelled) return;
+        setProofMarkers(payload.items ?? []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProofMarkers([]);
+        setProofMarkerMessage('Alert proof unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol]);
+
   const priceData = useMemo(
-    () => buildPriceTraces(snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions),
-    [snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions],
+    () => buildPriceTraces(snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions, proofMarkers),
+    [snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions, proofMarkers],
   );
   const oscillatorData = useMemo(() => buildOscillatorTraces(snapshot), [snapshot]);
   const indicatorSnapshotMetrics = useMemo(
@@ -634,6 +655,36 @@ export const ChartWorkspace: React.FC = () => {
             ))}
             {!(snapshot?.levels?.items ?? []).length && (
               <div className="text-[11px] text-slate-500">No support/resistance levels loaded</div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {panelVisibility.snapshot && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <Activity className="h-4 w-4 text-amber-300" />
+            Alert Proof
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <Metric label="Markers" value={proofMarkers.length} />
+            <Metric label="parser confidence" value={formatParserConfidence(proofMarkers[0]?.parser_confidence)} />
+          </div>
+          <div className="mt-3 space-y-1 text-[11px] text-slate-400">
+            {proofMarkers.slice(0, 5).map((marker) => (
+              <div key={marker.id} className="border-t border-slate-800/80 pt-1 first:border-t-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-slate-300">{marker.label}</span>
+                  <span className="shrink-0 text-slate-500">{formatProofMarkerTimestamp(marker.timestamp)}</span>
+                </div>
+                <div className="truncate text-slate-500">
+                  {marker.kind} / {marker.status} / parser confidence {formatParserConfidence(marker.parser_confidence)}
+                </div>
+                {marker.raw_text && <div className="truncate text-slate-500">{marker.raw_text}</div>}
+              </div>
+            ))}
+            {!proofMarkers.length && (
+              <div className="text-slate-500">{proofMarkerMessage || 'No alert proof markers for this symbol'}</div>
             )}
           </div>
         </section>
@@ -1048,6 +1099,7 @@ function buildPriceTraces(
   includeOrbOverlays = true,
   includeVolume = true,
   includeOrbOverlaySession: ChartWorkspaceOrbOverlaySession[] = DEFAULT_ORB_OVERLAY_SESSIONS,
+  proofMarkers: MarketMapProofMarker[] = [],
 ) {
   if (!snapshot) return [];
   const x = snapshot.bars.map((bar) => bar.timestamp);
@@ -1107,6 +1159,7 @@ function buildPriceTraces(
     ...(volumeTrace ? [volumeTrace] : []),
     ...indicatorTraces,
     ...buildMarketMapLevelTraces(snapshot),
+    ...buildMarketMapProofMarkerTraces(snapshot, proofMarkers),
     ...orbTraces,
   ];
 }
@@ -1131,6 +1184,35 @@ function buildMarketMapLevelTraces(snapshot: ChartWorkspaceSnapshot | null) {
       },
       hovertemplate: `${level.label}: ${formatMarketMapLevelPrice(level.price)}<extra></extra>`,
     }));
+}
+
+function buildMarketMapProofMarkerTraces(
+  snapshot: ChartWorkspaceSnapshot | null,
+  markers: MarketMapProofMarker[],
+) {
+  const bars = snapshot?.bars ?? [];
+  if (!bars.length || !markers.length) return [];
+  const latestClose = bars[bars.length - 1].close;
+  return markers
+    .filter((marker) => marker.timestamp)
+    .map((marker) => {
+      const proofPrice = resolveProofMarkerPrice(marker);
+      return {
+        x: [marker.timestamp],
+        y: [proofPrice ?? latestClose],
+        type: 'scatter',
+        mode: 'markers+text',
+        name: marker.label,
+        text: [marker.kind],
+        textposition: 'top center',
+        marker: {
+          size: 10,
+          color: marker.status === 'accepted' || marker.status === 'pass' ? '#22c55e' : '#f59e0b',
+          symbol: 'diamond',
+        },
+        hovertemplate: `${marker.label}<br>${marker.kind}<br>${marker.status}<extra></extra>`,
+      };
+    });
 }
 
 function buildOscillatorTraces(snapshot: ChartWorkspaceSnapshot | null) {
@@ -1320,6 +1402,31 @@ function marketMapLevelColor(kind: string) {
   if (kind.includes('low') || kind.includes('lower')) return '#38bdf8';
   if (kind === 'vwap') return '#22c55e';
   return '#a78bfa';
+}
+
+function resolveProofMarkerPrice(marker: MarketMapProofMarker) {
+  const price = marker.proof?.price ?? marker.proof?.entry_price ?? marker.proof?.fill_price;
+  if (typeof price === 'number' && Number.isFinite(price)) return price;
+  if (typeof price === 'string') {
+    const numericPrice = Number(price);
+    return Number.isFinite(numericPrice) ? numericPrice : undefined;
+  }
+  return undefined;
+}
+
+function formatParserConfidence(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+  return value <= 1 ? `${Math.round(value * 100)}%` : `${Math.round(value)}%`;
+}
+
+function formatProofMarkerTimestamp(value: string) {
+  if (!value) return '--';
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return value;
+  return timestamp.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function formatOrbOverlaySessionSummary(

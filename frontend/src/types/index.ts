@@ -166,6 +166,24 @@ export interface MarketMapLevelsPayload {
   items: MarketMapLevel[];
 }
 
+export interface MarketMapProofMarker {
+  id: string;
+  symbol: string;
+  timestamp: string;
+  kind: string;
+  label: string;
+  status: string;
+  parser_confidence?: number | null;
+  raw_text?: string | null;
+  proof?: Record<string, unknown>;
+}
+
+export interface MarketMapProofMarkersPayload {
+  schema_version: string;
+  symbol: string;
+  items: MarketMapProofMarker[];
+}
+
 export interface ChartWorkspaceSnapshot {
   schema_version: string;
   symbol: string;

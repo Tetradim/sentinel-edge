@@ -41,6 +41,7 @@ from bot_event_bus_routes import router as bot_event_bus_router
 from chrome_bridge_routes import router as chrome_bridge_router
 from chart_workspace import build_chart_workspace_payload
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
+from shared.bot_event_bus import event_bus
 from shared.handoff import pulse_handoff_contract_document
 from scanner_workbench_catalog import scanner_workbench_catalog, validate_scanner_watch_intent
 from simulation_lab import (
@@ -1935,6 +1936,55 @@ async def get_chart_workspace(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.get("/market-map/proof-markers/{symbol}")
+async def get_market_map_proof_markers(
+    symbol: str,
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Return read-only alert and decision proof markers for Market Map."""
+    requested_symbol = _symbol(symbol)
+    markers = []
+    for event in event_bus.recent(limit=limit):
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        event_symbol = str(
+            payload.get("symbol")
+            or payload.get("ticker")
+            or payload.get("underlying")
+            or ""
+        ).upper()
+        if event_symbol and event_symbol != requested_symbol:
+            continue
+        if not event_symbol:
+            continue
+
+        parsed = payload.get("parsed") if isinstance(payload.get("parsed"), dict) else {}
+        parser_confidence = payload.get("parser_confidence", parsed.get("confidence"))
+        markers.append(
+            {
+                "id": str(event.get("event_id") or payload.get("event_id") or payload.get("id") or len(markers) + 1),
+                "symbol": requested_symbol,
+                "timestamp": str(
+                    payload.get("timestamp")
+                    or payload.get("received_at")
+                    or payload.get("created_at")
+                    or event.get("created_at")
+                    or ""
+                ),
+                "kind": str(payload.get("kind") or payload.get("event_type") or event.get("event_type") or "event"),
+                "label": str(payload.get("label") or payload.get("decision") or payload.get("action") or "Event"),
+                "status": str(payload.get("status") or payload.get("decision_status") or "review"),
+                "parser_confidence": parser_confidence,
+                "raw_text": payload.get("raw_text") or payload.get("content") or payload.get("message"),
+                "proof": payload,
+            }
+        )
+    return {
+        "schema_version": "edge.market_map.proof_markers.v1",
+        "symbol": requested_symbol,
+        "items": markers,
+    }
 
 
 @api_router.get("/scanner-workbench/catalog")

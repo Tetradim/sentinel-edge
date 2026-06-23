@@ -1,6 +1,7 @@
 import type {
   ChartWorkspaceIndicatorId,
   ChartWorkspaceSnapshot,
+  MarketMapProofMarkersPayload,
   ScannerWorkbenchCatalog,
   ScannerWorkbenchWatchIntent,
   ScannerWorkbenchWatchIntentValidation,
@@ -225,6 +226,13 @@ class ApiClient {
     if (options.limit) params.set('limit', String(options.limit));
     const query = params.toString();
     return fetchJSON<ChartWorkspaceSnapshot>(`/api/chart-workspace/${encodeURIComponent(symbol)}${query ? `?${query}` : ''}`);
+  }
+
+  async getMarketMapProofMarkers(symbol: string, limit = 100) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return fetchJSON<MarketMapProofMarkersPayload>(
+      `/api/market-map/proof-markers/${encodeURIComponent(symbol)}?${params}`,
+    );
   }
 
   async getScannerWorkbenchCatalog() {
