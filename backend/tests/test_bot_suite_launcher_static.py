@@ -65,6 +65,27 @@ class BotSuiteLauncherStaticTests(unittest.TestCase):
         self.assertIn("$args = New-ArgumentList", script)
         self.assertIn('$args.Add("-BackendPort")', script)
 
+    def test_desktop_launch_uses_profile_menu_instead_of_launching_everything(self):
+        script = PS1.read_text(encoding="utf-8")
+
+        self.assertIn('[ValidateSet("Menu", "Core", "Discord", "All", "None")]', script)
+        self.assertIn('[string]$Profile = "Menu"', script)
+        self.assertIn("[switch]$All", script)
+        self.assertIn("function Select-LaunchProfile", script)
+        self.assertIn('Write-Host "  1. Core operator stack', script)
+        self.assertIn('Write-Host "  2. Discord Options Bot only"', script)
+        self.assertIn('Write-Host "  3. All components"', script)
+        self.assertIn('if ($Profile -eq "Menu" -and -not (Test-ExplicitComponentSelection))', script)
+        self.assertIn('Write-Status "Launch profile: $Profile"', script)
+
+    def test_launcher_still_supports_explicit_all_components_mode(self):
+        script = PS1.read_text(encoding="utf-8")
+
+        self.assertIn('if ($All) {', script)
+        self.assertIn('$Profile = "All"', script)
+        self.assertIn('"All" {', script)
+        self.assertIn("Use -Profile Core, -Profile Discord, -Profile All, or -All", script)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -29,7 +29,10 @@ param(
     [switch]$OpenComponentBrowsers,
     [switch]$NoBrowser,
     [switch]$InstallDeps,
-    [switch]$NoWait
+    [switch]$NoWait,
+    [ValidateSet("Menu", "Core", "Discord", "All", "None")]
+    [string]$Profile = "Menu",
+    [switch]$All
 )
 
 $ErrorActionPreference = "Stop"
@@ -141,6 +144,78 @@ function New-ArgumentList {
     return ,$list
 }
 
+function Test-ExplicitComponentSelection {
+    $componentSwitches = @(
+        "SkipEdge",
+        "SkipPulse",
+        "SkipDarkpool",
+        "SkipDiscord",
+        "SkipCrypto",
+        "SkipTandem"
+    )
+    foreach ($switchName in $componentSwitches) {
+        if ($PSBoundParameters.ContainsKey($switchName)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Select-LaunchProfile {
+    Write-Host ""
+    Write-Host "Choose what to launch:" -ForegroundColor Cyan
+    Write-Host "  1. Core operator stack (Sentinel Edge, Sentinel Pulse, Tandem)" -ForegroundColor Gray
+    Write-Host "  2. Discord Options Bot only" -ForegroundColor Gray
+    Write-Host "  3. All components" -ForegroundColor Gray
+    Write-Host "  Q. Quit without launching" -ForegroundColor Gray
+    Write-Host ""
+    $choice = Read-Host "Selection [1]"
+    switch ($choice.Trim().ToUpperInvariant()) {
+        "" { return "Core" }
+        "1" { return "Core" }
+        "CORE" { return "Core" }
+        "2" { return "Discord" }
+        "DISCORD" { return "Discord" }
+        "3" { return "All" }
+        "ALL" { return "All" }
+        "Q" { return "None" }
+        "QUIT" { return "None" }
+        default {
+            Write-Status "Unknown launch profile selection '$choice'; defaulting to Core operator stack" "WARN"
+            return "Core"
+        }
+    }
+}
+
+function Apply-LaunchProfile {
+    param([string]$SelectedProfile)
+
+    switch ($SelectedProfile) {
+        "Core" {
+            $script:SkipDarkpool = $true
+            $script:SkipDiscord = $true
+            $script:SkipCrypto = $true
+        }
+        "Discord" {
+            $script:SkipEdge = $true
+            $script:SkipPulse = $true
+            $script:SkipDarkpool = $true
+            $script:SkipCrypto = $true
+            $script:SkipTandem = $true
+        }
+        "All" {
+        }
+        "None" {
+            $script:SkipEdge = $true
+            $script:SkipPulse = $true
+            $script:SkipDarkpool = $true
+            $script:SkipDiscord = $true
+            $script:SkipCrypto = $true
+            $script:SkipTandem = $true
+        }
+    }
+}
+
 try {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
@@ -148,6 +223,17 @@ try {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Status "Suite log: $LogFile"
+
+    if ($All) {
+        $Profile = "All"
+    }
+    if ($Profile -eq "Menu" -and -not (Test-ExplicitComponentSelection)) {
+        $Profile = Select-LaunchProfile
+    }
+    if ($Profile -ne "Menu") {
+        Apply-LaunchProfile -SelectedProfile $Profile
+        Write-Status "Launch profile: $Profile"
+    }
 
     if (-not $SkipEdge) {
         $args = New-ArgumentList
@@ -228,6 +314,7 @@ try {
     Write-Host ""
     Write-Host "Default behavior opens Tandem as the main operator UI and suppresses component browser windows." -ForegroundColor Gray
     Write-Host "Use -OpenComponentBrowsers to open Edge, Pulse, Darkpool, Discord, and Crypto windows too." -ForegroundColor Gray
+    Write-Host "Use -Profile Core, -Profile Discord, -Profile All, or -All to bypass the desktop launch menu." -ForegroundColor Gray
     Write-Host "Use -SkipEdge, -SkipPulse, -SkipDarkpool, -SkipDiscord, -SkipCrypto, or -SkipTandem to launch a smaller set." -ForegroundColor Gray
     Write-Host "Close each component launcher window to stop that component." -ForegroundColor Gray
     Write-Host ""
