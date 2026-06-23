@@ -47,10 +47,12 @@ def build_chart_workspace_payload(
         "bars": [_bar_payload(bar) for bar in visible_bars],
         "indicators": _indicator_payloads(
             indicator_ids=requested_indicators,
+            bars=normalised_bars,
             closes=closes,
             timestamps=timestamps,
             start_index=start_index,
         ),
+        "levels": _market_map_levels(normalised_bars),
         "orb_overlays": orb_overlays,
         "orb_session_status": orb_status,
     }
@@ -59,6 +61,7 @@ def build_chart_workspace_payload(
 def _indicator_payloads(
     *,
     indicator_ids: Sequence[str],
+    bars: Sequence[Dict[str, Any]],
     closes: Sequence[float],
     timestamps: Sequence[datetime],
     start_index: int,
@@ -95,6 +98,21 @@ def _indicator_payloads(
                 "kind": "oscillator",
                 "points": _macd_points(closes=closes, timestamps=timestamps)[start_index:],
             }
+        elif indicator_id == "vwap":
+            payloads[indicator_id] = _single_value_indicator(
+                label="VWAP",
+                kind="overlay",
+                timestamps=timestamps[start_index:],
+                values=_vwap_series(bars)[start_index:],
+            )
+        elif indicator_id.startswith("atr_"):
+            period = _indicator_period(indicator_id, "atr")
+            payloads[indicator_id] = _single_value_indicator(
+                label=f"ATR {period}",
+                kind="oscillator",
+                timestamps=timestamps[start_index:],
+                values=_atr_series(bars, period)[start_index:],
+            )
     return payloads
 
 
@@ -182,12 +200,152 @@ def _macd_points(*, closes: Sequence[float], timestamps: Sequence[datetime]) -> 
     return points
 
 
+def _vwap_series(bars: Sequence[Dict[str, Any]]) -> List[float | None]:
+    cumulative_price_volume = 0.0
+    cumulative_volume = 0.0
+    values: List[float | None] = []
+    for bar in bars:
+        volume = max(float(bar.get("volume") or 0.0), 0.0)
+        typical_price = (bar["high"] + bar["low"] + bar["close"]) / 3
+        cumulative_price_volume += typical_price * volume
+        cumulative_volume += volume
+        values.append(round(cumulative_price_volume / cumulative_volume, 4) if cumulative_volume > 0 else None)
+    return values
+
+
+def _true_range_series(bars: Sequence[Dict[str, Any]]) -> List[float]:
+    ranges: List[float] = []
+    previous_close: float | None = None
+    for bar in bars:
+        high = bar["high"]
+        low = bar["low"]
+        if previous_close is None:
+            ranges.append(high - low)
+        else:
+            ranges.append(max(high - low, abs(high - previous_close), abs(low - previous_close)))
+        previous_close = bar["close"]
+    return [round(value, 4) for value in ranges]
+
+
+def _atr_series(bars: Sequence[Dict[str, Any]], period: int) -> List[float | None]:
+    true_ranges = _true_range_series(bars)
+    series: List[float | None] = []
+    for index, _ in enumerate(true_ranges):
+        if index + 1 < period:
+            series.append(None)
+            continue
+        window = true_ranges[index + 1 - period : index + 1]
+        series.append(round(sum(window) / period, 4))
+    return series
+
+
+def _market_map_levels(bars: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    latest = bars[-1]
+    latest_date = latest["timestamp"].date()
+    current_day_bars = [bar for bar in bars if bar["timestamp"].date() == latest_date] or list(bars)
+    prior_day_bars = [bar for bar in bars if bar["timestamp"].date() < latest_date]
+    session_bars = [bar for bar in current_day_bars if _is_regular_session_bar(bar["timestamp"])] or current_day_bars
+    premarket_bars = [bar for bar in current_day_bars if _is_premarket_bar(bar["timestamp"])]
+    opening_range_bars = [bar for bar in session_bars if _is_opening_range_bar(bar["timestamp"])]
+    vwap_values = _vwap_series(current_day_bars)
+    atr_values = _atr_series(current_day_bars, min(14, max(2, len(current_day_bars))))
+    latest_vwap = _latest_value(vwap_values)
+    latest_atr = _latest_value(atr_values)
+    timestamp = latest["timestamp"]
+    items = [
+        _level_item("session_high", "Session high", "session_high", max(bar["high"] for bar in session_bars), "ohlcv", "regular", timestamp, 0.9, False),
+        _level_item("session_low", "Session low", "session_low", min(bar["low"] for bar in session_bars), "ohlcv", "regular", timestamp, 0.9, False),
+    ]
+    if prior_day_bars:
+        items.extend(
+            [
+                _level_item("prior_day_high", "Prior day high", "prior_day_high", max(bar["high"] for bar in prior_day_bars), "ohlcv", "prior_day", timestamp, 0.85, True),
+                _level_item("prior_day_low", "Prior day low", "prior_day_low", min(bar["low"] for bar in prior_day_bars), "ohlcv", "prior_day", timestamp, 0.85, True),
+            ]
+        )
+    if premarket_bars:
+        items.extend(
+            [
+                _level_item("premarket_high", "Premarket high", "premarket_high", max(bar["high"] for bar in premarket_bars), "ohlcv", "premarket", timestamp, 0.8, True),
+                _level_item("premarket_low", "Premarket low", "premarket_low", min(bar["low"] for bar in premarket_bars), "ohlcv", "premarket", timestamp, 0.8, True),
+            ]
+        )
+    if opening_range_bars:
+        items.extend(
+            [
+                _level_item("opening_range_high", "Opening range high", "opening_range_high", max(bar["high"] for bar in opening_range_bars), "ohlcv", "regular", timestamp, 0.8, False),
+                _level_item("opening_range_low", "Opening range low", "opening_range_low", min(bar["low"] for bar in opening_range_bars), "ohlcv", "regular", timestamp, 0.8, False),
+            ]
+        )
+    if latest_vwap is not None:
+        items.append(_level_item("vwap", "VWAP", "vwap", latest_vwap, "computed", "session", timestamp, 0.85, False))
+    if latest_atr is not None:
+        items.append(_level_item("atr_upper", "ATR upper", "atr_upper", latest["close"] + latest_atr, "computed", "session", timestamp, 0.7, False))
+        items.append(_level_item("atr_lower", "ATR lower", "atr_lower", latest["close"] - latest_atr, "computed", "session", timestamp, 0.7, False))
+    return {"schema_version": "edge.market_map.levels.v1", "items": items}
+
+
+def _level_item(
+    level_id: str,
+    label: str,
+    kind: str,
+    price: float,
+    source: str,
+    session: str,
+    timestamp: datetime,
+    confidence: float,
+    locked: bool,
+) -> Dict[str, Any]:
+    return {
+        "id": level_id,
+        "label": label,
+        "kind": kind,
+        "price": round(float(price), 4),
+        "source": source,
+        "session": session,
+        "confidence": round(float(confidence), 4),
+        "timestamp": timestamp.isoformat(),
+        "locked": bool(locked),
+    }
+
+
+def _is_regular_session_bar(timestamp: datetime) -> bool:
+    minute = timestamp.hour * 60 + timestamp.minute
+    return (9 * 60 + 30) <= minute < (16 * 60)
+
+
+def _is_premarket_bar(timestamp: datetime) -> bool:
+    minute = timestamp.hour * 60 + timestamp.minute
+    return (4 * 60) <= minute < (9 * 60 + 30)
+
+
+def _is_opening_range_bar(timestamp: datetime) -> bool:
+    minute = timestamp.hour * 60 + timestamp.minute
+    return (9 * 60 + 30) <= minute < (10 * 60)
+
+
+def _latest_value(values: Sequence[float | None]) -> float | None:
+    for value in reversed(values):
+        if value is not None:
+            return value
+    return None
+
+
 def _normalise_indicators(indicators: Sequence[str] | None) -> List[str]:
     raw_indicators = indicators or DEFAULT_INDICATORS
     normalised: List[str] = []
     for indicator in raw_indicators:
         indicator_id = str(indicator).strip().lower()
         if not indicator_id:
+            continue
+        if indicator_id == "vwap":
+            if indicator_id not in normalised:
+                normalised.append(indicator_id)
+            continue
+        if indicator_id.startswith("atr_"):
+            _indicator_period(indicator_id, "atr")
+            if indicator_id not in normalised:
+                normalised.append(indicator_id)
             continue
         if indicator_id == "macd" or indicator_id.startswith(("ema_", "sma_", "rsi_")):
             if indicator_id != "macd":

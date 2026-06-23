@@ -71,8 +71,33 @@ class ChartWorkspacePayloadTests(unittest.TestCase):
                 bars=[
                     {"timestamp": "2026-06-09T13:30:00Z", "open": 10.0, "high": 10.5, "low": 9.8, "close": 10.0},
                 ],
-                indicators=["vwap"],
+                indicators=["supertrend"],
             )
+
+    def test_payload_adds_market_map_levels_vwap_and_atr_bands(self):
+        result = build_chart_workspace_payload(
+            symbol="SPY",
+            bars=[
+                {"timestamp": "2026-06-09T08:00:00-04:00", "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+                {"timestamp": "2026-06-09T09:30:00-04:00", "open": 100, "high": 104, "low": 99, "close": 103, "volume": 200},
+                {"timestamp": "2026-06-09T09:31:00-04:00", "open": 103, "high": 105, "low": 102, "close": 104, "volume": 300},
+                {"timestamp": "2026-06-09T09:32:00-04:00", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 400},
+            ],
+            indicators=["vwap", "atr_3"],
+            limit=4,
+        )
+
+        self.assertEqual(result["levels"]["schema_version"], "edge.market_map.levels.v1")
+        kinds = {level["kind"] for level in result["levels"]["items"]}
+        self.assertIn("session_high", kinds)
+        self.assertIn("session_low", kinds)
+        self.assertIn("premarket_high", kinds)
+        self.assertIn("premarket_low", kinds)
+        self.assertIn("vwap", kinds)
+        self.assertIn("atr_upper", kinds)
+        self.assertIn("atr_lower", kinds)
+        self.assertEqual(result["indicators"]["vwap"]["label"], "VWAP")
+        self.assertEqual(result["indicators"]["atr_3"]["label"], "ATR 3")
 
 
 if __name__ == "__main__":

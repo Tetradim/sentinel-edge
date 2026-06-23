@@ -26,6 +26,9 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("def _sma_series", text)
         self.assertIn("def _rsi_series", text)
         self.assertIn("def _macd_points", text)
+        self.assertIn("def _vwap_series", text)
+        self.assertIn("def _atr_series", text)
+        self.assertIn("def _market_map_levels", text)
 
     def test_server_exposes_chart_workspace_route(self):
         text = SERVER.read_text(encoding="utf-8")
@@ -43,6 +46,8 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("fetchJSON<ChartWorkspaceSnapshot>", api)
         self.assertIn("export interface ChartWorkspaceSnapshot", types)
         self.assertIn("export type ChartWorkspaceIndicatorId", types)
+        self.assertIn("export interface MarketMapLevel", types)
+        self.assertIn("levels?: MarketMapLevelsPayload", types)
         self.assertIn("orb_session_status?: OrbSessionStatus", types)
 
     def test_chart_workspace_snapshot_panel_surfaces_orb_session_context(self):

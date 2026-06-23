@@ -103,7 +103,16 @@ export interface ChartDataPoint {
   label?: string;
 }
 
-export type ChartWorkspaceIndicatorId = 'ema_9' | 'ema_20' | 'sma_20' | 'rsi_14' | 'macd';
+export type ChartWorkspaceIndicatorId =
+  | 'ema_9'
+  | 'ema_20'
+  | 'sma_20'
+  | 'sma_50'
+  | 'sma_200'
+  | 'rsi_14'
+  | 'macd'
+  | 'vwap'
+  | 'atr_14';
 
 export interface ChartWorkspaceBar {
   timestamp: string;
@@ -140,6 +149,23 @@ export interface ChartWorkspaceOrbOverlay {
   date?: string;
 }
 
+export interface MarketMapLevel {
+  id: string;
+  label: string;
+  kind: string;
+  price: number;
+  source: string;
+  session: string;
+  confidence: number;
+  timestamp: string;
+  locked: boolean;
+}
+
+export interface MarketMapLevelsPayload {
+  schema_version: string;
+  items: MarketMapLevel[];
+}
+
 export interface ChartWorkspaceSnapshot {
   schema_version: string;
   symbol: string;
@@ -153,6 +179,7 @@ export interface ChartWorkspaceSnapshot {
   };
   bars: ChartWorkspaceBar[];
   indicators: Record<string, ChartWorkspaceIndicator>;
+  levels?: MarketMapLevelsPayload;
   orb_overlays: ChartWorkspaceOrbOverlay[];
   orb_session_status?: OrbSessionStatus | null;
 }
