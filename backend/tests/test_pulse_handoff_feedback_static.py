@@ -28,7 +28,8 @@ class PulseHandoffFeedbackStaticTests(unittest.TestCase):
     def test_scheduler_records_structured_handoff_feedback(self):
         text = SCHEDULER.read_text(encoding="utf-8")
 
-        self.assertIn("handoff_result = await self.pulse.send_handoff_command(command.payload())", text)
+        self.assertIn("command_payload = command.payload()", text)
+        self.assertIn("handoff_result = await self.pulse.send_handoff_command(command_payload)", text)
         self.assertIn("self.automation.record_sent(command, handoff_result)", text)
         self.assertIn('handoff_result.get("sent", False)', text)
 
