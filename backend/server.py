@@ -39,7 +39,7 @@ from alert_handler import router as alert_handler_router, shutdown as alert_hand
 from automation import AutomationMode
 from bot_event_bus_routes import router as bot_event_bus_router
 from chrome_bridge_routes import router as chrome_bridge_router
-from chart_workspace import build_chart_workspace_payload
+from chart_workspace import build_chart_workspace_payload, build_market_map_context
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
 from shared.bot_event_bus import event_bus
 from shared.handoff import pulse_handoff_contract_document
@@ -1985,6 +1985,40 @@ async def get_market_map_proof_markers(
         "symbol": requested_symbol,
         "items": markers,
     }
+
+
+@api_router.get("/market-map/context/{symbol}")
+async def get_market_map_context(
+    symbol: str,
+    limit: int = Query(240, ge=1, le=2000),
+):
+    """Return read-only Market Map context and explainable pass/review/block reasons."""
+    sym = _symbol(symbol)
+    fetcher = _require_price_fetcher()
+    frame = await fetcher.get_ohlcv(sym, period="2d", interval="1m")
+    if frame is None or frame.empty:
+        raise HTTPException(status_code=404, detail=f"No Market Map OHLCV data for {sym}")
+
+    orb_status = None
+    if scheduler is not None and getattr(scheduler, "orb", None) is not None:
+        orb_status = scheduler.orb.get_session_status(sym)
+
+    try:
+        payload = build_chart_workspace_payload(
+            symbol=sym,
+            bars=_chart_workspace_bars_from_frame(frame),
+            limit=limit,
+            orb_status=orb_status,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    latest_bar = payload["bars"][-1] if payload.get("bars") else {}
+    return build_market_map_context(
+        symbol=sym,
+        latest_price=latest_bar.get("close"),
+        levels=payload.get("levels", {}).get("items", []),
+    )
 
 
 @api_router.get("/scanner-workbench/catalog")

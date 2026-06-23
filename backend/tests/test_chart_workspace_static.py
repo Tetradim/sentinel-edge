@@ -393,6 +393,20 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("Alert Proof", dashboard)
         self.assertIn("parser confidence", dashboard)
 
+    def test_market_map_exposes_context_endpoint_and_edge_confidence_panel(self):
+        server = SERVER.read_text(encoding="utf-8")
+        api = API.read_text(encoding="utf-8")
+        types = TYPES.read_text(encoding="utf-8")
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("build_market_map_context", server)
+        self.assertIn('@api_router.get("/market-map/context/{symbol}")', server)
+        self.assertIn("async getMarketMapContext", api)
+        self.assertIn("export interface MarketMapContext", types)
+        self.assertIn("Edge Confidence", dashboard)
+        self.assertIn("formatMarketMapContextStatus", dashboard)
+        self.assertIn("marketMapContext?.reasons", dashboard)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 

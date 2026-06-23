@@ -58,6 +58,116 @@ def build_chart_workspace_payload(
     }
 
 
+def build_market_map_context(
+    *,
+    symbol: str,
+    latest_price: float | None,
+    levels: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build read-only Market Map context with explicit reasons."""
+    normalized_symbol = symbol.strip().upper()
+    numeric_latest_price = _optional_float(latest_price)
+    if numeric_latest_price is None:
+        return _market_map_context_response(
+            symbol=normalized_symbol,
+            status="block",
+            score=0,
+            directional_bias="unknown",
+            level_proximity=None,
+            reasons=["Latest price unavailable"],
+            warnings=[],
+        )
+
+    valid_levels = [
+        level
+        for level in levels
+        if _optional_float(level.get("price") if isinstance(level, dict) else None) is not None
+    ]
+    if not valid_levels:
+        return _market_map_context_response(
+            symbol=normalized_symbol,
+            status="block",
+            score=0,
+            directional_bias="unknown",
+            level_proximity=None,
+            reasons=["No Market Map levels available"],
+            warnings=[],
+        )
+
+    nearest = min(
+        valid_levels,
+        key=lambda level: abs(float(level.get("price")) - numeric_latest_price),
+    )
+    nearest_price = float(nearest.get("price"))
+    distance_pct = abs(nearest_price - numeric_latest_price) / max(numeric_latest_price, 0.01)
+    vwap = next((level for level in valid_levels if level.get("kind") == "vwap"), None)
+    reasons: List[str] = []
+    warnings: List[str] = []
+
+    if vwap:
+        vwap_price = float(vwap.get("price"))
+        vwap_distance_pct = abs(vwap_price - numeric_latest_price) / max(numeric_latest_price, 0.01)
+        directional_bias = "above_vwap" if numeric_latest_price >= vwap_price else "below_vwap"
+        if vwap_distance_pct <= 0.005:
+            status = "pass"
+            score = 82
+            reasons.append("Price is near VWAP")
+        elif vwap_distance_pct <= 0.015:
+            status = "review"
+            score = 58
+            reasons.append("Price is moderately away from VWAP")
+        else:
+            status = "review"
+            score = 42
+            reasons.append("Price is extended from VWAP")
+    else:
+        status = "review"
+        score = 50
+        directional_bias = "unknown"
+        reasons.append("VWAP level unavailable")
+        warnings.append("VWAP is missing from Market Map levels")
+
+    return _market_map_context_response(
+        symbol=normalized_symbol,
+        status=status,
+        score=score,
+        directional_bias=directional_bias,
+        level_proximity={
+            "id": nearest.get("id"),
+            "label": nearest.get("label"),
+            "price": nearest_price,
+            "distance_pct": round(distance_pct, 4),
+        },
+        reasons=reasons,
+        warnings=warnings,
+    )
+
+
+def _market_map_context_response(
+    *,
+    symbol: str,
+    status: str,
+    score: int,
+    directional_bias: str,
+    level_proximity: Dict[str, Any] | None,
+    reasons: List[str],
+    warnings: List[str],
+) -> Dict[str, Any]:
+    return {
+        "schema_version": "edge.market_map.context.v1",
+        "symbol": symbol,
+        "status": status,
+        "score": score,
+        "directional_bias": directional_bias,
+        "trend_state": "context_only",
+        "momentum_state": "context_only",
+        "volatility_state": "context_only",
+        "level_proximity": level_proximity,
+        "reasons": reasons,
+        "warnings": warnings,
+    }
+
+
 def _indicator_payloads(
     *,
     indicator_ids: Sequence[str],

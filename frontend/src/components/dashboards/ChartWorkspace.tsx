@@ -13,6 +13,7 @@ import type {
   ChartWorkspaceIndicatorId,
   ChartWorkspaceIndicatorPoint,
   ChartWorkspaceSnapshot,
+  MarketMapContext,
   MarketMapProofMarker,
   OrbSessionSummary,
 } from '@/types';
@@ -220,6 +221,8 @@ export const ChartWorkspace: React.FC = () => {
   const [symbolInput, setSymbolInput] = useState(workspacePreferences.activeSymbol);
   const [workspaceLayout, setWorkspaceLayout] = useState<ChartWorkspaceLayoutState>(readChartWorkspaceLayout);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
+  const [marketMapContext, setMarketMapContext] = useState<MarketMapContext | null>(null);
+  const [marketMapContextMessage, setMarketMapContextMessage] = useState('');
   const [proofMarkers, setProofMarkers] = useState<MarketMapProofMarker[]>([]);
   const [proofMarkerMessage, setProofMarkerMessage] = useState('');
   const [simulationLabStatus, setSimulationLabStatus] = useState<ChartWorkspaceSimulationLabStatus | null>(null);
@@ -302,6 +305,24 @@ export const ChartWorkspace: React.FC = () => {
         if (cancelled) return;
         setProofMarkers([]);
         setProofMarkerMessage('Alert proof unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMarketMapContextMessage('');
+    api.getMarketMapContext(activeSymbol)
+      .then((context) => {
+        if (cancelled) return;
+        setMarketMapContext(context);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMarketMapContext(null);
+        setMarketMapContextMessage('Edge context unavailable');
       });
     return () => {
       cancelled = true;
@@ -655,6 +676,36 @@ export const ChartWorkspace: React.FC = () => {
             ))}
             {!(snapshot?.levels?.items ?? []).length && (
               <div className="text-[11px] text-slate-500">No support/resistance levels loaded</div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {panelVisibility.snapshot && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <Activity className="h-4 w-4 text-cyan-300" />
+            Edge Confidence
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <Metric label="Status" value={formatMarketMapContextStatus(marketMapContext?.status)} />
+            <Metric label="Score" value={marketMapContext ? marketMapContext.score : '--'} />
+            <Metric label="Bias" value={formatMarketMapContextStatus(marketMapContext?.directional_bias)} />
+            <Metric label="Nearest" value={formatMarketMapContextProximity(marketMapContext)} />
+          </div>
+          <div className="mt-3 space-y-1 text-[11px] text-slate-400">
+            {(marketMapContext?.reasons ?? []).map((reason) => (
+              <div key={reason} className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1 text-slate-300">
+                {reason}
+              </div>
+            ))}
+            {(marketMapContext?.warnings ?? []).map((warning) => (
+              <div key={warning} className="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-amber-100">
+                {warning}
+              </div>
+            ))}
+            {!marketMapContext && (
+              <div className="text-slate-500">{marketMapContextMessage || 'Edge context loading'}</div>
             )}
           </div>
         </section>
@@ -1427,6 +1478,20 @@ function formatProofMarkerTimestamp(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function formatMarketMapContextStatus(value?: string) {
+  if (!value) return '--';
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatMarketMapContextProximity(context: MarketMapContext | null) {
+  const proximity = context?.level_proximity;
+  if (!proximity) return '--';
+  const label = proximity.label || proximity.id || 'Level';
+  const price = typeof proximity.price === 'number' ? formatMarketMapLevelPrice(proximity.price) : '--';
+  if (typeof proximity.distance_pct !== 'number') return `${label} ${price}`;
+  return `${label} ${price} / ${(proximity.distance_pct * 100).toFixed(2)}%`;
 }
 
 function formatOrbOverlaySessionSummary(

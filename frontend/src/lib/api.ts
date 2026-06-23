@@ -1,6 +1,7 @@
 import type {
   ChartWorkspaceIndicatorId,
   ChartWorkspaceSnapshot,
+  MarketMapContext,
   MarketMapProofMarkersPayload,
   ScannerWorkbenchCatalog,
   ScannerWorkbenchWatchIntent,
@@ -233,6 +234,10 @@ class ApiClient {
     return fetchJSON<MarketMapProofMarkersPayload>(
       `/api/market-map/proof-markers/${encodeURIComponent(symbol)}?${params}`,
     );
+  }
+
+  async getMarketMapContext(symbol: string) {
+    return fetchJSON<MarketMapContext>(`/api/market-map/context/${encodeURIComponent(symbol)}`);
   }
 
   async getScannerWorkbenchCatalog() {

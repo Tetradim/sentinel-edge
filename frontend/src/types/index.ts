@@ -184,6 +184,25 @@ export interface MarketMapProofMarkersPayload {
   items: MarketMapProofMarker[];
 }
 
+export interface MarketMapContext {
+  schema_version: string;
+  symbol: string;
+  status: 'pass' | 'review' | 'block' | string;
+  score: number;
+  directional_bias: string;
+  trend_state: string;
+  momentum_state: string;
+  volatility_state: string;
+  level_proximity?: {
+    id?: string;
+    label?: string;
+    price?: number;
+    distance_pct?: number;
+  } | null;
+  reasons: string[];
+  warnings: string[];
+}
+
 export interface ChartWorkspaceSnapshot {
   schema_version: string;
   symbol: string;
