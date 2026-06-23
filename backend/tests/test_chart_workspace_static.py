@@ -407,6 +407,18 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("formatMarketMapContextStatus", dashboard)
         self.assertIn("marketMapContext?.reasons", dashboard)
 
+    def test_market_map_options_cockpit_is_read_only(self):
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+        types = TYPES.read_text(encoding="utf-8")
+        text = README.read_text(encoding="utf-8")
+
+        self.assertIn("Options Cockpit", dashboard)
+        self.assertIn("options market data unavailable", dashboard)
+        self.assertIn("bid/ask spread", dashboard)
+        self.assertIn("liquidity warning", dashboard)
+        self.assertIn("export interface MarketMapOptionContext", types)
+        self.assertIn("Market Map never submits broker orders", text)
+
     def test_readme_documents_chart_workspace_endpoint(self):
         text = README.read_text(encoding="utf-8")
 

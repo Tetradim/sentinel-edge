@@ -203,6 +203,20 @@ export interface MarketMapContext {
   warnings: string[];
 }
 
+export interface MarketMapOptionContext {
+  ticker: string;
+  strike?: number | null;
+  side?: 'CALL' | 'PUT' | string | null;
+  expiration?: string | null;
+  entry_price?: number | null;
+  bid?: number | null;
+  ask?: number | null;
+  spread?: number | null;
+  liquidity_warning?: string | null;
+  delta_target?: number | null;
+  status: 'available' | 'review' | 'unavailable' | string;
+}
+
 export interface ChartWorkspaceSnapshot {
   schema_version: string;
   symbol: string;

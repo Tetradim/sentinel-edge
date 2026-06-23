@@ -741,6 +741,24 @@ export const ChartWorkspace: React.FC = () => {
         </section>
       )}
 
+      {panelVisibility.snapshot && (
+        <section className={panelClass}>
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <CandlestickChart className="h-4 w-4 text-violet-300" />
+            Options Cockpit
+          </div>
+          <div className="rounded border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-100">
+            options market data unavailable; contract context remains review-only
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <Metric label="bid/ask spread" value="--" />
+            <Metric label="liquidity warning" value="Market data required" />
+            <Metric label="delta target" value="--" />
+            <Metric label="contract status" value="Review" />
+          </div>
+        </section>
+      )}
+
       {panelVisibility.strategy && (
         <section className={panelClass}>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
