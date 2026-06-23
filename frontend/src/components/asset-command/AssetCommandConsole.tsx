@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { tickers } from './data';
+import { ChartWorkspace } from '../dashboards/ChartWorkspace';
 import { ActivityLog } from './components/ActivityLog';
 import { CommandModePanel } from './components/CommandModePanel';
 import { ModeTabs } from './components/ModeTabs';
@@ -156,6 +157,8 @@ export default function AssetCommandConsole() {
               reels={reels}
             />
           )}
+
+          {mode === 'market-map' && <ChartWorkspace />}
 
           {mode === 'monitor' && (
             <MonitorPanel

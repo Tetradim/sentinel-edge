@@ -167,6 +167,11 @@ export const operationsViews: OperationViewItem[] = [
   { id: 'tutorials', label: 'Tutorials', icon: CheckCircle },
 ];
 
-export const modes: Mode[] = ['monitor', 'command', 'protect', 'operations', 'settings'];
+export const modes: Mode[] = ['monitor', 'command', 'market-map', 'protect', 'operations', 'settings'];
 
-export const modeLabel = (mode: Mode) => (mode === 'protect' ? 'Protect' : mode === 'operations' ? 'Ops' : mode);
+export const modeLabel = (mode: Mode) => {
+  if (mode === 'market-map') return 'Market Map';
+  if (mode === 'protect') return 'Protect';
+  if (mode === 'operations') return 'Ops';
+  return mode;
+};

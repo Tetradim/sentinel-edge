@@ -177,6 +177,15 @@ class AssetCommandUiStaticTests(unittest.TestCase):
         self.assertIn('role="tabpanel"', text)
         self.assertIn("onKeyDown", text)
 
+    def test_market_map_is_reachable_as_top_level_mode(self):
+        text = read_existing(ASSET_COMMAND, ASSET_COMMAND_TYPES, ASSET_COMMAND_DATA, ASSET_COMMAND_NAVIGATION_HOOK)
+
+        self.assertIn("'market-map'", text)
+        self.assertIn("ChartWorkspace", text)
+        self.assertIn("mode === 'market-map'", text)
+        self.assertIn("return 'Market Map'", text)
+        self.assertIn("edge-mode-tab-${nextMode}", text)
+
     def test_reel_motion_honors_reduced_motion(self):
         css = read_asset_command_styles()
 
