@@ -40,6 +40,7 @@ type ChartWorkspaceChartType = 'candlestick' | 'line';
 type ChartWorkspaceBarLimit = 120 | 240 | 390;
 type ChartWorkspaceOrbReplaySession = 'market_open' | 'premarket_30m';
 type ChartWorkspaceOrbOverlaySession = 'market_open' | 'premarket_30m';
+type MarketMapLayoutPreset = 'morning_plan' | 'intraday_alerts' | 'replay_proof';
 
 interface ChartWorkspacePanelVisibility {
   snapshot: boolean;
@@ -49,6 +50,7 @@ interface ChartWorkspacePanelVisibility {
 }
 
 interface ChartWorkspaceLayoutState {
+  marketMapPreset: MarketMapLayoutPreset;
   layoutMode: ChartWorkspaceLayoutMode;
   panelVisibility: ChartWorkspacePanelVisibility;
 }
@@ -101,6 +103,8 @@ interface ChartWorkspaceIndicatorSnapshotMetric {
   timestamp?: string;
 }
 
+const MARKET_MAP_LAYOUT_STORAGE_KEY = 'sentinel-edge.market-map.layout.v1';
+const MARKET_MAP_PREFERENCES_STORAGE_KEY = 'sentinel-edge.market-map.preferences.v1';
 const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
 const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
 const CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY = 'sentinel-edge.chart-workspace.lab-result.v1';
@@ -114,9 +118,40 @@ const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
 };
 
 const DEFAULT_LAYOUT_STATE: ChartWorkspaceLayoutState = {
+  marketMapPreset: 'morning_plan',
   layoutMode: 'analysis',
   panelVisibility: DEFAULT_PANEL_VISIBILITY,
 };
+
+const MARKET_MAP_LAYOUT_PRESETS: {
+  id: MarketMapLayoutPreset;
+  label: string;
+  detail: string;
+  layoutMode: ChartWorkspaceLayoutMode;
+  panelVisibility: ChartWorkspacePanelVisibility;
+}[] = [
+  {
+    id: 'morning_plan',
+    label: 'Morning Plan',
+    detail: 'Levels, VWAP, trend, and watched tickers before the session.',
+    layoutMode: 'analysis',
+    panelVisibility: { snapshot: true, strategy: true, lab: false, oscillators: true },
+  },
+  {
+    id: 'intraday_alerts',
+    label: 'Intraday Alerts',
+    detail: 'Live alert context, Edge confidence, and options quality.',
+    layoutMode: 'execution',
+    panelVisibility: { snapshot: true, strategy: true, lab: false, oscillators: true },
+  },
+  {
+    id: 'replay_proof',
+    label: 'Replay Proof',
+    detail: 'Alert-chain proof, chart markers, and reconciliation evidence.',
+    layoutMode: 'research',
+    panelVisibility: { snapshot: true, strategy: true, lab: true, oscillators: true },
+  },
+];
 
 const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
   activeSymbol: 'SPY',
@@ -262,7 +297,7 @@ export const ChartWorkspace: React.FC = () => {
     [snapshot, selectedIndicators],
   );
   const latestBar = snapshot?.bars[snapshot.bars.length - 1];
-  const { layoutMode, panelVisibility } = workspaceLayout;
+  const { marketMapPreset, layoutMode, panelVisibility } = workspaceLayout;
   const simulationLabEnabled = Boolean(
     simulationLabStatus?.enabled && simulationLabStatus.experiments?.some((experiment) => experiment.runnable),
   );
@@ -424,17 +459,30 @@ export const ChartWorkspace: React.FC = () => {
   const selectLayoutMode = (nextLayoutMode: ChartWorkspaceLayoutMode) => {
     updateWorkspaceLayout({
       ...workspaceLayout,
+      marketMapPreset: inferMarketMapPreset(nextLayoutMode, workspaceLayout.panelVisibility),
       layoutMode: nextLayoutMode,
     });
   };
 
+  const applyMarketMapPreset = (presetId: MarketMapLayoutPreset) => {
+    const preset = MARKET_MAP_LAYOUT_PRESETS.find((option) => option.id === presetId);
+    if (!preset) return;
+    updateWorkspaceLayout({
+      marketMapPreset: preset.id,
+      layoutMode: preset.layoutMode,
+      panelVisibility: { ...preset.panelVisibility },
+    });
+  };
+
   const toggleWorkspacePanel = (panel: ChartWorkspacePanelId, checked: boolean) => {
+    const nextPanelVisibility = {
+      ...workspaceLayout.panelVisibility,
+      [panel]: checked,
+    };
     updateWorkspaceLayout({
       ...workspaceLayout,
-      panelVisibility: {
-        ...workspaceLayout.panelVisibility,
-        [panel]: checked,
-      },
+      marketMapPreset: inferMarketMapPreset(workspaceLayout.layoutMode, nextPanelVisibility),
+      panelVisibility: nextPanelVisibility,
     });
   };
 
@@ -708,7 +756,7 @@ export const ChartWorkspace: React.FC = () => {
     <div className="space-y-4" data-testid="chart-workspace">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">Chart Workspace</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">Market Map</p>
           <h2 className="text-2xl font-bold text-white">{snapshot?.symbol || activeSymbol}</h2>
         </div>
         <form onSubmit={submitSymbol} className="flex items-center gap-2">
@@ -733,12 +781,26 @@ export const ChartWorkspace: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
             <BarChart3 className="h-4 w-4 text-cyan-300" />
-            Layout
+            Market Map Layout
           </div>
           <button type="button" onClick={resetWorkspaceLayout} className={inactiveToolClass}>
             <RefreshCw className="h-4 w-4" />
             Reset
           </button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Market Map layout presets">
+          {MARKET_MAP_LAYOUT_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={marketMapPreset === preset.id ? activeToolClass : inactiveToolClass}
+              onClick={() => applyMarketMapPreset(preset.id)}
+              title={preset.detail}
+              aria-pressed={marketMapPreset === preset.id}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
         <div className="mt-3 grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,auto)]">
           <div className="flex flex-wrap items-center gap-2">
@@ -1340,7 +1402,9 @@ function formatSimulationLabFingerprint(value: unknown) {
 function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {
   if (typeof window === 'undefined') return cloneDefaultLayoutState();
   try {
-    const storedLayout = window.localStorage.getItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
+    const storedLayout =
+      window.localStorage.getItem(MARKET_MAP_LAYOUT_STORAGE_KEY) ||
+      window.localStorage.getItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
     if (!storedLayout) return cloneDefaultLayoutState();
     return normalizeChartWorkspaceLayout(JSON.parse(storedLayout));
   } catch {
@@ -1351,7 +1415,7 @@ function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {
 function persistChartWorkspaceLayout(layout: ChartWorkspaceLayoutState) {
   if (typeof window === 'undefined') return false;
   try {
-    window.localStorage.setItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+    window.localStorage.setItem(MARKET_MAP_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
     return true;
   } catch {
     return false;
@@ -1361,6 +1425,7 @@ function persistChartWorkspaceLayout(layout: ChartWorkspaceLayoutState) {
 function clearChartWorkspaceLayout() {
   if (typeof window === 'undefined') return;
   try {
+    window.localStorage.removeItem(MARKET_MAP_LAYOUT_STORAGE_KEY);
     window.localStorage.removeItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
   } catch {
     return;
@@ -1370,7 +1435,9 @@ function clearChartWorkspaceLayout() {
 function readChartWorkspacePreferences(): ChartWorkspacePreferencesState {
   if (typeof window === 'undefined') return cloneDefaultPreferencesState();
   try {
-    const storedPreferences = window.localStorage.getItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
+    const storedPreferences =
+      window.localStorage.getItem(MARKET_MAP_PREFERENCES_STORAGE_KEY) ||
+      window.localStorage.getItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
     if (!storedPreferences) return cloneDefaultPreferencesState();
     return normalizeChartWorkspacePreferences(JSON.parse(storedPreferences));
   } catch {
@@ -1381,7 +1448,7 @@ function readChartWorkspacePreferences(): ChartWorkspacePreferencesState {
 function persistChartWorkspacePreferences(preferences: ChartWorkspacePreferencesState) {
   if (typeof window === 'undefined') return false;
   try {
-    window.localStorage.setItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    window.localStorage.setItem(MARKET_MAP_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
     return true;
   } catch {
     return false;
@@ -1391,6 +1458,7 @@ function persistChartWorkspacePreferences(preferences: ChartWorkspacePreferences
 function clearChartWorkspacePreferences() {
   if (typeof window === 'undefined') return;
   try {
+    window.localStorage.removeItem(MARKET_MAP_PREFERENCES_STORAGE_KEY);
     window.localStorage.removeItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
   } catch {
     return;
@@ -1430,16 +1498,21 @@ function clearChartWorkspaceLabResult() {
 function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutState {
   if (!isRecord(value)) return cloneDefaultLayoutState();
   const storedPanels = isRecord(value.panelVisibility) ? value.panelVisibility : {};
+  const panelVisibility = {
+    snapshot: typeof storedPanels.snapshot === 'boolean' ? storedPanels.snapshot : DEFAULT_PANEL_VISIBILITY.snapshot,
+    strategy:
+      typeof storedPanels.strategy === 'boolean' ? storedPanels.strategy : DEFAULT_PANEL_VISIBILITY.strategy,
+    lab: typeof storedPanels.lab === 'boolean' ? storedPanels.lab : DEFAULT_PANEL_VISIBILITY.lab,
+    oscillators:
+      typeof storedPanels.oscillators === 'boolean' ? storedPanels.oscillators : DEFAULT_PANEL_VISIBILITY.oscillators,
+  };
+  const layoutMode = isChartWorkspaceLayoutMode(value.layoutMode) ? value.layoutMode : DEFAULT_LAYOUT_STATE.layoutMode;
   return {
-    layoutMode: isChartWorkspaceLayoutMode(value.layoutMode) ? value.layoutMode : DEFAULT_LAYOUT_STATE.layoutMode,
-    panelVisibility: {
-      snapshot: typeof storedPanels.snapshot === 'boolean' ? storedPanels.snapshot : DEFAULT_PANEL_VISIBILITY.snapshot,
-      strategy:
-        typeof storedPanels.strategy === 'boolean' ? storedPanels.strategy : DEFAULT_PANEL_VISIBILITY.strategy,
-      lab: typeof storedPanels.lab === 'boolean' ? storedPanels.lab : DEFAULT_PANEL_VISIBILITY.lab,
-      oscillators:
-        typeof storedPanels.oscillators === 'boolean' ? storedPanels.oscillators : DEFAULT_PANEL_VISIBILITY.oscillators,
-    },
+    marketMapPreset: isMarketMapLayoutPreset(value.marketMapPreset)
+      ? value.marketMapPreset
+      : inferMarketMapPreset(layoutMode, panelVisibility),
+    layoutMode,
+    panelVisibility,
   };
 }
 
@@ -1503,6 +1576,7 @@ function normalizeChartWorkspaceLabResultTimestamp(value: unknown) {
 
 function cloneDefaultLayoutState(): ChartWorkspaceLayoutState {
   return {
+    marketMapPreset: DEFAULT_LAYOUT_STATE.marketMapPreset,
     layoutMode: DEFAULT_LAYOUT_STATE.layoutMode,
     panelVisibility: { ...DEFAULT_PANEL_VISIBILITY },
   };
@@ -1518,6 +1592,25 @@ function cloneDefaultPreferencesState(): ChartWorkspacePreferencesState {
 
 function isChartWorkspaceLayoutMode(value: unknown): value is ChartWorkspaceLayoutMode {
   return value === 'analysis' || value === 'execution' || value === 'research';
+}
+
+function isMarketMapLayoutPreset(value: unknown): value is MarketMapLayoutPreset {
+  return MARKET_MAP_LAYOUT_PRESETS.some((option) => option.id === value);
+}
+
+function inferMarketMapPreset(
+  layoutMode: ChartWorkspaceLayoutMode,
+  panelVisibility: ChartWorkspacePanelVisibility,
+): MarketMapLayoutPreset {
+  const matchingPreset = MARKET_MAP_LAYOUT_PRESETS.find(
+    (preset) =>
+      preset.layoutMode === layoutMode &&
+      preset.panelVisibility.snapshot === panelVisibility.snapshot &&
+      preset.panelVisibility.strategy === panelVisibility.strategy &&
+      preset.panelVisibility.lab === panelVisibility.lab &&
+      preset.panelVisibility.oscillators === panelVisibility.oscillators,
+  );
+  return matchingPreset?.id ?? DEFAULT_LAYOUT_STATE.marketMapPreset;
 }
 
 function isChartWorkspaceChartType(value: unknown): value is ChartWorkspaceChartType {

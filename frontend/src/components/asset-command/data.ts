@@ -155,7 +155,7 @@ export const nowTime = () => new Date().toLocaleTimeString('en-US', { hour: '2-d
 
 export const operationsViews: OperationViewItem[] = [
   { id: 'overview', label: 'Trading Overview', icon: Activity },
-  { id: 'charts', label: 'Chart Workspace', icon: LineChart },
+  { id: 'charts', label: 'Market Map', icon: LineChart },
   { id: 'scanners', label: 'Scanner Workbench', icon: Search },
   { id: 'advisor', label: 'Advisor Health', icon: Gauge },
   { id: 'experience', label: 'Experience', icon: Zap },

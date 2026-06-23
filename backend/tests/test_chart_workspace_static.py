@@ -70,7 +70,7 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
 
         self.assertIn("ChartWorkspace", panel)
         self.assertIn("activeView === 'charts'", panel)
-        self.assertIn("{ id: 'charts', label: 'Chart Workspace'", data)
+        self.assertIn("{ id: 'charts', label: 'Market Map'", data)
         self.assertIn("'charts'", types)
         self.assertIn("runSimulationLabOrbBacktest", dashboard)
         self.assertIn("runSimulationLabBuyingPowerAllocation", dashboard)
@@ -79,6 +79,19 @@ class ChartWorkspaceStaticTests(unittest.TestCase):
         self.assertIn("buildAllocationCandidates", dashboard)
         self.assertIn("Buying Power", dashboard)
         self.assertIn("PlotlyChart", dashboard)
+
+    def test_operations_deck_exposes_market_map_presets(self):
+        data = ASSET_DATA.read_text(encoding="utf-8")
+        dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")
+
+        self.assertIn("{ id: 'charts', label: 'Market Map'", data)
+        self.assertIn("Market Map", dashboard)
+        self.assertIn("MarketMapLayoutPreset", dashboard)
+        self.assertIn("Morning Plan", dashboard)
+        self.assertIn("Intraday Alerts", dashboard)
+        self.assertIn("Replay Proof", dashboard)
+        self.assertIn("sentinel-edge.market-map.layout.v1", dashboard)
+        self.assertIn("sentinel-edge.market-map.preferences.v1", dashboard)
 
     def test_chart_workspace_exposes_custom_layout_persistence(self):
         dashboard = CHART_DASHBOARD.read_text(encoding="utf-8")

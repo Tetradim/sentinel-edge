@@ -88,7 +88,7 @@ Edge is also designed to degrade safely:
 | Readiness | `/api/live` for process liveness, `/api/ready` for dependency readiness, readiness metrics, Grafana panels, alerts, and runbooks. |
 | Observability | Prometheus metrics, frontend RUM metrics, rate-limit metrics, OpenTelemetry traces, Loki/Promtail/Grafana/Tempo/Alertmanager Docker stack. |
 | Backtesting | Backtest execution, run reports, strategy optimization, Monte Carlo chart endpoints, dry-run status, and strategy catalog endpoints. |
-| Chart workspace | Chart-ready OHLCV snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels with Simulation Lab disabled reason visibility, chart replay actions, crosshair-style hover context, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
+| Market Map | Read-only operator chart cockpit built on Chart Workspace snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels with Simulation Lab disabled reason visibility, chart replay actions, crosshair-style hover context, persistent Market Map presets, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
 | Safety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
 | Local launcher | Windows source launcher starts backend and frontend, opens a dedicated browser profile, shuts down owned tasks when the browser closes, and closes the browser/tasks if the launcher window exits. |
 
@@ -487,7 +487,11 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Dry-run status.
 - Strategy optimization.
 - Monte Carlo chart listing and chart serving.
-- Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, latest EMA/SMA, RSI, and MACD values, chart-ready OHLCV bars, a persistent volume overlay control, crosshair-style hover context, UI-ready context for persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last Simulation Lab result with symbol and timestamp context so operators can clear stale persisted Simulation Lab context. The workspace also guards duplicate Simulation Lab submissions while a replay or experiment request is in flight, with Lab run actions disabled until chart bars are loaded, flags persisted Simulation Lab results when their symbol differs from the active chart, surfaces allocation skip reasons, and adds an operator-friendly result provenance badge.
+- Market Map uses Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, latest EMA/SMA, RSI, and MACD values, chart-ready OHLCV bars, a persistent volume overlay control, crosshair-style hover context, UI-ready context for persistent Morning Plan/Intraday Alerts/Replay Proof presets, persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last Simulation Lab result with symbol and timestamp context so operators can clear stale persisted Simulation Lab context. The workspace also guards duplicate Simulation Lab submissions while a replay or experiment request is in flight, with Lab run actions disabled until chart bars are loaded, flags persisted Simulation Lab results when their symbol differs from the active chart, surfaces allocation skip reasons, and adds an operator-friendly result provenance badge.
+
+### Market Map
+
+The Operations deck exposes Market Map as the operator chart cockpit. It keeps the legacy `/api/chart-workspace/{symbol}` compatibility endpoint while adding Market Map presets for Morning Plan, Intraday Alerts, and Replay Proof. Market Map is read-only for broker activity and does not arm or submit live trades.
 
 The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata, plus result metadata fields, for client-side discovery. Runnable lab results include a deterministic `run_id`, full `input_fingerprint`, and `input_fingerprint_algorithm` (`sha256.canonical_json.v1`) so operators can compare repeated replays and correlate saved UI context without implying live execution. The initial Lab roadmap covers:
 
@@ -1064,7 +1068,7 @@ Near-term priorities:
    - deterministic `run_id` and `input_fingerprint` metadata for replay comparison
    - default-hidden until explicitly enabled
 
-4. Chart workspace
+4. Market Map
    - ORB overlays
    - indicator toggles
    - strategy context panels
