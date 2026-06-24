@@ -44,9 +44,14 @@ from bot_event_bus_routes import router as bot_event_bus_router
 from chrome_bridge_routes import router as chrome_bridge_router
 from chart_workspace import build_chart_workspace_payload, build_market_map_context
 from frontend_rum import FrontendRumRegistry, metric_label, normalise_rum_route
-from shared.bot_event_bus import event_bus
+from shared.bot_event_bus import event_bus, publish_event
 from shared.handoff import pulse_handoff_contract_document
 from scanner_workbench_catalog import scanner_workbench_catalog, validate_scanner_watch_intent
+from support_resistance import (
+    DIRECTIVE_SCHEMA_VERSION,
+    build_support_resistance_levels,
+    evaluate_support_resistance_position,
+)
 from simulation_lab import (
     SimulationLabDisabledError,
     require_simulation_lab_enabled,
@@ -153,6 +158,16 @@ _OPERATOR_ACTION_SECRET_HEADER = "X-Edge-Operator-Secret"
 _LIVE_AUTOMATION_SIGNOFF = "ENABLE LIVE AUTOMATION"
 _LIVE_AUTOMATION_SIGNOFF_HEADER = "X-Edge-Live-Readiness-Signoff"
 _LIVE_AUTOMATION_SIGNOFF_FIELD = "live_readiness_signoff"
+
+
+class SupportResistanceEvaluateRequest(BaseModel):
+    symbol: str = Field(..., min_length=1, max_length=10)
+    bars: List[Dict[str, Any]] = Field(default_factory=list)
+    current_price: Optional[float] = None
+    position: Optional[Dict[str, Any]] = None
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    levels: List[Dict[str, Any]] = Field(default_factory=list)
+    emit_event: bool = False
 
 
 def _configured_cors_origins() -> list[str]:
@@ -2190,6 +2205,64 @@ async def get_market_map_context(
         latest_price=latest_bar.get("close"),
         levels=payload.get("levels", {}).get("items", []),
     )
+
+
+@api_router.post("/support-resistance/evaluate")
+async def evaluate_support_resistance(request: SupportResistanceEvaluateRequest):
+    """Evaluate supplied OHLCV and an option position against S/R levels."""
+    sym = _symbol(request.symbol)
+    if request.current_price is None:
+        raise HTTPException(status_code=422, detail="current_price is required for S/R evaluation")
+
+    try:
+        if request.levels:
+            levels_payload = {
+                "schema_version": "edge.support_resistance.levels.v1",
+                "symbol": sym,
+                "current_price": request.current_price,
+                "items": request.levels,
+            }
+        else:
+            if not request.bars:
+                raise ValueError("bars are required when levels are not supplied")
+            levels_payload = build_support_resistance_levels(
+                symbol=sym,
+                bars=request.bars,
+                current_price=request.current_price,
+                settings=request.settings,
+            )
+
+        directive = None
+        if request.position is not None:
+            directive = evaluate_support_resistance_position(
+                position=request.position,
+                levels=levels_payload.get("items", []),
+                current_price=float(request.current_price),
+                settings=request.settings,
+            )
+
+        published_event = None
+        if request.emit_event and directive is not None:
+            event = publish_event(
+                DIRECTIVE_SCHEMA_VERSION,
+                payload=directive,
+                correlation_id=str(directive.get("directive_id") or ""),
+                dedupe_key=str(directive.get("directive_id") or ""),
+                target_bots=["consolidation"],
+                trace={"symbol": sym, "source": "support_resistance_evaluate"},
+            )
+            published_event = event.model_dump(mode="json")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return {
+        "schema_version": "edge.support_resistance.evaluation.v1",
+        "symbol": sym,
+        "current_price": request.current_price,
+        "levels": levels_payload,
+        "directive": directive,
+        "event": published_event,
+    }
 
 
 @api_router.get("/scanner-workbench/catalog")
