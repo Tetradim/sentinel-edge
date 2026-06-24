@@ -1,6 +1,7 @@
 """Sentinel Pulse API Client — circuit-breaker HTTP client."""
 
 import logging
+import math
 import os
 import time
 from enum import Enum
@@ -21,6 +22,15 @@ from shared.handoff import PulseHandoffRequest
 logger = logging.getLogger(__name__)
 
 HEALTH_PROBE_TIMEOUT = 3.0
+
+
+def resolve_pulse_api_key() -> str:
+    return (
+        os.getenv("PULSE_API_KEY")
+        or os.getenv("EDGE_API_KEY")
+        or os.getenv("EDGE_SHARED_API_KEY")
+        or ""
+    )
 
 
 class CircuitState(Enum):
@@ -46,7 +56,7 @@ class PulseClient:
         retry_queue_log_dir: str = "/app/logs",
     ):
         self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        self.api_key = resolve_pulse_api_key() if api_key is None else api_key
         self.broker_id = "pulse"
 
         self.pulse_available: bool = False
@@ -103,6 +113,9 @@ class PulseClient:
         if self.api_key:
             headers["X-API-Key"] = self.api_key
         return headers
+
+    def _has_api_key(self) -> bool:
+        return bool(str(self.api_key or "").strip())
 
     def _should_allow_request(self) -> bool:
         if not self.pulse_available:
@@ -443,6 +456,10 @@ class PulseClient:
             feedback["validation_errors"] = self._json_safe_validation_errors(exc)
             return feedback
 
+        if not self._has_api_key():
+            logger.warning("Pulse handoff suppressed: missing Pulse API key")
+            return self.suppressed_handoff_feedback("/api/edge/handoff", "missing_pulse_api_key")
+
         payload = handoff_request.model_dump(mode="json", exclude_none=True)
         symbol = payload["symbol"]
         action = payload["action"]
@@ -662,8 +679,34 @@ class PulseClient:
             "retry_queue_size": self.retry_queue.stats().get("pending", 0),
         }
 
+    async def start_bot(self, enable_all: bool = True) -> bool:
+        return await self._post("/api/edge/bot/start", {"enable_all": enable_all})
+
+    async def stop_bot(self, disable_all: bool = True) -> bool:
+        return await self._post("/api/edge/bot/stop", {"disable_all": disable_all})
+
     async def enable_trailing_stop(self, symbol: str, trailing_percent: float) -> bool:
-        return await self.send_decision(symbol, "enable_trailing_stop", trailing_percent=trailing_percent)
+        try:
+            percent = float(trailing_percent)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Pulse trailing stop suppressed for %s: trailing_percent must be numeric",
+                symbol,
+            )
+            return False
+        if not math.isfinite(percent):
+            logger.warning(
+                "Pulse trailing stop suppressed for %s: trailing_percent must be finite",
+                symbol,
+            )
+            return False
+        if percent <= 0:
+            logger.warning(
+                "Pulse trailing stop suppressed for %s: trailing_percent must be greater than 0",
+                symbol,
+            )
+            return False
+        return await self.send_decision(symbol, "enable_trailing_stop", trailing_percent=percent)
 
     async def stop_buying(self, symbol: str) -> bool:
         return await self.send_decision(symbol, "stop_buying")

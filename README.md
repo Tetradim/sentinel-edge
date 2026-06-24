@@ -327,6 +327,7 @@ Edge supports a safe provider fallback model. Providers that require API keys ar
 | Polygon | Enabled by `POLYGON_API_KEY`. |
 | Alpha Vantage | Enabled by `ALPHA_VANTAGE_API_KEY`. |
 | Twelve Data | Enabled by `TWELVE_DATA_API_KEY`. |
+| Alpaca market-data stream | Enabled by `ALPACA_MARKET_DATA_API_KEY` and `ALPACA_MARKET_DATA_SECRET_KEY`; do not use broker trading credentials in Edge. |
 | Stooq | Daily/EOD backfill only; excluded from intraday scheduler fallback. |
 
 Provider metadata is browser-safe:
@@ -748,8 +749,9 @@ SentinelEdge-Local-Browser-<launcher-pid>
 | `DB_NAME` | MongoDB database name. | `sentinel_edge`. |
 | `DB_HOST` | MongoDB host for local code paths. | `localhost`. |
 | `DB_PORT` | MongoDB port. | `27017`. |
-| `CORS_ORIGINS` | Comma-separated allowed origins. | `*` in local/default paths. |
+| `CORS_ORIGINS` | Comma-separated allowed origins. | Explicit localhost origins in Docker; wildcard disables credentialed CORS. |
 | `GLOBAL_KILL_SWITCH` | Initial kill switch state. | `false`. |
+| `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED` | Enables `/api/test/*` command-bus injection/inspection endpoints. | `false`; disabled by default and intended only for isolated local testing. |
 
 ### Local server/browser
 
@@ -767,6 +769,9 @@ SentinelEdge-Local-Browser-<launcher-pid>
 | `PULSE_API_URL` | Sentinel Pulse API base URL. |
 | `PULSE_API_KEY` | Optional Pulse API key header. |
 | `PULSE_HANDOFF_ENDPOINT` | Optional structured Pulse handoff endpoint. If unset, Edge can fall back to legacy decision endpoint behavior. |
+| `EDGE_OPERATOR_ACTION_SECRET` | Required shared secret for manual `/api/pulse/emergency-exit/*`, `/api/pulse/trailing-stop/*`, `/api/bus/events`, `/api/bus/edge-actions`, scheduler resume, kill-switch disarm, and live automation escalation requests. Send as `X-Edge-Operator-Secret`; protected endpoints fail closed when unset. |
+
+Live automation escalation also requires the explicit confirmation phrase `ENABLE LIVE AUTOMATION`. Send it as `live_readiness_signoff` in the automation request body or as `X-Edge-Live-Readiness-Signoff` for ticker add/remove paths that can alter live handoff scope. This is separate from the operator secret: the secret authorizes the caller, while the phrase records an intentional live-readiness signoff step.
 
 ### Automation
 
@@ -792,6 +797,9 @@ SentinelEdge-Local-Browser-<launcher-pid>
 | `POLYGON_API_KEY` | Enables Polygon. |
 | `ALPHA_VANTAGE_API_KEY` | Enables Alpha Vantage. |
 | `TWELVE_DATA_API_KEY` | Enables Twelve Data. |
+| `ALPACA_MARKET_DATA_API_KEY` | Enables Alpaca market-data websocket streaming. |
+| `ALPACA_MARKET_DATA_SECRET_KEY` | Secret for Alpaca market-data websocket streaming. |
+| `ALPACA_MARKET_DATA_WS_URL` | Optional Alpaca market-data websocket URL override. |
 
 ### Observability and alerts
 
@@ -800,7 +808,7 @@ SentinelEdge-Local-Browser-<launcher-pid>
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint for traces. |
 | `OTEL_SERVICE_NAME` | OpenTelemetry service name. |
 | `ANALYST_START_METRICS_SERVER` | Start optional analyst metrics server. |
-| `WEBHOOK_SECRET` | Optional Alertmanager webhook receiver secret. |
+| `WEBHOOK_SECRET` | Required Alertmanager webhook receiver secret for action-capable `/alerts` webhooks. |
 | `TELEGRAM_BOT_TOKEN` | Optional Telegram alerting token. |
 | `TELEGRAM_TRADING_CHAT` | Optional Telegram chat ID. |
 | `SLACK_WEBHOOK_URL` | Optional Slack webhook URL. |
@@ -825,16 +833,16 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/stats` | Scheduler/runtime statistics. |
 | GET | `/markets` | Market session coverage. |
 | GET | `/queue` | Runtime queue status. |
-| POST | `/control/pause` | Pause scheduler. |
-| POST | `/control/resume` | Resume scheduler. |
+| POST | `/control/pause` | Pause scheduler immediately. |
+| POST | `/control/resume` | Resume scheduler; requires `X-Edge-Operator-Secret`. |
 
 ### Tickers, decisions, and config
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/tickers` | Active ticker list with enriched state. |
-| POST | `/tickers/{symbol}` | Add ticker. |
-| DELETE | `/tickers/{symbol}` | Remove ticker. |
+| POST | `/tickers/{symbol}` | Add ticker. Requires `X-Edge-Operator-Secret` when global live automation and default ticker handoff are enabled. |
+| DELETE | `/tickers/{symbol}` | Remove ticker. Requires `X-Edge-Operator-Secret` when global live automation is active. |
 | GET | `/tickers/{symbol}/config` | Read ticker metric/risk config. |
 | PUT | `/tickers/{symbol}/config` | Update ticker config. |
 | GET | `/decisions` | Recent advisor decisions. |
@@ -860,8 +868,8 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/automation` | Current handoff settings, last handoff, and last suppression. |
-| PUT | `/automation` | Patch global/default automation settings. |
-| PUT | `/automation/tickers/{symbol}` | Enable or disable one ticker for handoff. |
+| PUT | `/automation` | Patch global/default automation settings. Live-mode escalation requires `X-Edge-Operator-Secret`. |
+| PUT | `/automation/tickers/{symbol}` | Enable or disable one ticker for handoff. Enabling handoff while global live automation is active requires `X-Edge-Operator-Secret`. |
 
 ### Pulse bridge
 
@@ -874,11 +882,19 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/pulse/positions/{symbol}` | One Pulse-synced position. |
 | GET | `/pulse/queue` | Pulse retry queue. |
 | GET | `/pulse/account` | Pulse account view. |
-| POST | `/pulse/emergency-exit/{symbol}` | Manual emergency-exit bridge to Pulse. |
-| POST | `/pulse/trailing-stop/{symbol}` | Manual trailing-stop bridge to Pulse. |
-| POST | `/test/pulse-command` | Test Pulse command path. |
-| POST | `/test/send-command` | Test command send path. |
-| GET | `/test/commands` | Inspect test commands. |
+| POST | `/pulse/emergency-exit/{symbol}` | Manual emergency-exit bridge to Pulse; requires `X-Edge-Operator-Secret`. |
+| POST | `/pulse/trailing-stop/{symbol}` | Manual trailing-stop bridge to Pulse; requires `X-Edge-Operator-Secret`. |
+| POST | `/test/pulse-command` | Test Pulse command path; disabled by default unless `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=true`. |
+| POST | `/test/send-command` | Test command send path; disabled by default unless `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=true`. |
+| GET | `/test/commands` | Inspect test commands; disabled by default unless `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=true`. |
+
+### Cross-bot event bus
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/bus/events` | Recent local bot events. |
+| POST | `/bus/events` | Publish a local bot event; requires `X-Edge-Operator-Secret`. |
+| POST | `/bus/edge-actions` | Publish a manual Edge action event; requires `X-Edge-Operator-Secret`. |
 
 ### Backtest, simulation, and strategies
 
@@ -959,6 +975,22 @@ The verification runner checks:
 
 CI also includes `macOS Smoke Checks` in `.github/workflows/macos-smoke.yml`. The macOS workflow is a smoke gate: it runs backend static contract tests plus frontend install, lint, and production build on `macos-latest`. Windows installer remains the packaging path; macOS packaging should stay separate until it is deliberately designed and tested.
 
+### Live-Money Readiness Status - 2026-06-24
+
+Current status: paper automation and Pulse handoff testing are operational; live automation remains gated.
+
+Latest local verification:
+- Backend tests: `python -m pytest backend\tests -q` -> 483 passed, 134 skipped, 62 subtests passed.
+- Live-scope controls require the operator secret plus the explicit `ENABLE LIVE AUTOMATION` phrase before live automation escalation or live-scope ticker mutation.
+- Pulse handoff feedback, scheduler feedback, automation metrics, and operator-secret boundaries have regression coverage.
+- Tandem observed Edge health and Pulse broker state after the VPG paper handoff drill.
+
+Open gates before live-money use:
+- Multi-session paper automation evidence using the production Pulse stack.
+- Active-order broker reconnect and catch-up evidence.
+- Market-transition monitoring across close, overnight, and next open.
+- Controlled operator access review and final operator signoff.
+
 Focused commands:
 
 ```powershell
@@ -1014,6 +1046,7 @@ Alert rules reference these runbooks so an operator can move from Grafana/Alertm
 ### Security and secret handling
 
 - Keep API keys in backend environment variables only.
+- Keep broker/trading account credentials out of Edge; broker connectivity belongs to Pulse.
 - Do not add frontend API-key inputs unless they are explicitly redacted and never persisted.
 - Do not commit generated runtime state, local automation state, virtualenvs, `node_modules`, or verification summaries.
 - Keep provider config endpoints redacted.

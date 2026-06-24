@@ -1,8 +1,10 @@
 """Behavior tests for scheduler-level Pulse handoff feedback propagation."""
 import asyncio
+import os
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,15 +69,16 @@ class SchedulerHandoffFeedbackTests(unittest.TestCase):
             }
         )
 
-        result = asyncio.run(
-            scheduler._handoff_to_pulse_with_feedback(
-                symbol="aapl",
-                action=AutomationAction.BUY,
-                confidence=0.8,
-                reason="test signal",
-                orb_session="market_open",
+        with patch.dict(os.environ, {"DRY_RUN": "false"}), patch("scheduler.publish_event") as publish_event_mock:
+            result = asyncio.run(
+                scheduler._handoff_to_pulse_with_feedback(
+                    symbol="aapl",
+                    action=AutomationAction.BUY,
+                    confidence=0.8,
+                    reason="test signal",
+                    orb_session="market_open",
+                )
             )
-        )
 
         self.assertFalse(result["sent"])
         self.assertEqual(result["status"], "rejected")
@@ -83,6 +86,8 @@ class SchedulerHandoffFeedbackTests(unittest.TestCase):
         self.assertEqual(scheduler.automation.last_handoff["handoff_status"], "rejected")
         self.assertEqual(scheduler.automation.last_handoff["pulse_feedback"]["reason"], "risk_limit")
         self.assertEqual(scheduler.pulse.payloads[0]["symbol"], "AAPL")
+        self.assertEqual(1, publish_event_mock.call_count)
+        self.assertEqual("edge.action.feedback", publish_event_mock.call_args.args[0])
 
     def test_handoff_feedback_helper_returns_suppressed_market_context(self):
         scheduler = self._scheduler(pulse_result={"sent": True, "status": "accepted"}, market_open=False)
@@ -102,6 +107,48 @@ class SchedulerHandoffFeedbackTests(unittest.TestCase):
         self.assertEqual(result["market_status"]["reason"], "after_close")
         self.assertEqual(len(scheduler.pulse.payloads), 0)
         self.assertEqual(scheduler.automation.last_suppressed["suppressed_reason"], "market_closed:after_close")
+
+    def test_handoff_feedback_helper_suppresses_pulse_when_dry_run_enabled(self):
+        scheduler = self._scheduler(pulse_result={"sent": True, "status": "accepted"})
+
+        with patch.dict(os.environ, {"DRY_RUN": "true"}), patch("scheduler.publish_event") as publish_event_mock:
+            result = asyncio.run(
+                scheduler._handoff_to_pulse_with_feedback(
+                    symbol="SPY",
+                    action=AutomationAction.BUY,
+                    confidence=0.9,
+                    reason="dry run test",
+                )
+            )
+
+        self.assertFalse(result["sent"])
+        self.assertEqual(result["status"], "suppressed")
+        self.assertEqual(result["reason"], "dry_run_enabled")
+        self.assertEqual(result["symbol"], "SPY")
+        self.assertEqual(len(scheduler.pulse.payloads), 0)
+        publish_event_mock.assert_not_called()
+        self.assertEqual(scheduler.automation.last_suppressed["suppressed_reason"], "dry_run_enabled")
+
+    def test_edge_action_events_target_execution_bots_only(self):
+        scheduler = self._scheduler(pulse_result={"sent": True, "status": "accepted"})
+
+        with patch.dict(os.environ, {"DRY_RUN": "false"}), patch("scheduler.publish_event") as publish_event_mock:
+            result = asyncio.run(
+                scheduler._handoff_to_pulse_with_feedback(
+                    symbol="SPY",
+                    action=AutomationAction.BUY,
+                    confidence=0.9,
+                    reason="execution target test",
+                )
+            )
+
+        self.assertTrue(result["sent"])
+        self.assertEqual(2, publish_event_mock.call_count)
+        for call in publish_event_mock.call_args_list:
+            target_bots = call.kwargs["target_bots"]
+            self.assertIn("sentinel-pulse", target_bots)
+            self.assertNotIn("auto-crypto", target_bots)
+            self.assertNotIn("darkpool-mon", target_bots)
 
 
 if __name__ == "__main__":

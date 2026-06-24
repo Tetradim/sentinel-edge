@@ -83,6 +83,38 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
             metrics,
         )
 
+    def test_handoff_payload_embeds_canonical_execution_intent_metadata(self):
+        command = HandoffCommand(
+            symbol="aapl",
+            action=AutomationAction.TRAILING_STOP,
+            confidence=0.91,
+            reason="bullish continuation with protected exit",
+            mode=AutomationMode.PAPER,
+            stop_type="trailing",
+            trailing_percent=0.75,
+            metadata={"price": 123.45},
+        )
+
+        payload = command.payload()
+        intent = payload["metadata"]["execution_intent"]
+
+        self.assertEqual("edge.pulse.handoff.v1", payload["contract_version"])
+        self.assertNotIn("target_bot", payload)
+        self.assertEqual("edge.execution_intent.v1", intent["contract_version"])
+        self.assertEqual(command.idempotency_key, intent["intent_id"])
+        self.assertEqual("sentinel-edge", intent["source_bot"])
+        self.assertEqual("sentinel-pulse", intent["target_bot"])
+        self.assertEqual("AAPL", intent["symbol"])
+        self.assertEqual("trailing_stop", intent["action"])
+        self.assertEqual("paper", intent["mode"])
+        self.assertEqual("bullish continuation with protected exit", intent["reason"])
+        self.assertEqual(command.idempotency_key, intent["idempotency_key"])
+        self.assertEqual({"type": "edge_runtime_policy"}, intent["quantity_policy"])
+        self.assertEqual({"type": "trailing", "trailing_percent": 0.75}, intent["trailing_policy"])
+        self.assertIsNone(intent["max_notional"])
+        self.assertIsNone(intent["expires_at"])
+        self.assertEqual(123.45, payload["metadata"]["price"])
+
 
 if __name__ == "__main__":
     unittest.main()

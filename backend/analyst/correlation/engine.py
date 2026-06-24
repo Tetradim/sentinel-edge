@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 import httpx
 
 from analyst.signals.base import Signal  # canonical Signal dataclass
+from pulse_client import resolve_pulse_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -308,10 +309,11 @@ class CorrelationEngine:
                 "risk_recommendation": cluster.get("risk_recommendation"),
             },
         }
-        headers = {}
-        edge_api_key = os.getenv("PULSE_API_KEY") or os.getenv("EDGE_API_KEY")
-        if edge_api_key:
-            headers["X-API-Key"] = edge_api_key
+        edge_api_key = resolve_pulse_api_key()
+        if not edge_api_key:
+            logger.warning("Pulse override suppressed: missing Pulse API key")
+            return
+        headers = {"X-API-Key": edge_api_key}
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 resp = await client.post(

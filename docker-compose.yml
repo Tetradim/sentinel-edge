@@ -24,14 +24,16 @@ services:
       - MONGO_URL=mongodb://mongodb:27017
       - DB_NAME=sentinel_edge
       - PULSE_API_URL=http://pulse:8002
-      - CORS_ORIGINS=*
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8001,http://127.0.0.1:8001}
+      - EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=false
+      - EDGE_OPERATOR_ACTION_SECRET=${EDGE_OPERATOR_ACTION_SECRET:?EDGE_OPERATOR_ACTION_SECRET is required for manual Pulse action endpoints}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
       - OTEL_SERVICE_NAME=sentinel-edge
       # Set to "true" to spin up a dedicated metrics server on :8002
       - ANALYST_START_METRICS_SERVER=false
-      # Optional: basic-auth for the Alertmanager webhook receiver
-      # Must match the password in prometheus/alertmanager.yml
-      - WEBHOOK_SECRET=
+      # Required: basic-auth password for Alertmanager action webhooks.
+      # Must match the password expanded into prometheus/alertmanager.yml.
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required for Alertmanager action webhooks}
       - RETRY_QUEUE_LOG_DIR=/app/logs
     volumes:
       - ./backend:/app
@@ -115,7 +117,7 @@ services:
       - "9093:9093"
     # Env vars for webhook auth + notification channels
     environment:
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required for Alertmanager action webhooks}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_TRADING_CHAT=${TELEGRAM_TRADING_CHAT:-0}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-http://placeholder/no-slack}

@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -11,6 +12,52 @@ from correlation import CorrelationEngine
 
 
 class CorrelationRiskRecommendationTests(unittest.TestCase):
+    def test_pulse_override_is_suppressed_when_api_key_is_missing(self):
+        calls = []
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, *args, **kwargs):
+                calls.append({"args": args, "kwargs": kwargs})
+
+                class Response:
+                    status_code = 202
+                    text = "accepted"
+
+                return Response()
+
+        engine = CorrelationEngine(
+            db=None,
+            pulse_base_url="http://pulse.invalid",
+            pulse_overrides_enabled=True,
+            window_sec=120,
+            min_symbols=3,
+            cooldown_sec=300,
+        )
+        cluster = {
+            "direction": "BEARISH",
+            "count": 4,
+            "strength": 0.75,
+            "symbols": ["SPY", "QQQ", "AAPL", "NVDA"],
+            "risk_recommendation": {"action": "tighten_trailing_global"},
+        }
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch("analyst.correlation.engine.httpx.AsyncClient", FakeAsyncClient),
+        ):
+            asyncio.run(engine._trigger_pulse_override(cluster))
+
+        self.assertEqual([], calls)
+
     def test_high_strength_bearish_cluster_recommends_global_trailing_tighten(self):
         engine = CorrelationEngine(
             db=None,

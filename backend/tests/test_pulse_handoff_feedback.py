@@ -18,6 +18,56 @@ from pulse_client import PulseClient  # noqa: E402
 
 
 class PulseHandoffFeedbackTests(unittest.TestCase):
+    def test_client_uses_edge_api_key_env_as_pulse_auth_fallback(self):
+        with patch.dict(os.environ, {"EDGE_API_KEY": "edge-env-key"}, clear=True):
+            client = PulseClient(base_url="http://pulse.invalid")
+
+        try:
+            self.assertEqual(client._build_headers().get("X-API-Key"), "edge-env-key")
+        finally:
+            asyncio.run(client.aclose())
+
+    def test_handoff_is_suppressed_when_pulse_api_key_is_missing(self):
+        captured_requests = []
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(202, json={"accepted": True}, request=request)
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid", api_key="")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                return await client.send_handoff_command(
+                    {
+                        "symbol": "AAPL",
+                        "action": "buy",
+                        "confidence": 0.8,
+                        "reason": "missing key test",
+                        "mode": "paper",
+                        "orb_session": "market_open",
+                        "idempotency_key": "edge:AAPL:buy:market_open:123:missing-key",
+                        "source": "sentinel_edge",
+                        "created_at": 1760000000.0,
+                        "metadata": {},
+                    }
+                )
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(run())
+
+        self.assertFalse(result["sent"])
+        self.assertEqual(result["status"], "suppressed")
+        self.assertEqual(result["reason"], "missing_pulse_api_key")
+        self.assertEqual([], captured_requests)
+
     def test_legacy_handoff_fallback_uses_edge_decision_route(self):
         captured_requests = []
 
@@ -26,7 +76,7 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
             return httpx.Response(200, json={"accepted": True}, request=request)
 
         async def run():
-            client = PulseClient(base_url="http://pulse.invalid")
+            client = PulseClient(base_url="http://pulse.invalid", api_key="edge-key")
             await client._client.aclose()
             client._client = httpx.AsyncClient(
                 transport=httpx.MockTransport(handler),
@@ -58,6 +108,94 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
         self.assertTrue(result["sent"])
         self.assertEqual("/api/edge/tickers/AAPL/decision", captured_requests[0].url.path)
 
+    def test_start_bot_posts_to_pulse_edge_bot_start_endpoint(self):
+        captured_requests = []
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(200, json={"running": True, "paused": False}, request=request)
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid", api_key="edge-key")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                return await client.start_bot(enable_all=False)
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(run())
+
+        self.assertTrue(result)
+        self.assertEqual("/api/edge/bot/start", captured_requests[0].url.path)
+        self.assertEqual({"enable_all": False}, json.loads(captured_requests[0].content))
+        self.assertEqual("edge-key", captured_requests[0].headers.get("X-API-Key"))
+
+    def test_stop_bot_posts_to_pulse_edge_bot_stop_endpoint(self):
+        captured_requests = []
+
+        async def handler(request: httpx.Request):
+            captured_requests.append(request)
+            return httpx.Response(200, json={"running": False, "paused": False}, request=request)
+
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid", api_key="edge-key")
+            await client._client.aclose()
+            client._client = httpx.AsyncClient(
+                transport=httpx.MockTransport(handler),
+                timeout=client.TIMEOUT_SECONDS,
+                headers=client._build_headers(),
+            )
+            client.pulse_available = True
+            try:
+                return await client.stop_bot(disable_all=False)
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(run())
+
+        self.assertTrue(result)
+        self.assertEqual("/api/edge/bot/stop", captured_requests[0].url.path)
+        self.assertEqual({"disable_all": False}, json.loads(captured_requests[0].content))
+        self.assertEqual("edge-key", captured_requests[0].headers.get("X-API-Key"))
+
+    def test_enable_trailing_stop_rejects_non_positive_percent_before_transport(self):
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid")
+            client.pulse_available = True
+            client.send_decision = AsyncMock(return_value=True)
+            try:
+                result = await client.enable_trailing_stop("SPY", 0)
+                return result, client.send_decision.await_count
+            finally:
+                await client.aclose()
+
+        result, send_count = asyncio.run(run())
+
+        self.assertFalse(result)
+        self.assertEqual(0, send_count)
+
+    def test_enable_trailing_stop_rejects_nan_percent_before_transport(self):
+        async def run():
+            client = PulseClient(base_url="http://pulse.invalid")
+            client.pulse_available = True
+            client.send_decision = AsyncMock(return_value=True)
+            try:
+                result = await client.enable_trailing_stop("SPY", float("nan"))
+                return result, client.send_decision.await_count
+            finally:
+                await client.aclose()
+
+        result, send_count = asyncio.run(run())
+
+        self.assertFalse(result)
+        self.assertEqual(0, send_count)
+
     def test_get_position_uses_edge_position_route_without_recursing(self):
         captured_requests = []
 
@@ -79,7 +217,7 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
             )
 
         async def run():
-            client = PulseClient(base_url="http://pulse.invalid")
+            client = PulseClient(base_url="http://pulse.invalid", api_key="edge-key")
             await client._client.aclose()
             client._client = httpx.AsyncClient(
                 transport=httpx.MockTransport(handler),
@@ -106,7 +244,7 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
             return httpx.Response(200, json={"account_balance": 1000.0, "available": 750.0}, request=request)
 
         async def run():
-            client = PulseClient(base_url="http://pulse.invalid")
+            client = PulseClient(base_url="http://pulse.invalid", api_key="edge-key")
             await client._client.aclose()
             client._client = httpx.AsyncClient(
                 transport=httpx.MockTransport(handler),
@@ -133,7 +271,7 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
             return httpx.Response(202, json={"accepted": True, "handoff_id": "ph-headers"}, request=request)
 
         async def run():
-            client = PulseClient(base_url="http://pulse.invalid")
+            client = PulseClient(base_url="http://pulse.invalid", api_key="edge-key")
             await client._client.aclose()
             client._client = httpx.AsyncClient(
                 transport=httpx.MockTransport(handler),
@@ -172,6 +310,7 @@ class PulseHandoffFeedbackTests(unittest.TestCase):
         self.assertEqual(request.headers.get("Idempotency-Key"), idempotency_key)
         self.assertEqual(request.headers.get("X-Edge-Mode"), "paper")
         self.assertEqual(request.headers.get("X-Edge-Contract-Version"), "edge.pulse.handoff.v1")
+        self.assertEqual(request.headers.get("X-API-Key"), "edge-key")
 
     def test_invalid_handoff_payload_is_suppressed_before_transport(self):
         async def run():

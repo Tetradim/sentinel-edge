@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 EVENT_SCHEMA_VERSION = "bot-event.v1"
 DEFAULT_EVENT_DIR = Path(__file__).resolve().parents[1] / "data" / "event-bus"
+EDGE_ACTION_TARGET_BOTS = ["sentinel-pulse", "consolidation"]
 
 
 class BotEvent(BaseModel):

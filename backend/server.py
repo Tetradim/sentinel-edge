@@ -2,8 +2,10 @@
 import asyncio
 import json
 import logging
+import math
 import os
 import re
+import secrets
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -33,6 +35,7 @@ from orb import ORBTracker
 from price_fetcher import PriceFetcher
 from providers.catalog import active_provider_order, configured_key_sources, default_provider_order, provider_catalog
 from pulse_client import PulseClient
+from runtime_mode import is_dry_run_enabled
 from scheduler import EvaluationScheduler
 from signals import SignalEngine
 from alert_handler import router as alert_handler_router, shutdown as alert_handler_shutdown
@@ -145,6 +148,125 @@ _rate_limit_buckets: Dict[str, list[float]] = {}
 _memory_ticker_configs: Dict[str, Dict[str, Any]] = {}
 frontend_rum_registry = FrontendRumRegistry()
 FRONTEND_RUM_WEB_VITAL_METRICS = {"inp", "lcp", "cls", "ttfb", "fcp"}
+_OPERATOR_ACTION_SECRET_ENV = "EDGE_OPERATOR_ACTION_SECRET"
+_OPERATOR_ACTION_SECRET_HEADER = "X-Edge-Operator-Secret"
+_LIVE_AUTOMATION_SIGNOFF = "ENABLE LIVE AUTOMATION"
+_LIVE_AUTOMATION_SIGNOFF_HEADER = "X-Edge-Live-Readiness-Signoff"
+_LIVE_AUTOMATION_SIGNOFF_FIELD = "live_readiness_signoff"
+
+
+def _configured_cors_origins() -> list[str]:
+    return [
+        origin.strip()
+        for origin in os.environ.get("CORS_ORIGINS", "*").split(",")
+        if origin.strip()
+    ] or ["*"]
+
+
+def _cors_allows_credentials(origins: list[str]) -> bool:
+    return "*" not in origins
+
+
+def _test_command_endpoints_enabled() -> bool:
+    value = os.getenv("EDGE_TEST_COMMAND_ENDPOINTS_ENABLED", "false")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _require_test_command_endpoints_enabled() -> None:
+    if not _test_command_endpoints_enabled():
+        raise HTTPException(
+            status_code=404,
+            detail="Test command endpoints are disabled.",
+        )
+
+
+def _require_operator_action_secret(request: Request) -> None:
+    expected = os.getenv(_OPERATOR_ACTION_SECRET_ENV, "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail=f"{_OPERATOR_ACTION_SECRET_ENV} is required before operator action endpoints are accepted.",
+        )
+
+    provided = request.headers.get(_OPERATOR_ACTION_SECRET_HEADER, "")
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Invalid operator action secret.")
+
+
+def _require_live_automation_readiness_signoff(
+    request: Request,
+    patch: Dict[str, Any] | None = None,
+) -> None:
+    provided = ""
+    if patch is not None:
+        provided = str(patch.get(_LIVE_AUTOMATION_SIGNOFF_FIELD) or "").strip()
+    if not provided:
+        provided = request.headers.get(_LIVE_AUTOMATION_SIGNOFF_HEADER, "").strip()
+    if not provided or not secrets.compare_digest(provided, _LIVE_AUTOMATION_SIGNOFF):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "live_automation_readiness_signoff_required",
+                "required_confirmation": _LIVE_AUTOMATION_SIGNOFF,
+                "header": _LIVE_AUTOMATION_SIGNOFF_HEADER,
+            },
+        )
+
+
+def _automation_mode_value(value: Any) -> str:
+    if isinstance(value, AutomationMode):
+        return value.value
+    return str(value or AutomationMode.RECOMMEND_ONLY.value)
+
+
+def _automation_settings_mode(settings: Any) -> str:
+    return _automation_mode_value(getattr(settings, "mode", AutomationMode.RECOMMEND_ONLY))
+
+
+def _automation_patch_requires_operator_secret(settings: Any, patch: Dict[str, Any]) -> bool:
+    if _automation_mode_value(patch.get("mode")) == AutomationMode.LIVE.value:
+        return True
+
+    next_mode = _automation_mode_value(patch.get("mode", getattr(settings, "mode", AutomationMode.RECOMMEND_ONLY)))
+    if next_mode != AutomationMode.LIVE.value:
+        return False
+
+    if bool(patch.get("global_enabled", False)):
+        return True
+    if bool(patch.get("default_ticker_enabled", False)):
+        return True
+
+    per_ticker = patch.get("per_ticker_enabled")
+    if isinstance(per_ticker, dict) and any(bool(enabled) for enabled in per_ticker.values()):
+        return True
+
+    return False
+
+
+def _ticker_handoff_requires_operator_secret(settings: Any, enabled: bool) -> bool:
+    return (
+        bool(enabled)
+        and _automation_settings_mode(settings) == AutomationMode.LIVE.value
+        and bool(getattr(settings, "global_enabled", False))
+    )
+
+
+def _add_ticker_requires_operator_secret(settings: Any) -> bool:
+    return (
+        _automation_settings_mode(settings) == AutomationMode.LIVE.value
+        and bool(getattr(settings, "global_enabled", False))
+        and bool(getattr(settings, "default_ticker_enabled", False))
+    )
+
+
+def _remove_ticker_requires_operator_secret(settings: Any) -> bool:
+    return (
+        _automation_settings_mode(settings) == AutomationMode.LIVE.value
+        and bool(getattr(settings, "global_enabled", False))
+    )
+
+
+_CORS_ORIGINS = _configured_cors_origins()
 READINESS_CHECK_DETAILS: Dict[str, Dict[str, Any]] = {
     "scheduler_initialized": {
         "label": "Scheduler initialized",
@@ -419,11 +541,13 @@ class AutomationSettingsBody(BaseModel):
     cooldown_seconds: Optional[int] = Field(None, ge=0, le=3600)
     quiet_when_pulse_absent: Optional[bool] = None
     per_ticker_enabled: Optional[Dict[str, bool]] = None
+    live_readiness_signoff: Optional[str] = Field(None, max_length=64)
 
 
 class TickerAutomationBody(BaseModel):
     """Per-ticker autonomous handoff toggle."""
     enabled: bool
+    live_readiness_signoff: Optional[str] = Field(None, max_length=64)
 
 
 class NotificationConfirmationPreviewBody(BaseModel):
@@ -1033,7 +1157,8 @@ async def pause_scheduler():
 
 
 @api_router.post("/control/resume")
-async def resume_scheduler():
+async def resume_scheduler(request: Request):
+    _require_operator_action_secret(request)
     _require_scheduler().resume()
     return {"message": "Scheduler resumed"}
 
@@ -1067,19 +1192,25 @@ async def get_tickers():
 
 
 @api_router.post("/tickers/{symbol}", status_code=201)
-async def add_ticker(symbol: str):
+async def add_ticker(symbol: str, request: Request):
     """Add a ticker to the watch list."""
     sched = _require_scheduler()
     sym = _symbol(symbol)
+    if _add_ticker_requires_operator_secret(sched.automation.settings):
+        _require_operator_action_secret(request)
+        _require_live_automation_readiness_signoff(request)
     sched.add_ticker(sym)
     return {"message": f"Added {sym} to watch list"}
 
 
 @api_router.delete("/tickers/{symbol}")
-async def remove_ticker(symbol: str):
+async def remove_ticker(symbol: str, request: Request):
     """Remove a ticker from the watch list."""
     sched = _require_scheduler()
     sym = _symbol(symbol)
+    if _remove_ticker_requires_operator_secret(sched.automation.settings):
+        _require_operator_action_secret(request)
+        _require_live_automation_readiness_signoff(request)
     if sym not in sched.active_tickers:
         raise HTTPException(status_code=404, detail=f"{sym} is not on the watch list")
     sched.remove_ticker(sym)
@@ -1213,10 +1344,14 @@ async def get_automation_status():
 
 
 @api_router.put("/automation")
-async def update_automation_settings(body: AutomationSettingsBody):
+async def update_automation_settings(body: AutomationSettingsBody, request: Request):
     """Update autonomous Pulse handoff settings without erasing ticker overrides."""
     sched = _require_scheduler()
     patch = body.model_dump(exclude_unset=True)
+    if _automation_patch_requires_operator_secret(sched.automation.settings, patch):
+        _require_operator_action_secret(request)
+        _require_live_automation_readiness_signoff(request, patch)
+    patch.pop(_LIVE_AUTOMATION_SIGNOFF_FIELD, None)
     if "mode" in patch and patch["mode"] is not None:
         patch["mode"] = patch["mode"].value
     settings = sched.automation.update_settings(patch)
@@ -1224,10 +1359,16 @@ async def update_automation_settings(body: AutomationSettingsBody):
 
 
 @api_router.put("/automation/tickers/{symbol}")
-async def update_ticker_automation(symbol: str, body: TickerAutomationBody):
+async def update_ticker_automation(symbol: str, body: TickerAutomationBody, request: Request):
     """Enable/disable autonomous Pulse handoff for one ticker."""
     sched = _require_scheduler()
     sym = _symbol(symbol)
+    if _ticker_handoff_requires_operator_secret(sched.automation.settings, body.enabled):
+        _require_operator_action_secret(request)
+        _require_live_automation_readiness_signoff(
+            request,
+            {_LIVE_AUTOMATION_SIGNOFF_FIELD: body.live_readiness_signoff},
+        )
     sched.automation.set_ticker(sym, body.enabled)
     return sched.automation.status()
 
@@ -1665,8 +1806,7 @@ _backtest_runs: Dict[str, Dict] = {}
 @api_router.get("/dry-run/status")
 async def get_dry_run_status():
     """Get current dry-run mode status."""
-    import os
-    return {"dry_run_enabled": os.getenv("DRY_RUN", "true").lower() == "true"}
+    return {"dry_run_enabled": is_dry_run_enabled()}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1719,9 +1859,11 @@ async def optimize_strategy(
 
 
 @api_router.post("/emergency/kill-switch")
-async def toggle_kill_switch(state: bool):
+async def toggle_kill_switch(state: bool, request: Request):
     """Toggle the global kill switch to instantly halt all trading."""
     import os
+    if state is False:
+        _require_operator_action_secret(request)
     os.environ["GLOBAL_KILL_SWITCH"] = str(state).lower()
     logger.warning(f"🚨 Kill switch set to {state}")
     return {"status": f"kill switch set to {state}", "kill_switch_active": state}
@@ -1755,6 +1897,7 @@ async def test_pulse_command(command: dict):
             "side": "BUY"
           }'
     """
+    _require_test_command_endpoints_enabled()
     from datetime import datetime
     
     global db
@@ -1842,8 +1985,9 @@ async def get_pulse_account():
 
 
 @api_router.post("/pulse/emergency-exit/{symbol}")
-async def pulse_emergency_exit(symbol: str, reason: str = "Manual trigger"):
+async def pulse_emergency_exit(symbol: str, request: Request, reason: str = "Manual trigger"):
     """Trigger emergency exit for a symbol via Pulse."""
+    _require_operator_action_secret(request)
     sched = _require_scheduler()
     if hasattr(sched, 'pulse'):
         result = await sched.pulse.send_emergency_exit(symbol.upper(), reason)
@@ -1852,12 +1996,39 @@ async def pulse_emergency_exit(symbol: str, reason: str = "Manual trigger"):
 
 
 @api_router.post("/pulse/trailing-stop/{symbol}")
-async def pulse_enable_trailing(symbol: str, percent: float = 1.5):
+async def pulse_enable_trailing(symbol: str, request: Request, percent: float = 1.5):
     """Enable trailing stop for a symbol via Pulse."""
+    _require_operator_action_secret(request)
+    if not math.isfinite(percent):
+        raise HTTPException(status_code=422, detail="trailing percent must be finite")
+    if percent <= 0:
+        raise HTTPException(status_code=422, detail="trailing percent must be greater than 0")
     sched = _require_scheduler()
     if hasattr(sched, 'pulse'):
         result = await sched.pulse.enable_trailing_stop(symbol.upper(), percent)
         return {"status": "sent" if result else "failed", "symbol": symbol, "percent": percent}
+    return {"error": "Pulse not configured"}
+
+
+@api_router.post("/pulse/bot/start")
+async def pulse_start_bot(request: Request, enable_all: bool = True):
+    """Start the Pulse bot lifecycle through Edge operator control."""
+    _require_operator_action_secret(request)
+    sched = _require_scheduler()
+    if hasattr(sched, 'pulse'):
+        result = await sched.pulse.start_bot(enable_all=enable_all)
+        return {"status": "sent" if result else "failed", "action": "start", "enable_all": enable_all}
+    return {"error": "Pulse not configured"}
+
+
+@api_router.post("/pulse/bot/stop")
+async def pulse_stop_bot(request: Request, disable_all: bool = True):
+    """Stop the Pulse bot lifecycle through Edge operator control."""
+    _require_operator_action_secret(request)
+    sched = _require_scheduler()
+    if hasattr(sched, 'pulse'):
+        result = await sched.pulse.stop_bot(disable_all=disable_all)
+        return {"status": "sent" if result else "failed", "action": "stop", "disable_all": disable_all}
     return {"error": "Pulse not configured"}
 
 
@@ -2129,6 +2300,7 @@ async def test_send_command(command: dict = Body(...)):
     }
     ```
     """
+    _require_test_command_endpoints_enabled()
     from datetime import datetime, timezone
     from shared.commands import COMMANDS_COLLECTION
     
@@ -2150,6 +2322,7 @@ async def test_send_command(command: dict = Body(...)):
 @api_router.get("/test/commands")
 async def list_commands(limit: int = 10):
     """List recent commands in the Command Bus."""
+    _require_test_command_endpoints_enabled()
     from shared.commands import COMMANDS_COLLECTION
     
     commands = await db[COMMANDS_COLLECTION].find() \
@@ -2193,8 +2366,8 @@ app.include_router(export_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_credentials=_cors_allows_credentials(_CORS_ORIGINS),
+    allow_origins=_CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=[

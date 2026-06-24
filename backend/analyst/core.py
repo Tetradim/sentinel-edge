@@ -31,6 +31,7 @@ from analyst.correlation.engine import CorrelationEngine
 from analyst.exporters.prometheus import PrometheusExporter
 from analyst.observability.otel import setup_otel, get_tracer
 from engine import DecisionEngine
+from pulse_client import resolve_pulse_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -561,10 +562,11 @@ class SentinelEdge:
                         logger.warning("Pulse override handoff not accepted: %s", result)
                     return
 
-                headers = {}
-                edge_api_key = os.getenv("PULSE_API_KEY") or os.getenv("EDGE_API_KEY")
-                if edge_api_key:
-                    headers["X-API-Key"] = edge_api_key
+                edge_api_key = resolve_pulse_api_key()
+                if not edge_api_key:
+                    logger.warning("Pulse override handoff suppressed: missing Pulse API key")
+                    return
+                headers = {"X-API-Key": edge_api_key}
 
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     response = await client.post(

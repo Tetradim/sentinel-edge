@@ -19,10 +19,12 @@ BOT_EVENT_BUS_DIR=C:\path\to\shared\event-bus
 ## Endpoints
 
 ```text
-POST /api/bus/events
+POST /api/bus/events       (requires X-Edge-Operator-Secret)
 GET /api/bus/events?limit=100
-POST /api/bus/edge-actions
+POST /api/bus/edge-actions (requires X-Edge-Operator-Secret)
 ```
+
+Event-bus write endpoints fail closed when `EDGE_OPERATOR_ACTION_SECRET` is unset. Use them only for operator-supervised local maintenance or test injection; normal Edge-to-Pulse handoff should go through the scheduler and Pulse handoff contract.
 
 ## Event Shape
 
@@ -38,7 +40,7 @@ All bots should use `bot-event.v1`:
   "created_at": "2026-06-19T14:30:00+00:00",
   "correlation_id": "edge:SPY:stop_buying:market_open:123:test",
   "dedupe_key": "edge:SPY:stop_buying:market_open:123:test",
-  "target_bots": ["sentinel-pulse", "consolidation", "auto-crypto", "darkpool-mon"],
+  "target_bots": ["sentinel-pulse", "consolidation"],
   "payload": {},
   "trace": {}
 }
@@ -46,7 +48,7 @@ All bots should use `bot-event.v1`:
 
 ## Edge Actions
 
-Sentinel Edge emits `edge.action` after market and automation gates pass, before the direct Pulse HTTP handoff is attempted. It emits `edge.action.feedback` after Pulse feedback is known.
+Sentinel Edge emits `edge.action` only after market gates, automation gates, and the direct Pulse HTTP handoff accept the command. It emits `edge.action.feedback` for accepted, rejected, failed, and suppressed outcomes after Pulse feedback is known. These execution events target only stock/options execution-capable bots; signal-only watchers such as Darkpool-Mon and excluded crypto/futures bots such as Auto-Crypto must not receive Edge execution action targets.
 
 The action payload uses `edge.action.v1`:
 
@@ -67,4 +69,4 @@ The action payload uses `edge.action.v1`:
 }
 ```
 
-Consumers should dedupe by `dedupe_key` and treat Edge actions as strategic instructions, not broker orders. Each bot remains responsible for its own fast local execution loop and safety checks.
+Consumers should dedupe by `dedupe_key` and treat Edge actions as strategic instructions, not broker orders. Consumers must not treat `edge.action.feedback` with `sent=false`, `status=rejected`, `status=failed`, or `status=suppressed` as an executable command. Each bot remains responsible for its own fast local execution loop and safety checks.

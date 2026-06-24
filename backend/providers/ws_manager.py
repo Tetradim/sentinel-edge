@@ -40,11 +40,12 @@ class WebSocketManager:
         self._retry_count = 0
         self._reconnect_backoff = self.INITIAL_BACKOFF
 
-        # Alpaca credentials
-        self._api_key = os.getenv("ALPACA_API_KEY", "")
-        self._secret_key = os.getenv("ALPACA_SECRET_KEY", "")
+        # Alpaca market-data credentials. Do not use broker/trading account
+        # credential env names in Edge; Pulse owns broker connectivity.
+        self._api_key = os.getenv("ALPACA_MARKET_DATA_API_KEY", "")
+        self._secret_key = os.getenv("ALPACA_MARKET_DATA_SECRET_KEY", "")
         self._ws_url = os.getenv(
-            "ALPACA_WS_URL",
+            "ALPACA_MARKET_DATA_WS_URL",
             "wss://stream.data.alpaca.markets/v2/stream"
         )
 
@@ -57,7 +58,7 @@ class WebSocketManager:
             return
 
         if not self._api_key or not self._secret_key:
-            logger.info("Alpaca credentials not configured - WebSocket disabled")
+            logger.info("Alpaca market-data credentials not configured - WebSocket disabled")
             return
 
         self._running = True

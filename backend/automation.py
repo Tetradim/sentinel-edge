@@ -101,8 +101,40 @@ class HandoffCommand:
             bucket = int(self.created_at // 60)
             self.idempotency_key = f"edge:{self.symbol}:{self.action.value}:{self.orb_session}:{bucket}:{uuid.uuid4().hex[:8]}"
 
-    def payload(self) -> Dict[str, Any]:
+    def execution_intent(self) -> Dict[str, Any]:
+        trailing_policy = None
+        if self.trailing_percent is not None or self.stop_type in {"trailing", "tighten_trailing"}:
+            trailing_policy = {
+                "type": self.stop_type or "trailing",
+                "trailing_percent": self.trailing_percent,
+            }
+
+        stop_policy = None
+        if self.stop_type and self.stop_type not in {"trailing", "tighten_trailing"}:
+            stop_policy = {"type": self.stop_type}
+
         return {
+            "contract_version": "edge.execution_intent.v1",
+            "intent_id": self.idempotency_key,
+            "source_bot": "sentinel-edge",
+            "target_bot": "sentinel-pulse",
+            "symbol": self.symbol,
+            "action": self.action.value,
+            "mode": self.mode.value,
+            "quantity_policy": {"type": "edge_runtime_policy"},
+            "max_notional": None,
+            "stop_policy": stop_policy,
+            "trailing_policy": trailing_policy,
+            "reason": self.reason,
+            "expires_at": None,
+            "idempotency_key": self.idempotency_key,
+        }
+
+    def payload(self) -> Dict[str, Any]:
+        metadata = dict(self.metadata)
+        metadata["execution_intent"] = self.execution_intent()
+        return {
+            "contract_version": "edge.pulse.handoff.v1",
             "symbol": self.symbol,
             "action": self.action.value,
             "confidence": round(float(self.confidence), 4),
@@ -115,7 +147,7 @@ class HandoffCommand:
             "idempotency_key": self.idempotency_key,
             "source": "sentinel_edge",
             "created_at": self.created_at,
-            "metadata": self.metadata,
+            "metadata": metadata,
         }
 
 

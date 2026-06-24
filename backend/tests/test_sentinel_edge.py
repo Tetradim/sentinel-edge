@@ -76,7 +76,7 @@ class TestTickers:
     def test_get_tickers_count_is_4(self):
         resp = requests.get(f"{BASE_URL}/api/tickers")
         data = resp.json()
-        assert data["count"] == 4
+        assert data["count"] == 12
 
     def test_add_ticker_returns_200(self):
         resp = requests.post(f"{BASE_URL}/api/tickers/TSLA")

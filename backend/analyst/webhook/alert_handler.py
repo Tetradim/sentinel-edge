@@ -7,7 +7,7 @@ Auth
 ────
 Set WEBHOOK_SECRET in the environment (and in alertmanager.yml
   http_config.basic_auth.password) to enable basic-auth verification.
-Leave unset to accept all requests (useful for local dev).
+Leave unset only for health checks; action webhooks fail closed without it.
 
 Alert → Action mapping
 ───────────────────────
@@ -32,15 +32,18 @@ router = APIRouter(tags=["alertmanager"])
 logger = logging.getLogger(__name__)
 
 _WEBHOOK_USER = os.getenv("WEBHOOK_USER", "sentinel-edge")
-_WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")     # empty = auth disabled
+_WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 
 # ── Auth helper ───────────────────────────────────────────────────────────────
 
 def _verify_basic_auth(request: Request) -> None:
-    """Validate HTTP Basic auth if WEBHOOK_SECRET is set."""
+    """Validate HTTP Basic auth for action-bearing webhook requests."""
     if not _WEBHOOK_SECRET:
-        return  # auth disabled in dev
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="WEBHOOK_SECRET is required before analyst webhooks are accepted.",
+        )
     import base64
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Basic "):

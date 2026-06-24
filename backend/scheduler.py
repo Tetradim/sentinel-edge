@@ -43,7 +43,8 @@ from position_tracker import PositionTracker
 from price_fetcher import PriceFetcher
 from providers.ws_manager import WebSocketManager
 from pulse_client import PulseClient
-from shared.bot_event_bus import build_edge_action_event_payload, publish_event
+from runtime_mode import is_dry_run_enabled
+from shared.bot_event_bus import EDGE_ACTION_TARGET_BOTS, build_edge_action_event_payload, publish_event
 from signals import SignalEngine, TrendDirection
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ def _persisted_orb_level_matches_date(level_data: Dict[str, Any], trading_date: 
 class EvaluationScheduler:
     """Continuously evaluate tickers and make decisions."""
 
-    DEFAULT_TICKERS = ["SPY", "QQQ", "NVDA", "AAPL"]
+    DEFAULT_TICKERS = ["SPY", "QQQ", "NVDA", "AAPL", "LNR", "MU", "SNDK", "INTC", "IRDM", "VSAT", "FLY", "VPG"]
     EVAL_INTERVAL   = 1   # seconds between full evaluation sweeps
 
     def __init__(
@@ -766,15 +767,27 @@ class EvaluationScheduler:
                 "idempotency_key": command.idempotency_key,
             }
 
+        if is_dry_run_enabled():
+            gate_reason = "dry_run_enabled"
+            self.automation.record_suppressed(command, gate_reason)
+            logger.warning(
+                "Pulse handoff suppressed for %s %s: %s",
+                symbol,
+                action.value,
+                gate_reason,
+            )
+            return {
+                "sent": False,
+                "status": "suppressed",
+                "reason": gate_reason,
+                "symbol": command.symbol,
+                "action": command.action.value,
+                "mode": command.mode.value,
+                "orb_session": command.orb_session,
+                "idempotency_key": command.idempotency_key,
+            }
+
         command_payload = command.payload()
-        bus_event = publish_event(
-            "edge.action",
-            payload=build_edge_action_event_payload(command_payload),
-            correlation_id=command_payload.get("idempotency_key"),
-            dedupe_key=command_payload.get("idempotency_key"),
-            target_bots=["sentinel-pulse", "consolidation", "auto-crypto", "darkpool-mon"],
-            trace={"transport": "cross-bot-event-bus", "pulse_handoff_attempted": True},
-        )
         handoff_result = await self.pulse.send_handoff_command(command_payload)
         if not isinstance(handoff_result, dict):
             handoff_result = {
@@ -782,19 +795,32 @@ class EvaluationScheduler:
                 "status": "accepted" if handoff_result else "failed",
                 "reason": "pulse_accepted" if handoff_result else "pulse_send_failed",
             }
+        handoff_sent = bool(handoff_result.get("sent", False))
+        bus_event = None
+        if handoff_sent:
+            bus_event = publish_event(
+                "edge.action",
+                payload=build_edge_action_event_payload(command_payload, feedback=handoff_result),
+                correlation_id=command_payload.get("idempotency_key"),
+                dedupe_key=command_payload.get("idempotency_key"),
+                target_bots=EDGE_ACTION_TARGET_BOTS,
+                trace={
+                    "transport": "cross-bot-event-bus",
+                    "pulse_handoff_status": handoff_result.get("status", "accepted"),
+                },
+            )
         publish_event(
             "edge.action.feedback",
             payload=build_edge_action_event_payload(command_payload, feedback=handoff_result),
             correlation_id=command_payload.get("idempotency_key"),
             dedupe_key=f"{command_payload.get('idempotency_key')}:feedback:{handoff_result.get('status')}",
-            target_bots=["sentinel-pulse", "consolidation", "auto-crypto", "darkpool-mon"],
+            target_bots=EDGE_ACTION_TARGET_BOTS,
             trace={
-                "edge_action_event_id": bus_event.event_id,
+                "edge_action_event_id": getattr(bus_event, "event_id", None),
                 "transport": "cross-bot-event-bus",
             },
         )
         self.automation.record_sent(command, handoff_result)
-        handoff_sent = bool(handoff_result.get("sent", False))
         if handoff_sent:
             logger.info("Pulse handoff sent: %s %s conf=%.2f", symbol, action.value, confidence)
         return handoff_result

@@ -50,6 +50,32 @@ class AlertHandlerHandoffContractTests(unittest.TestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual([], fake.calls)
 
+    def test_alerts_fail_closed_when_webhook_secret_is_not_configured(self):
+        fake = _FakePulseClient()
+        payload = {
+            "alerts": [
+                {
+                    "status": "firing",
+                    "labels": {
+                        "alertname": "BearishClusterOverride",
+                        "action": "bearish_cluster",
+                        "symbol": "SPY",
+                    },
+                    "annotations": {"summary": "bearish cluster detected"},
+                }
+            ]
+        }
+
+        with (
+            patch.object(alert_handler, "pulse_client", fake),
+            patch.object(alert_handler, "_WEBHOOK_SECRET", "", create=True),
+        ):
+            response = self._client().post("/alerts", json=payload)
+
+        self.assertEqual(503, response.status_code)
+        self.assertIn("WEBHOOK_SECRET", response.json()["detail"])
+        self.assertEqual([], fake.calls)
+
     def test_bearish_cluster_alert_posts_stop_buying_handoff_with_edge_api_key(self):
         fake = _FakePulseClient()
         payload = {
@@ -136,6 +162,15 @@ class AlertHandlerHandoffContractTests(unittest.TestCase):
         self.assertIn("/api/edge/handoff", text)
         self.assertIn("tighten_trailing_stop", text)
         self.assertNotIn("/control/override", text)
+
+    def test_direct_analyst_handoff_paths_use_shared_api_key_resolver(self):
+        core_text = (BACKEND / "analyst" / "core.py").read_text(encoding="utf-8")
+        correlation_text = (BACKEND / "analyst" / "correlation" / "engine.py").read_text(encoding="utf-8")
+
+        for text in (core_text, correlation_text):
+            self.assertIn("resolve_pulse_api_key", text)
+            self.assertIn("missing Pulse API key", text)
+            self.assertNotIn('os.getenv("PULSE_API_KEY") or os.getenv("EDGE_API_KEY")', text)
 
 
 if __name__ == "__main__":

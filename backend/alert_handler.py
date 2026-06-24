@@ -97,9 +97,12 @@ pulse_client = PulseClient()
 
 
 def _verify_basic_auth(request: Request) -> None:
-    """Validate Alertmanager Basic auth when WEBHOOK_SECRET is configured."""
+    """Validate Alertmanager Basic auth for Pulse-affecting alert actions."""
     if not _WEBHOOK_SECRET:
-        return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="WEBHOOK_SECRET is required before Alertmanager action webhooks are accepted.",
+        )
 
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Basic "):
