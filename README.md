@@ -571,6 +571,8 @@ sentinel-edge/
 |   `-- verify-local.ps1               # Local verification gate
 |-- Launch-Sentinel-Bot-Suite.ps1      # Windows suite launcher for Edge, Pulse, Darkpool, Discord, Crypto, and Tandem
 |-- Launch-Sentinel-Bot-Suite.bat
+|-- Launch-Sentinel-Edge.ps1           # Windows installed-app launcher with first-run dependency repair
+|-- Launch-Sentinel-Edge.bat
 |-- Launch-Sentinel-Edge-Local.ps1      # Windows source launcher
 |-- Launch-Sentinel-Edge-Local.bat
 |-- docker-compose.yml
@@ -601,7 +603,23 @@ Useful flags:
 | `-SkipEdge`, `-SkipPulse`, `-SkipDarkpool`, `-SkipDiscord`, `-SkipCrypto`, `-SkipTandem` | Launch a smaller local set. |
 | `-NoWait` | Send launch requests and let this suite window exit. |
 
-### Option 1: Windows local source launcher
+### Option 1: Windows beta installer
+
+Beta testers should use `SentinelEdge-Setup-<version>.exe` from the Windows installer artifact or release download. After installation, double-click the `Sentinel Edge` Desktop or Start Menu shortcut.
+
+The installed launcher downloads missing runtime dependencies on first launch. It checks for the Visual C++ Runtime, checks whether MongoDB is already reachable on port `27017`, reuses a system or cached `mongod.exe` when available, and downloads portable MongoDB into `%LOCALAPPDATA%\Sentinel Edge\dependencies` when it is missing. Later launches reuse the cached dependency folder.
+
+The installed app does not require Python, Node.js, npm, or a developer checkout. Logs for support are written to the Desktop:
+
+```text
+Sentinel-Edge.log
+Sentinel-Edge-Transcript.log
+Sentinel-Edge-MongoDB.log
+```
+
+Use the source launcher below only when running from a repository checkout.
+
+### Option 2: Windows local source launcher
 
 From the repository root:
 
@@ -622,7 +640,7 @@ The launcher looks for Python 3.11, 3.12, or 3.13, creates/uses the backend virt
 
 The launcher also mirrors the Sentinel Pulse local launcher lifecycle. When it can find Edge or Chrome, it opens the UI in an isolated temporary browser profile. Closing that dedicated browser window shuts down the Edge backend/frontend processes started by this launcher. Closing the launcher window or pressing Ctrl+C starts cleanup in the other direction: the browser profile is closed, temporary profile files are removed, and the owned backend/frontend process trees are stopped. Use `-NoBrowser` for headless runs where browser-close monitoring is intentionally disabled.
 
-### Option 2: macOS beta installer
+### Option 3: macOS beta installer
 
 MacBook beta testers can install the local source build with the bundled macOS installer script. It creates the backend virtual environment, installs frontend dependencies, and adds a double-click launcher to the Desktop.
 
@@ -657,7 +675,7 @@ Manual launch options:
 ./install-macos.sh --launch --skip-mongo
 ```
 
-### Option 3: Manual backend
+### Option 4: Manual backend
 
 From the repository root:
 
@@ -676,7 +694,7 @@ cd backend
 .\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Option 4: Manual frontend
+### Option 5: Manual frontend
 
 In a second terminal:
 
@@ -688,7 +706,7 @@ npm run dev
 
 The frontend dev server defaults to Vite behavior. The local launcher uses port `3000` in the workstation bot-suite map.
 
-### Option 4: Docker stack
+### Option 6: Docker stack
 
 ```powershell
 docker compose up -d
