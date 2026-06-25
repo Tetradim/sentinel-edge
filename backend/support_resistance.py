@@ -3,25 +3,81 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from math import isfinite
+import re
 from typing import Any, Dict, Iterable, List, Sequence
-from uuid import uuid4
 
 
 LEVELS_SCHEMA_VERSION = "edge.support_resistance.levels.v1"
 DIRECTIVE_SCHEMA_VERSION = "edge.sr.directive.v1"
+BREAK_CONFIRMATION_MODES = {"tick_break", "candle_close_break"}
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "opening_range_minutes": 30,
     "swing_window": 2,
     "break_confirmation": "tick_break",
     "break_buffer_pct": 0.0,
+    "confirming_closes": 1,
     "scale_in_fraction": 0.25,
     "scale_in_sizing_mode": "buying_power_fraction",
     "minimum_scale_in_contracts": 1,
+    "max_scale_ins_per_position": 1,
+    "scale_in_cooldown_seconds": 300,
+    "one_scale_in_per_level": True,
     "strict_0dte_exits_enabled": True,
     "stop_trading_after_time_enabled": False,
     "pre_close_trailing_rescue_enabled": False,
+    "session_id": "",
+    "now": None,
 }
+
+
+class SupportResistanceDirectiveState:
+    """In-memory guardrail for repeated S/R scale-in directives."""
+
+    def __init__(self) -> None:
+        self._scale_ins: Dict[str, Dict[str, Any]] = {}
+
+    def reset(self) -> None:
+        self._scale_ins.clear()
+
+    def allow_and_record(self, directive: Dict[str, Any], settings: Dict[str, Any]) -> bool:
+        if directive.get("action") != "request_scale_in":
+            return True
+
+        metadata = directive.get("metadata") if isinstance(directive.get("metadata"), dict) else {}
+        position = directive.get("position") if isinstance(directive.get("position"), dict) else {}
+        level = directive.get("level") if isinstance(directive.get("level"), dict) else {}
+        session_id = _safe_identifier(metadata.get("session_id") or settings.get("session_id") or "default")
+        position_id = _position_identity(position)
+        level_id = _safe_identifier(level.get("id") or level.get("kind") or "level")
+        key = f"{session_id}:{position_id}"
+        level_key = f"{key}:{level_id}"
+        now = _settings_now(settings)
+
+        record = self._scale_ins.setdefault(
+            key,
+            {"count": 0, "levels": set(), "last_at": None},
+        )
+
+        if bool(settings["one_scale_in_per_level"]) and level_key in record["levels"]:
+            return False
+
+        cooldown_seconds = int(settings["scale_in_cooldown_seconds"])
+        last_at = record.get("last_at")
+        if cooldown_seconds > 0 and isinstance(last_at, datetime):
+            if (now - last_at).total_seconds() < cooldown_seconds:
+                return False
+
+        if int(record["count"]) >= int(settings["max_scale_ins_per_position"]):
+            return False
+
+        record["count"] = int(record["count"]) + 1
+        record["levels"].add(level_key)
+        record["last_at"] = now
+        return True
+
+
+support_resistance_directive_state = SupportResistanceDirectiveState()
 
 
 def build_support_resistance_levels(
@@ -185,26 +241,34 @@ def evaluate_support_resistance_position(
     levels: Sequence[Dict[str, Any]],
     current_price: float,
     settings: Dict[str, Any] | None = None,
+    bars: Sequence[Dict[str, Any]] | None = None,
+    state: SupportResistanceDirectiveState | None = None,
 ) -> Dict[str, Any] | None:
     """Evaluate one option position against S/R levels and return a directive."""
     resolved_settings = _settings(settings)
     numeric_current_price = _required_float(current_price, "current_price")
     option_side = _option_side(position.get("option_side") or position.get("side") or position.get("direction"))
+    confirmation_bars = _confirmation_bars(bars, resolved_settings)
     support_break = _nearest_broken_level(
         levels,
         role="support",
         current_price=numeric_current_price,
         break_buffer_pct=float(resolved_settings["break_buffer_pct"]),
+        settings=resolved_settings,
+        bars=confirmation_bars,
     )
     resistance_break = _nearest_broken_level(
         levels,
         role="resistance",
         current_price=numeric_current_price,
         break_buffer_pct=float(resolved_settings["break_buffer_pct"]),
+        settings=resolved_settings,
+        bars=confirmation_bars,
     )
 
+    directive = None
     if option_side == "call" and support_break:
-        return _directive(
+        directive = _directive(
             action="close_position",
             reason_code="call_support_break",
             position=position,
@@ -212,8 +276,8 @@ def evaluate_support_resistance_position(
             current_price=numeric_current_price,
             settings=resolved_settings,
         )
-    if option_side == "put" and resistance_break:
-        return _directive(
+    elif option_side == "put" and resistance_break:
+        directive = _directive(
             action="close_position",
             reason_code="put_resistance_break",
             position=position,
@@ -221,8 +285,8 @@ def evaluate_support_resistance_position(
             current_price=numeric_current_price,
             settings=resolved_settings,
         )
-    if option_side == "call" and resistance_break:
-        return _directive(
+    elif option_side == "call" and resistance_break:
+        directive = _directive(
             action="request_scale_in",
             reason_code="call_resistance_break",
             position=position,
@@ -230,8 +294,8 @@ def evaluate_support_resistance_position(
             current_price=numeric_current_price,
             settings=resolved_settings,
         )
-    if option_side == "put" and support_break:
-        return _directive(
+    elif option_side == "put" and support_break:
+        directive = _directive(
             action="request_scale_in",
             reason_code="put_support_break",
             position=position,
@@ -239,7 +303,12 @@ def evaluate_support_resistance_position(
             current_price=numeric_current_price,
             settings=resolved_settings,
         )
-    return None
+
+    if directive is None:
+        return None
+    if state is not None and not state.allow_and_record(directive, resolved_settings):
+        return None
+    return directive
 
 
 def _settings(settings: Dict[str, Any] | None) -> Dict[str, Any]:
@@ -250,9 +319,24 @@ def _settings(settings: Dict[str, Any] | None) -> Dict[str, Any]:
                 resolved[key] = value
     resolved["opening_range_minutes"] = _clamp_int(resolved["opening_range_minutes"], 1, 120)
     resolved["swing_window"] = _clamp_int(resolved["swing_window"], 1, 20)
+    resolved["break_confirmation"] = _break_confirmation_mode(resolved["break_confirmation"])
     resolved["break_buffer_pct"] = _clamp_float(resolved["break_buffer_pct"], 0.0, 0.05)
+    resolved["confirming_closes"] = _strict_int(resolved["confirming_closes"], "confirming_closes", 1, 20)
     resolved["scale_in_fraction"] = _clamp_float(resolved["scale_in_fraction"], 0.01, 1.0)
     resolved["minimum_scale_in_contracts"] = _clamp_int(resolved["minimum_scale_in_contracts"], 1, 1000)
+    resolved["max_scale_ins_per_position"] = _strict_int(
+        resolved["max_scale_ins_per_position"],
+        "max_scale_ins_per_position",
+        0,
+        1000,
+    )
+    resolved["scale_in_cooldown_seconds"] = _strict_int(
+        resolved["scale_in_cooldown_seconds"],
+        "scale_in_cooldown_seconds",
+        0,
+        86400,
+    )
+    resolved["one_scale_in_per_level"] = _bool_value(resolved["one_scale_in_per_level"])
     return resolved
 
 
@@ -399,6 +483,8 @@ def _nearest_broken_level(
     role: str,
     current_price: float,
     break_buffer_pct: float,
+    settings: Dict[str, Any],
+    bars: Sequence[Dict[str, Any]] | None,
 ) -> Dict[str, Any] | None:
     candidates: List[Dict[str, Any]] = []
     for level in levels:
@@ -408,8 +494,12 @@ def _nearest_broken_level(
         if price is None:
             continue
         threshold = price * (1 - break_buffer_pct) if role == "support" else price * (1 + break_buffer_pct)
-        if (role == "support" and current_price <= threshold) or (
-            role == "resistance" and current_price >= threshold
+        if _level_is_broken(
+            role=role,
+            current_price=current_price,
+            threshold=threshold,
+            settings=settings,
+            bars=bars,
         ):
             item = dict(level)
             item["price"] = round(price, 4)
@@ -442,7 +532,12 @@ def _directive(
     settings: Dict[str, Any],
 ) -> Dict[str, Any]:
     normalized_position = _position_payload(position)
-    directive_id = str(position.get("directive_id") or f"edge-sr-{uuid4()}")
+    directive_id = str(position.get("directive_id") or _deterministic_directive_id(
+        position=normalized_position,
+        action=action,
+        level=level,
+        settings=settings,
+    ))
     directive = {
         "schema_version": DIRECTIVE_SCHEMA_VERSION,
         "directive_id": directive_id,
@@ -467,6 +562,11 @@ def _directive(
             "strict_0dte_exits_enabled": bool(settings["strict_0dte_exits_enabled"]),
             "is_0dte": _is_0dte(normalized_position.get("expiry"), settings),
             "break_confirmation": settings["break_confirmation"],
+            "confirming_closes": int(settings["confirming_closes"]),
+            "session_id": _session_id(level, settings),
+            "max_scale_ins_per_position": int(settings["max_scale_ins_per_position"]),
+            "scale_in_cooldown_seconds": int(settings["scale_in_cooldown_seconds"]),
+            "one_scale_in_per_level": bool(settings["one_scale_in_per_level"]),
             "stop_trading_after_time_enabled": bool(settings["stop_trading_after_time_enabled"]),
             "pre_close_trailing_rescue_enabled": bool(settings["pre_close_trailing_rescue_enabled"]),
         },
@@ -496,6 +596,94 @@ def _position_payload(position: Dict[str, Any]) -> Dict[str, Any]:
         "strike": strike,
         "entry_price": entry_price,
     }
+
+
+def _confirmation_bars(
+    bars: Sequence[Dict[str, Any]] | None,
+    settings: Dict[str, Any],
+) -> Sequence[Dict[str, Any]] | None:
+    if settings["break_confirmation"] != "candle_close_break":
+        return None
+    if not bars:
+        raise ValueError("bars are required when break_confirmation is candle_close_break")
+    return sorted((_normalise_bar(dict(bar)) for bar in bars), key=lambda item: item["timestamp"])
+
+
+def _level_is_broken(
+    *,
+    role: str,
+    current_price: float,
+    threshold: float,
+    settings: Dict[str, Any],
+    bars: Sequence[Dict[str, Any]] | None,
+) -> bool:
+    if settings["break_confirmation"] == "tick_break":
+        return (role == "support" and current_price <= threshold) or (
+            role == "resistance" and current_price >= threshold
+        )
+
+    if settings["break_confirmation"] == "candle_close_break":
+        confirming_closes = int(settings["confirming_closes"])
+        if not bars or len(bars) < confirming_closes:
+            return False
+        closes = [float(bar["close"]) for bar in bars[-confirming_closes:]]
+        if role == "support":
+            return all(close <= threshold for close in closes)
+        return all(close >= threshold for close in closes)
+
+    raise ValueError(f"Unsupported break_confirmation: {settings['break_confirmation']}")
+
+
+def _deterministic_directive_id(
+    *,
+    position: Dict[str, Any],
+    action: str,
+    level: Dict[str, Any],
+    settings: Dict[str, Any],
+) -> str:
+    return ":".join(
+        [
+            "edge-sr",
+            _safe_identifier(_session_id(level, settings)),
+            _position_identity(position),
+            _safe_identifier(action),
+            _safe_identifier(level.get("id") or level.get("kind") or "level"),
+        ]
+    )
+
+
+def _session_id(level: Dict[str, Any], settings: Dict[str, Any]) -> str:
+    configured = str(settings.get("session_id") or "").strip()
+    if configured:
+        return configured
+    for key in ("session_id", "session"):
+        value = str(level.get(key) or "").strip()
+        if value:
+            return value
+    timestamp = str(level.get("timestamp") or "").strip()
+    if len(timestamp) >= 10:
+        return timestamp[:10]
+    return "default"
+
+
+def _position_identity(position: Dict[str, Any]) -> str:
+    position_id = str(position.get("position_id") or "").strip()
+    if position_id:
+        return _safe_identifier(position_id)
+    parts = [
+        position.get("underlying"),
+        position.get("option_side"),
+        position.get("expiry"),
+        position.get("strike"),
+    ]
+    return _safe_identifier("-".join(str(part or "") for part in parts) or "unknown-position")
+
+
+def _safe_identifier(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "unknown"
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", text).strip("-") or "unknown"
 
 
 def _normalise_bar(bar: Dict[str, Any]) -> Dict[str, Any]:
@@ -644,6 +832,47 @@ def _optional_float(value: Any) -> float | None:
     if not isfinite(numeric):
         return None
     return numeric
+
+
+def _break_confirmation_mode(value: Any) -> str:
+    mode = str(value or "").strip().lower()
+    if mode not in BREAK_CONFIRMATION_MODES:
+        raise ValueError(
+            f"break_confirmation must be one of {sorted(BREAK_CONFIRMATION_MODES)}"
+        )
+    return mode
+
+
+def _settings_now(settings: Dict[str, Any]) -> datetime:
+    raw = settings.get("now")
+    if isinstance(raw, datetime):
+        parsed = raw
+    elif raw:
+        try:
+            parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            parsed = datetime.now(timezone.utc)
+    else:
+        parsed = datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _strict_int(value: Any, field: str, minimum: int, maximum: int) -> int:
+    try:
+        numeric = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be an integer") from exc
+    if numeric < minimum or numeric > maximum:
+        raise ValueError(f"{field} must be between {minimum} and {maximum}")
+    return numeric
+
+
+def _bool_value(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _clamp_float(value: Any, minimum: float, maximum: float) -> float:

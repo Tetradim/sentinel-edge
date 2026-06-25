@@ -51,6 +51,7 @@ from support_resistance import (
     DIRECTIVE_SCHEMA_VERSION,
     build_support_resistance_levels,
     evaluate_support_resistance_position,
+    support_resistance_directive_state,
 )
 from simulation_lab import (
     SimulationLabDisabledError,
@@ -2239,6 +2240,8 @@ async def evaluate_support_resistance(request: SupportResistanceEvaluateRequest)
                 levels=levels_payload.get("items", []),
                 current_price=float(request.current_price),
                 settings=request.settings,
+                bars=request.bars,
+                state=support_resistance_directive_state if request.emit_event else None,
             )
 
         published_event = None

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from support_resistance import (  # noqa: E402
+    SupportResistanceDirectiveState,
     build_support_resistance_levels,
     evaluate_support_resistance_position,
 )
@@ -178,6 +179,167 @@ class SupportResistanceTests(unittest.TestCase):
         self.assertEqual(directive["action"], "request_scale_in")
         self.assertEqual(directive["reason_code"], "put_support_break")
         self.assertEqual(directive["sizing_hint"]["fraction"], 0.25)
+
+    def test_directive_id_is_deterministic_for_position_action_level_and_session(self):
+        position = {
+            "position_id": "NVDA-20260624-150-C",
+            "underlying": "NVDA",
+            "option_side": "call",
+            "quantity": 8,
+            "expiry": "2026-06-24",
+            "strike": 150.0,
+            "entry_price": 1.6,
+        }
+        level = {"id": "session_high", "kind": "session_high", "role": "resistance", "price": 152.0}
+
+        first = evaluate_support_resistance_position(
+            position=position,
+            levels=[level],
+            current_price=152.2,
+            settings={"session_id": "2026-06-24-regular"},
+        )
+        second = evaluate_support_resistance_position(
+            position=position,
+            levels=[level],
+            current_price=152.25,
+            settings={"session_id": "2026-06-24-regular"},
+        )
+
+        self.assertEqual(first["directive_id"], second["directive_id"])
+        self.assertIn("NVDA-20260624-150-C", first["directive_id"])
+        self.assertIn("request_scale_in", first["directive_id"])
+        self.assertIn("session_high", first["directive_id"])
+        self.assertIn("2026-06-24-regular", first["directive_id"])
+
+    def test_scale_in_state_allows_only_one_add_per_level_by_default(self):
+        state = SupportResistanceDirectiveState()
+        position = {
+            "position_id": "NVDA-20260624-150-C",
+            "underlying": "NVDA",
+            "option_side": "call",
+            "quantity": 8,
+            "expiry": "2026-06-24",
+            "strike": 150.0,
+            "entry_price": 1.6,
+        }
+        level = {"id": "session_high", "kind": "session_high", "role": "resistance", "price": 152.0}
+
+        first = evaluate_support_resistance_position(
+            position=position,
+            levels=[level],
+            current_price=152.2,
+            settings={"session_id": "2026-06-24-regular"},
+            state=state,
+        )
+        second = evaluate_support_resistance_position(
+            position=position,
+            levels=[level],
+            current_price=152.4,
+            settings={"session_id": "2026-06-24-regular"},
+            state=state,
+        )
+
+        self.assertIsNotNone(first)
+        self.assertIsNone(second)
+
+    def test_scale_in_state_enforces_max_adds_and_cooldown(self):
+        state = SupportResistanceDirectiveState()
+        position = {
+            "position_id": "AAPL-20260624-200-C",
+            "underlying": "AAPL",
+            "option_side": "call",
+            "quantity": 4,
+            "expiry": "2026-06-24",
+            "strike": 200.0,
+            "entry_price": 2.4,
+        }
+        settings = {
+            "session_id": "2026-06-24-regular",
+            "one_scale_in_per_level": False,
+            "max_scale_ins_per_position": 1,
+            "scale_in_cooldown_seconds": 60,
+            "now": "2026-06-24T14:30:00+00:00",
+        }
+
+        first = evaluate_support_resistance_position(
+            position=position,
+            levels=[{"id": "session_high", "kind": "session_high", "role": "resistance", "price": 202.0}],
+            current_price=202.3,
+            settings=settings,
+            state=state,
+        )
+        second = evaluate_support_resistance_position(
+            position=position,
+            levels=[{"id": "swing_high_4", "kind": "swing_high", "role": "resistance", "price": 203.0}],
+            current_price=203.3,
+            settings={**settings, "now": "2026-06-24T14:30:30+00:00"},
+            state=state,
+        )
+        third = evaluate_support_resistance_position(
+            position=position,
+            levels=[{"id": "swing_high_5", "kind": "swing_high", "role": "resistance", "price": 204.0}],
+            current_price=204.3,
+            settings={**settings, "max_scale_ins_per_position": 2, "now": "2026-06-24T14:31:05+00:00"},
+            state=state,
+        )
+
+        self.assertIsNotNone(first)
+        self.assertIsNone(second)
+        self.assertIsNotNone(third)
+
+    def test_candle_close_break_requires_configured_confirming_closes(self):
+        position = {
+            "position_id": "SPY-20260624-500-P",
+            "underlying": "SPY",
+            "option_side": "put",
+            "quantity": 1,
+            "expiry": "2026-06-24",
+            "strike": 500.0,
+            "entry_price": 3.2,
+        }
+        level = {"id": "session_low", "kind": "session_low", "role": "support", "price": 496.0}
+        bars = [
+            _bar(datetime(2026, 6, 24, 9, 31), 497.0, 497.5, 495.8, 496.2),
+            _bar(datetime(2026, 6, 24, 9, 32), 496.2, 496.5, 495.6, 495.9),
+            _bar(datetime(2026, 6, 24, 9, 33), 495.9, 496.1, 495.4, 495.8),
+        ]
+
+        one_close = evaluate_support_resistance_position(
+            position=position,
+            levels=[level],
+            current_price=495.8,
+            settings={"break_confirmation": "candle_close_break", "confirming_closes": 2},
+            bars=bars[:2],
+        )
+        two_closes = evaluate_support_resistance_position(
+            position=position,
+            levels=[level],
+            current_price=495.8,
+            settings={"break_confirmation": "candle_close_break", "confirming_closes": 2},
+            bars=bars,
+        )
+
+        self.assertIsNone(one_close)
+        self.assertIsNotNone(two_closes)
+        self.assertEqual(two_closes["reason_code"], "put_support_break")
+
+    def test_invalid_break_confirmation_and_close_count_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "break_confirmation"):
+            evaluate_support_resistance_position(
+                position={"position_id": "AAPL-1-C", "underlying": "AAPL", "option_side": "call", "quantity": 1},
+                levels=[{"id": "session_high", "role": "resistance", "price": 202.0}],
+                current_price=202.3,
+                settings={"break_confirmation": "buffer_volume_break"},
+            )
+
+        with self.assertRaisesRegex(ValueError, "confirming_closes"):
+            evaluate_support_resistance_position(
+                position={"position_id": "AAPL-1-C", "underlying": "AAPL", "option_side": "call", "quantity": 1},
+                levels=[{"id": "session_high", "role": "resistance", "price": 202.0}],
+                current_price=202.3,
+                settings={"break_confirmation": "candle_close_break", "confirming_closes": 0},
+                bars=[_bar(datetime(2026, 6, 24, 9, 31), 201.0, 202.5, 200.5, 202.3)],
+            )
 
 
 if __name__ == "__main__":
