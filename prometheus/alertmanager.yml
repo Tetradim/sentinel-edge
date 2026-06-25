@@ -16,6 +16,7 @@ global:
 # ─────────────────────────────────────────────────────────────────────────────
 route:
   group_by: ['alertname', 'direction', 'severity', 'cluster_id']
+  receiver: 'default'
   group_wait: 30s
   group_interval: 2m
   repeat_interval: 30m

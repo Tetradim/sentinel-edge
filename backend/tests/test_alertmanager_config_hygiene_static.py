@@ -9,6 +9,15 @@ ALERTMANAGER = ROOT / "prometheus" / "alertmanager.yml"
 
 
 class AlertmanagerConfigHygieneStaticTests(unittest.TestCase):
+    def test_root_route_has_default_receiver(self):
+        text = ALERTMANAGER.read_text(encoding="utf-8")
+        root_route = text[text.index("route:"):text.index("  routes:")]
+        receiver_block = text[text.index("receivers:"):text.index("inhibit_rules:")]
+
+        root_receiver = re.search(r"^  receiver: '([^']+)'$", root_route, re.MULTILINE)
+        self.assertIsNotNone(root_receiver)
+        self.assertIn(f"- name: '{root_receiver.group(1)}'", receiver_block)
+
     def test_automation_route_comment_matches_route(self):
         text = ALERTMANAGER.read_text(encoding="utf-8")
         route_start = text.index('component = "automation"')
