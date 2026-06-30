@@ -773,6 +773,44 @@ function Start-MongoDb {
     Write-Status "MongoDB is ready" "OK"
 }
 
+function Test-LocalSourceCheckout {
+    $localLauncher = Join-Path $ProjectRoot "Launch-Sentinel-Edge-Local.ps1"
+    $backendServer = Join-Path $ProjectRoot "backend\server.py"
+    $frontendPackage = Join-Path $ProjectRoot "frontend\package.json"
+    return (
+        (Test-Path -LiteralPath $localLauncher) -and
+        (Test-Path -LiteralPath $backendServer) -and
+        (Test-Path -LiteralPath $frontendPackage)
+    )
+}
+
+function Start-LocalSourceFallback {
+    $localLauncher = Join-Path $ProjectRoot "Launch-Sentinel-Edge-Local.ps1"
+
+    Write-Status "SentinelEdge.exe is missing, but this folder is a source checkout; starting the local source launcher instead." "WARN"
+    Write-Status "Use Launch-Sentinel-Edge-Local.ps1 directly for source-tree work, or reinstall with SentinelEdge-Setup for the packaged app." "WARN"
+
+    $env:MONGO_URL = "mongodb://127.0.0.1:$MongoPort"
+    if (-not $env:DB_NAME) { $env:DB_NAME = "sentinel_edge" }
+
+    $powershell = Join-Path $PSHOME "powershell.exe"
+    if (-not (Test-Path -LiteralPath $powershell)) {
+        $cmd = Get-Command powershell.exe -ErrorAction SilentlyContinue
+        if ($cmd) { $powershell = $cmd.Source }
+    }
+    if (-not $powershell -or -not (Test-Path -LiteralPath $powershell)) {
+        throw "PowerShell was not found, so Sentinel Edge cannot start the local source launcher."
+    }
+
+    $localArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $localLauncher)
+    if ($NoBrowser) { $localArgs += "-NoBrowser" }
+
+    & $powershell @localArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Local source launcher exited with code $LASTEXITCODE."
+    }
+}
+
 function Start-SentinelEdgeApp {
     param([int]$Port)
 
@@ -786,6 +824,10 @@ function Start-SentinelEdgeApp {
 
     $edgeExe = Join-Path $ProjectRoot "SentinelEdge.exe"
     if (-not (Test-Path -LiteralPath $edgeExe)) {
+        if (Test-LocalSourceCheckout) {
+            Start-LocalSourceFallback
+            return
+        }
         throw "SentinelEdge.exe was not found in $ProjectRoot. Reinstall with SentinelEdge-Setup and send $LogFile to support if this continues."
     }
 

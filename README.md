@@ -619,6 +619,8 @@ Sentinel-Edge-MongoDB.log
 
 Use the source launcher below only when running from a repository checkout.
 
+If the installed-app launcher is accidentally run from a source checkout and `SentinelEdge.exe` is not present, it falls back to `Launch-Sentinel-Edge-Local.ps1` after starting MongoDB. That fallback is intended for developer/source folders only; a real installed package should contain `SentinelEdge.exe`.
+
 ### Option 2: Windows local source launcher
 
 From the repository root:

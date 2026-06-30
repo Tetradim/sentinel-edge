@@ -28,6 +28,15 @@ class WindowsInstallerBootstrapStaticTests(unittest.TestCase):
         self.assertIn("/api/ready", script)
         self.assertIn("-SmokeTest", script)
 
+    def test_packaged_launcher_falls_back_when_run_from_source_checkout(self):
+        script = PACKAGED_PS1.read_text(encoding="utf-8")
+
+        self.assertIn("Test-LocalSourceCheckout", script)
+        self.assertIn("Start-LocalSourceFallback", script)
+        self.assertIn("Launch-Sentinel-Edge-Local.ps1", script)
+        self.assertIn("SentinelEdge.exe is missing, but this folder is a source checkout", script)
+        self.assertIn("mongodb://127.0.0.1:$MongoPort", script)
+
     def test_packaged_launcher_downloads_missing_runtime_dependencies(self):
         script = PACKAGED_PS1.read_text(encoding="utf-8")
 
@@ -71,6 +80,7 @@ class WindowsInstallerBootstrapStaticTests(unittest.TestCase):
         self.assertIn("downloads missing runtime dependencies on first launch", readme)
         self.assertIn("Visual C++ Runtime", readme)
         self.assertIn("MongoDB", readme)
+        self.assertIn("falls back to `Launch-Sentinel-Edge-Local.ps1`", readme)
 
 
 if __name__ == "__main__":

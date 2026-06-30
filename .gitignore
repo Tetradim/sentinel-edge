@@ -26,6 +26,7 @@ test_reports/
 verification-summary.json
 
 # Local runtime state
+/data/
 /data/automation_settings.json
 /backend/data/automation_settings.json
 /backend/data/event-bus/
