@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { tickers } from './data';
-import { ChartWorkspace } from '../dashboards/ChartWorkspace';
 import { ActivityLog } from './components/ActivityLog';
 import { CommandModePanel } from './components/CommandModePanel';
 import { ModeTabs } from './components/ModeTabs';
-import { MonitorPanel } from './components/MonitorPanel';
-import { OperationsPanel } from './components/OperationsPanel';
-import { ProtectionPanel } from './components/ProtectionPanel';
-import { SettingsPanel } from './components/SettingsPanel';
+import { LazyPanelFallback } from './components/LazyPanelFallback';
 import { TickerPicker } from './components/TickerPicker';
 import { PanelTitle, RuntimeBadges, StatusMetric } from './components/shared';
 import { useAssetCommandNavigation } from './hooks/useAssetCommandNavigation';
 import { useAssetCommandState } from './hooks/useAssetCommandState';
 import { useRuntimeStatus } from './hooks/useRuntimeStatus';
 import './AssetCommandConsole.css';
+
+const DirectivesPanel = lazy(() => import('./components/DirectivesPanel').then((module) => ({ default: module.DirectivesPanel })));
+const GreeksPanel = lazy(() => import('./components/GreeksPanel').then((module) => ({ default: module.GreeksPanel })));
+const OperationsPanel = lazy(() => import('./components/OperationsPanel').then((module) => ({ default: module.OperationsPanel })));
+const ProtectionPanel = lazy(() => import('./components/ProtectionPanel').then((module) => ({ default: module.ProtectionPanel })));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })));
+const UnifiedChartingPanel = lazy(() => import('./components/UnifiedChartingPanel').then((module) => ({ default: module.UnifiedChartingPanel })));
 
 export default function AssetCommandConsole() {
   const {
@@ -49,7 +52,6 @@ export default function AssetCommandConsole() {
     visibleEvents,
     events,
     intelligence,
-    feedPaused,
     protectionMode,
     pickerItems,
     addEvent,
@@ -65,6 +67,9 @@ export default function AssetCommandConsole() {
   const { runtime, toggleScheduler } = useRuntimeStatus(addEvent);
   const [clock, setClock] = useState('--:--');
   const [showPulseStartup, setShowPulseStartup] = useState(true);
+  const [activityRailOpen, setActivityRailOpen] = useState(false);
+  const wideWorkspaceMode = ['charting', 'greeks', 'directives', 'operations'].includes(mode);
+  const activityRailCollapsed = wideWorkspaceMode && !activityRailOpen;
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
@@ -93,25 +98,34 @@ export default function AssetCommandConsole() {
         </div>
         <ModeTabs mode={mode} setMode={setMode} handleModeKeyDown={handleModeKeyDown} />
         <div className="edge-clock">
+          {!showPulseStartup && (
+            <button type="button" className="edge-runtime-pill edge-bridge-choice" onClick={() => setShowPulseStartup(true)}>
+              Bridge mode
+            </button>
+          )}
           <RuntimeBadges runtime={runtime} onToggleScheduler={toggleScheduler} />
           <div>
             <span>Current time</span>
             <strong>{clock}</strong>
-            <span>local / live</span>
+            <span>local / advisory</span>
           </div>
           <div className="edge-radar" aria-hidden="true" />
         </div>
       </nav>
 
       <section className="edge-status-strip" aria-label="Portfolio status">
-        <div className="edge-primary-metric">Total PBL: <strong>+$12,500.75</strong></div>
+        <div className="edge-primary-metric">Total P&L: <strong>+$12,500.75</strong></div>
         <StatusMetric label="Selected asset" value={selected.symbol} tone="cyan" />
         <StatusMetric label="Prediction horizon" value={horizon} />
         <StatusMetric label="Signal exposure" value="64.8%" tone="gold" />
         <StatusMetric label="Risk corridor" value="2.18R" tone="red" />
       </section>
 
-      <section className="edge-command-grid">
+      <section
+        className={`edge-command-grid ${wideWorkspaceMode ? 'edge-command-grid-chart-mode' : ''} ${
+          wideWorkspaceMode && activityRailOpen ? 'edge-command-grid-activity-open' : ''
+        }`}
+      >
         <ActivityLog
           selectedSymbol={selected.symbol}
           events={events}
@@ -120,6 +134,10 @@ export default function AssetCommandConsole() {
           eventFilterCounts={eventFilterCounts}
           setEventFilter={setEventFilter}
           selectSymbol={selectSymbol}
+          compact={activityRailCollapsed}
+          collapsible={wideWorkspaceMode}
+          collapsed={activityRailCollapsed}
+          onToggleCollapsed={() => setActivityRailOpen((value) => !value)}
         />
 
         <section
@@ -158,42 +176,49 @@ export default function AssetCommandConsole() {
             />
           )}
 
-          {mode === 'market-map' && <ChartWorkspace />}
+          <Suspense fallback={<LazyPanelFallback label="Workspace" />}>
+            {mode === 'charting' && (
+              <UnifiedChartingPanel
+                selected={selected}
+                watcher={watcher}
+                tickers={tickers}
+                runtime={runtime}
+                onSelect={selectSymbol}
+                onAction={runMonitorAction}
+                onCommand={runCommand}
+              />
+            )}
+            {mode === 'directives' && <DirectivesPanel />}
 
-          {mode === 'monitor' && (
-            <MonitorPanel
-              runtime={runtime}
-              feedPaused={feedPaused}
-              tickers={tickers}
-              onAction={runMonitorAction}
-              onSelect={selectSymbol}
-            />
-          )}
+            {mode === 'greeks' && (
+              <GreeksPanel selected={selected} />
+            )}
 
-          {mode === 'protect' && (
-            <ProtectionPanel mode={protectionMode} onAction={runProtectionAction} onSelect={selectSymbol} selectedSymbol={selected.symbol} />
-          )}
+            {mode === 'protect' && (
+              <ProtectionPanel mode={protectionMode} onAction={runProtectionAction} onSelect={selectSymbol} selectedSymbol={selected.symbol} />
+            )}
 
-          {mode === 'operations' && (
-            <OperationsPanel
-              activeView={operationsView}
-              setActiveView={setOperationsView}
-              handleOperationsKeyDown={handleOperationsKeyDown}
-            />
-          )}
+            {mode === 'operations' && (
+              <OperationsPanel
+                activeView={operationsView}
+                setActiveView={setOperationsView}
+                handleOperationsKeyDown={handleOperationsKeyDown}
+              />
+            )}
 
-          {mode === 'settings' && (
-            <SettingsPanel
-              visibleReels={visibleReels}
-              setVisibleReels={setVisibleReels}
-              selectedMetrics={selectedMetrics}
-              toggleMetric={toggleMetric}
-              onSave={() => addEvent(selected.symbol, 'Metric reel settings updated', `${visibleReels} reels visible`)}
-            />
-          )}
+            {mode === 'settings' && (
+              <SettingsPanel
+                visibleReels={visibleReels}
+                setVisibleReels={setVisibleReels}
+                selectedMetrics={selectedMetrics}
+                toggleMetric={toggleMetric}
+                onSave={() => addEvent(selected.symbol, 'Metric reel settings updated', `${visibleReels} reels visible`)}
+              />
+            )}
+          </Suspense>
         </section>
 
-        <aside className="edge-right-stack">
+        {!wideWorkspaceMode && <aside className="edge-right-stack">
           <TickerPicker
             selectedSymbol={selected.symbol}
             pickerItems={pickerItems}
@@ -206,7 +231,7 @@ export default function AssetCommandConsole() {
             <PanelTitle eyebrow={watcher ? `${watcher.plugin} command panel` : 'Command panel'} title={selected.symbol} />
             <div className="edge-command-buttons">
               <button type="button" onClick={() => runCommand('arm')}>Arm Trigger</button>
-              <button type="button" onClick={() => runCommand('backtest')}>Backtest</button>
+              <button type="button" onClick={() => runCommand('risk sweep')}>Risk Sweep</button>
               <button type="button" onClick={() => runCommand('alert')}>Convert Alert</button>
               <button type="button" onClick={() => runCommand('mute')}>Mute Watch</button>
             </div>
@@ -216,7 +241,7 @@ export default function AssetCommandConsole() {
               <div>Source <strong>{watcher ? watcher.source : 'Sentinel Pulse'}</strong></div>
             </div>
           </section>
-        </aside>
+        </aside>}
       </section>
     </main>
   );
@@ -235,8 +260,8 @@ function PulseStartupPanel({
     <section className="edge-pulse-startup edge-glass" aria-label="Sentinel Pulse startup choice">
       <div>
         <span>Sentinel Pulse</span>
-        <strong>{runtime.pulseAvailable ? 'Execution bridge detected' : runtime.loading ? 'Checking execution bridge' : 'Execution bridge unavailable'}</strong>
-        <p>{runtime.pulseAvailable ? 'Connect Edge to Pulse for order execution and live position updates.' : 'Run Edge standalone while Pulse is unavailable; decisions stay visible without order handoff.'}</p>
+        <strong>{runtime.pulseAvailable ? 'Advisory bridge detected' : runtime.loading ? 'Checking advisory bridge' : 'Advisory bridge unavailable'}</strong>
+        <p>{runtime.pulseAvailable ? 'Connect Edge to Pulse for bridge telemetry and bot advisory status.' : 'Run Edge standalone while Pulse is unavailable; calculations stay visible and bot handoff remains disabled.'}</p>
       </div>
       <div className="edge-pulse-actions">
         <button type="button" onClick={onConnect}>

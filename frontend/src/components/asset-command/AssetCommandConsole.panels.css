@@ -379,10 +379,361 @@
 
 .edge-tab-panel {
   margin: 14px;
-  border: 1px solid rgba(104,213,255,.24);
+  border: 1px solid rgba(201,162,39,.22);
   background:
-    radial-gradient(circle at 72% 18%, rgba(32,215,255,.12), transparent 28%),
-    rgba(255,255,255,.035);
+    linear-gradient(135deg, rgba(69,37,181,.12), rgba(255,255,255,.025) 38%, rgba(201,162,39,.06)),
+    rgba(12,13,26,.68);
+}
+
+.edge-monitor-panel {
+  min-height: 620px;
+}
+
+.edge-monitor-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px 14px 0;
+}
+
+.edge-monitor-tabs button {
+  min-height: 38px;
+  border: 1px solid rgba(104,213,255,.18);
+  background: rgba(255,255,255,.04);
+  color: #9eb0bc;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-monitor-tabs button:hover,
+.edge-monitor-tabs button:focus-visible {
+  border-color: rgba(32,215,255,.46);
+  color: #e8f9ff;
+  outline: none;
+}
+
+.edge-monitor-tabs button.active {
+  border-color: rgba(32,215,255,.78);
+  background: linear-gradient(180deg, rgba(32,215,255,.24), rgba(32,215,255,.11));
+  color: var(--cyan);
+  box-shadow: inset 0 -2px 0 var(--cyan);
+}
+
+.edge-monitor-chart-shell {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.edge-monitor-chart-shell.rail-collapsed {
+  grid-template-columns: 58px minmax(0, 1fr);
+}
+
+.edge-monitor-chart-shell.rail-open {
+  grid-template-columns: minmax(170px, 0.28fr) minmax(0, 1fr);
+}
+
+.edge-monitor-rail {
+  min-width: 0;
+  border: 1px solid rgba(104,213,255,.18);
+  background:
+    linear-gradient(180deg, rgba(32,215,255,.07), transparent 30%),
+    rgba(0,0,0,.18);
+  padding: 7px 5px;
+}
+
+.edge-monitor-rail-toggle,
+.edge-monitor-rail-item {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(104,213,255,.14);
+  background: rgba(255,255,255,.035);
+  color: #9eb0bc;
+  font-family: "Share Tech Mono", monospace;
+  text-transform: uppercase;
+}
+
+.edge-monitor-rail-toggle {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  margin-bottom: 8px;
+  color: var(--cyan);
+}
+
+.edge-monitor-rail-toggle span {
+  width: 1px;
+  height: 1px;
+  position: absolute;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.edge-monitor-rail-list {
+  display: grid;
+  gap: 7px;
+}
+
+.edge-monitor-rail-item {
+  display: grid;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px;
+  border-left: 2px solid transparent;
+  text-align: left;
+}
+
+.rail-collapsed .edge-monitor-rail-item {
+  justify-items: center;
+  padding-inline: 4px;
+  text-align: center;
+}
+
+.edge-monitor-rail-item strong {
+  overflow: hidden;
+  color: #e7f2f6;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-monitor-rail-item em,
+.edge-monitor-rail-item span {
+  overflow: hidden;
+  color: #8fa3b0;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-monitor-rail-item.active {
+  border-color: rgba(32,215,255,.62);
+  border-left-color: var(--cyan);
+  background: rgba(32,215,255,.16);
+  color: #e8f9ff;
+  box-shadow: inset 0 0 18px rgba(32,215,255,.08);
+}
+
+.edge-monitor-main {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.edge-monitor-chart {
+  position: relative;
+  min-height: clamp(360px, 42vw, 520px);
+  overflow: hidden;
+  border: 1px solid rgba(104,213,255,.22);
+  background:
+    linear-gradient(rgba(32,215,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32,215,255,.055) 1px, transparent 1px),
+    radial-gradient(circle at 62% 34%, rgba(80,255,134,.13), transparent 34%),
+    rgba(0,0,0,.18);
+  background-size: 38px 38px, 38px 38px, auto, auto;
+  padding: 14px;
+}
+
+.edge-monitor-chart-topline,
+.edge-monitor-chart-footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.edge-monitor-chart-topline span,
+.edge-monitor-chart-footer,
+.edge-monitor-metric span {
+  color: #a6b7c3;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-monitor-chart-topline strong {
+  display: block;
+  margin-top: 2px;
+  color: #e8f9ff;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.edge-monitor-chart-badge {
+  align-self: start;
+  border: 1px solid rgba(80,255,134,.28);
+  background: rgba(80,255,134,.08);
+  color: var(--green);
+  padding: 6px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-monitor-chart-path {
+  position: absolute;
+  inset: 66px 16px 42px;
+  width: calc(100% - 32px);
+  height: calc(100% - 108px);
+}
+
+.edge-monitor-chart-path path {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 12px rgba(32,215,255,.38));
+}
+
+.edge-monitor-chart-path path.fill {
+  fill: rgba(32,215,255,.11);
+  stroke: none;
+  filter: none;
+}
+
+.edge-monitor-chart-path path.signal {
+  stroke: var(--green);
+  stroke-width: 2;
+  opacity: .74;
+}
+
+.edge-monitor-chart-footer {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  border-top: 1px solid rgba(104,213,255,.14);
+  padding-top: 10px;
+}
+
+.edge-monitor-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.edge-monitor-metric {
+  min-height: 70px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  padding: 10px;
+}
+
+.edge-monitor-metric strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 6px;
+  color: #e7f2f6;
+  font-family: "Share Tech Mono", monospace;
+  font-size: clamp(13px, 1.2vw, 18px);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.edge-monitor-command-strip {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.edge-monitor-command-strip button,
+.edge-monitor-asset-actions button {
+  min-height: 44px;
+  min-width: 0;
+  border: 1px solid rgba(32,215,255,.32);
+  background: rgba(32,215,255,.1);
+  color: var(--cyan);
+  padding: 9px 10px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-monitor-command-strip button.primary {
+  border-color: rgba(80,255,134,.52);
+  background: var(--green);
+  color: #031014;
+}
+
+.edge-monitor-command-strip button.secondary {
+  border-color: rgba(246,193,74,.38);
+  background: rgba(246,193,74,.13);
+  color: var(--gold);
+}
+
+.edge-monitor-asset-tab {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(230px, .8fr) minmax(210px, .62fr);
+  gap: 12px;
+  padding: 14px;
+}
+
+.edge-monitor-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.edge-monitor-asset-card {
+  min-height: 82px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+}
+
+.edge-monitor-asset-card.active {
+  border-color: rgba(32,215,255,.7);
+  box-shadow: inset 3px 0 0 var(--cyan);
+}
+
+.edge-monitor-asset-card strong,
+.edge-monitor-asset-detail strong {
+  display: block;
+  color: #e7f2f6;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.edge-monitor-asset-card span,
+.edge-monitor-asset-card em {
+  display: block;
+  overflow: hidden;
+  margin-top: 5px;
+  color: #9eb0bc;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.edge-monitor-asset-detail,
+.edge-monitor-asset-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.edge-monitor-asset-detail div {
+  min-height: 58px;
+  border: 1px solid rgba(104,213,255,.12);
+  background: rgba(255,255,255,.035);
+  color: #a6b7c3;
+  padding: 9px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
 }
 
 .edge-protect-panel {
@@ -410,6 +761,12 @@
   font-family: "Share Tech Mono", monospace;
   font-size: 10px;
   text-transform: uppercase;
+}
+
+.edge-tab-actions button.danger {
+  border-color: rgba(255,65,65,.42);
+  background: rgba(255,65,65,.14);
+  color: #ffb8bf;
 }
 
 .edge-card-grid {
@@ -548,6 +905,133 @@
   text-transform: uppercase;
 }
 
+.edge-protect-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.edge-lockout-list,
+.edge-protect-policy-list,
+.edge-protect-bridge-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.edge-lockout-row,
+.edge-protect-policy,
+.edge-protect-bridge {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,.035);
+  padding: 10px;
+}
+
+.edge-lockout-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .8fr) minmax(100px, .45fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.edge-lockout-row strong,
+.edge-protect-policy strong,
+.edge-protect-bridge strong {
+  display: block;
+  overflow: hidden;
+  color: #e7f2f6;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 13px;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.edge-lockout-row span,
+.edge-lockout-row small,
+.edge-protect-policy span,
+.edge-protect-policy small,
+.edge-protect-bridge span,
+.edge-protect-bridge small {
+  display: block;
+  overflow: hidden;
+  color: #9eb0bc;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.edge-lockout-row b {
+  display: block;
+  color: #e7f2f6;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.edge-lockout-row p,
+.edge-protect-policy p {
+  margin: 0;
+  color: #b3c2cd;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.edge-protect-policy header,
+.edge-protect-bridge header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.edge-protect-policy span {
+  color: var(--gold);
+  font-size: 15px;
+}
+
+.edge-protect-policy p {
+  margin: 7px 0 5px;
+  color: #e8f4fb;
+}
+
+.edge-protect-bridge-section {
+  margin: 0 14px 14px;
+}
+
+.edge-protect-bridge-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.edge-protect-bridge header svg {
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.edge-protect-bridge > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.edge-protect-bridge small {
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.18);
+  padding: 5px;
+  text-align: center;
+}
+
 .edge-risk-table {
   display: grid;
   gap: 8px;
@@ -597,19 +1081,729 @@
   background: rgba(246,193,74,.055);
 }
 
-.edge-ops-panel {
-  border-color: rgba(32,215,255,.26);
+.edge-directives-command {
+  min-height: 860px;
+  border-color: rgba(201,162,39,.28);
   background:
-    radial-gradient(circle at 18% 12%, rgba(32,215,255,.13), transparent 30%),
-    linear-gradient(135deg, rgba(255,255,255,.045), rgba(255,255,255,.018)),
-    rgba(2, 8, 14, .58);
+    radial-gradient(circle at 74% 8%, rgba(69,37,181,.2), transparent 28%),
+    linear-gradient(135deg, rgba(69,37,181,.14), rgba(255,255,255,.026) 38%, rgba(201,162,39,.08)),
+    rgba(8, 9, 28, .78);
+}
+
+.edge-directives-command-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.edge-directives-hero {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.45fr) repeat(3, minmax(150px, .62fr));
+  gap: 10px;
+}
+
+.edge-directives-regime,
+.edge-directives-summary,
+.edge-directives-column,
+.edge-directives-ledger,
+.edge-policy-detail,
+.edge-outcome-tile {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(201,162,39,.18);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.052), rgba(255,255,255,.014)),
+    rgba(6, 7, 20, .72);
+}
+
+.edge-directives-regime {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 94px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+}
+
+.edge-directives-regime span,
+.edge-directives-summary span,
+.edge-directives-section-head span,
+.edge-bridge-health-card span,
+.edge-bridge-health-card small,
+.edge-ledger-row span,
+.edge-ledger-row small,
+.edge-policy-button span,
+.edge-policy-detail span,
+.edge-outcome-tile span {
+  display: block;
+  color: #9cb0bd;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  line-height: 1.18;
+  text-transform: uppercase;
+}
+
+.edge-directives-regime strong,
+.edge-directives-summary strong,
+.edge-directives-section-head strong,
+.edge-bridge-health-card strong,
+.edge-ledger-row strong,
+.edge-policy-detail strong,
+.edge-outcome-tile strong {
+  display: block;
+  color: #eef8ff;
+  line-height: 1.04;
+  overflow-wrap: anywhere;
+}
+
+.edge-directives-regime strong {
+  margin-top: 5px;
+  font-size: clamp(24px, 2.5vw, 38px);
+}
+
+.edge-directives-regime p,
+.edge-directives-summary p,
+.edge-bridge-health-card p,
+.edge-ledger-row p,
+.edge-policy-detail p,
+.edge-outcome-tile p {
+  margin: 7px 0 0;
+  color: #a7b8c3;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.edge-regime-score {
+  display: grid;
+  place-items: center;
+  min-height: 94px;
+  border: 1px solid rgba(246,193,74,.3);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle, rgba(246,193,74,.2), transparent 58%),
+    rgba(0,0,0,.2);
+}
+
+.edge-regime-score span {
+  color: var(--gold);
+  font-size: 34px;
+  line-height: .9;
+}
+
+.edge-regime-score small {
+  color: #d9bf7c;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-directives-summary {
+  padding: 12px;
+}
+
+.edge-directives-summary strong {
+  margin-top: 6px;
+  color: var(--gold);
+  font-size: clamp(18px, 1.55vw, 26px);
+}
+
+.edge-directives-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, .78fr) minmax(360px, 1.32fr) minmax(280px, .86fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.edge-directives-column,
+.edge-directives-ledger {
+  padding: 11px;
+}
+
+.edge-directives-section-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.edge-directives-section-head strong {
+  margin-top: 3px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.edge-bridge-health-list,
+.edge-ledger-list,
+.edge-policy-list,
+.edge-outcome-tiles {
+  display: grid;
+  gap: 8px;
+}
+
+.edge-bridge-health-list {
+  max-height: 610px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.edge-bridge-health-card,
+.edge-policy-button {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,.035);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+}
+
+.edge-bridge-health-card:hover,
+.edge-bridge-health-card:focus-visible,
+.edge-policy-button:hover,
+.edge-policy-button:focus-visible {
+  border-color: rgba(240,199,94,.42);
+  outline: none;
+}
+
+.edge-bridge-health-card.active,
+.edge-policy-button.active {
+  border-color: rgba(32,215,255,.62);
+  background: rgba(32,215,255,.1);
+  box-shadow: inset 3px 0 0 var(--cyan);
+}
+
+.edge-bridge-health-card header,
+.edge-bridge-health-card footer,
+.edge-ledger-row header,
+.edge-ledger-row footer {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.edge-bridge-health-card strong {
+  font-size: 15px;
+}
+
+.edge-bridge-health-card header span {
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  color: #d8ecf6;
+  white-space: nowrap;
+}
+
+.edge-bridge-health-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.edge-bridge-health-meta span {
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.2);
+  padding: 5px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-bridge-health-card footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.edge-ledger-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(201,162,39,.24);
+  border-radius: 6px;
+  background: rgba(0,0,0,.2);
+  color: var(--gold);
+  padding: 5px 7px;
+}
+
+.edge-ledger-filter select {
+  max-width: 170px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #f3e2aa;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-ledger-row {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,.03);
+  padding: 10px;
+}
+
+.edge-ledger-row strong {
+  margin-top: 2px;
+  font-size: clamp(18px, 1.7vw, 26px);
+}
+
+.edge-ledger-row b {
+  color: var(--gold);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.edge-policy-stack,
+.edge-outcome-attribution {
+  display: grid;
+  gap: 10px;
+}
+
+.edge-outcome-attribution {
+  margin-top: 12px;
+}
+
+.edge-policy-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.edge-policy-button strong {
+  margin-top: 4px;
+  color: #eef8ff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 18px;
+}
+
+.edge-policy-button i {
+  display: block;
+  height: 3px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: .72;
+}
+
+.edge-policy-detail,
+.edge-outcome-tile {
+  padding: 10px;
+}
+
+.edge-policy-detail strong {
+  margin-top: 4px;
+  color: var(--gold);
+  font-size: 17px;
+}
+
+.edge-outcome-tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.edge-outcome-tile strong {
+  margin-top: 4px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 28px;
+}
+
+.edge-tone-green {
+  border-color: rgba(80,255,134,.28);
+}
+
+.edge-tone-green strong {
+  color: #5cff9b;
+}
+
+.edge-tone-cyan {
+  border-color: rgba(32,215,255,.28);
+}
+
+.edge-tone-cyan strong {
+  color: var(--cyan);
+}
+
+.edge-tone-gold {
+  border-color: rgba(246,193,74,.32);
+}
+
+.edge-tone-gold strong {
+  color: var(--gold);
+}
+
+.edge-tone-red {
+  border-color: rgba(255,65,65,.34);
+}
+
+.edge-tone-red strong {
+  color: #ff8b95;
+}
+
+.edge-chart-workspace {
+  min-width: 0;
+}
+
+.edge-workspace-command-row,
+.edge-chart-outcome-deck,
+.edge-market-map-deck {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.edge-workspace-command-card,
+.edge-chart-calendar-card,
+.edge-chart-winloss-card,
+.edge-chart-directive-card,
+.edge-market-ladder-card,
+.edge-market-flow-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(201,162,39,.18);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.016)),
+    rgba(8, 9, 28, .72);
+  padding: 12px;
+}
+
+.edge-workspace-command-card span,
+.edge-workspace-command-card small,
+.edge-chart-mini-head span,
+.edge-chart-directive-list span,
+.edge-market-ladder-row span,
+.edge-market-flow-grid span {
+  display: block;
+  color: #95a9b8;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.edge-workspace-command-card strong {
+  display: block;
+  overflow: hidden;
+  margin: 5px 0 4px;
+  color: #eef8ff;
+  font-size: clamp(18px, 1.6vw, 24px);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-chart-outcome-deck {
+  grid-template-columns: minmax(0, 1.45fr) minmax(170px, .45fr) minmax(260px, .75fr);
+}
+
+.edge-market-map-deck {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, .72fr);
+}
+
+.edge-unified-chart-panel {
+  min-height: 820px;
+}
+
+.edge-unified-chart-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.edge-unified-chart-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 12px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.edge-unified-chart-main,
+.edge-unified-outcome-stack {
+  min-width: 0;
+}
+
+.edge-unified-chart-main {
+  border: 1px solid rgba(201,162,39,.18);
+  border-radius: 10px;
+  background: rgba(8,9,28,.58);
+  padding: 10px;
+}
+
+.edge-unified-outcome-stack {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.edge-volume-heatmap-command .edge-volume-heatmap-canvas-wrap {
+  height: clamp(520px, 58vh, 700px);
+  min-height: 500px;
+}
+
+.edge-chart-filter-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 10px;
+}
+
+.edge-chart-filter-row select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid rgba(201,162,39,.22);
+  border-radius: 6px;
+  background: rgba(6,6,11,.88);
+  color: #eceaf6;
+  padding: 7px 9px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.edge-chart-segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.edge-chart-segments button,
+.edge-chart-directive-list button {
+  border: 1px solid rgba(201,162,39,.18);
+  border-radius: 6px;
+  background: rgba(255,255,255,.035);
+  color: #a09eb7;
+  padding: 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 10px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.edge-chart-segments button {
+  text-align: center;
+}
+
+.edge-chart-segments button.active,
+.edge-chart-directive-list button:hover,
+.edge-chart-directive-list button:focus-visible {
+  border-color: rgba(240,199,94,.44);
+  background: rgba(201,162,39,.1);
+  color: #f0c75e;
+}
+
+.edge-chart-winloss-card p {
+  margin: 10px 0 0;
+  color: #a09eb7;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+}
+
+.edge-chart-winloss-card .profit,
+.edge-chart-directive-card .profit {
+  color: var(--green);
+}
+
+.edge-chart-winloss-card .loss,
+.edge-chart-directive-card .loss {
+  color: var(--red);
+}
+
+.edge-unified-chart-panel .edge-market-map-deck {
+  grid-template-columns: minmax(300px, 1.1fr) minmax(260px, .9fr) minmax(260px, .8fr);
+}
+
+.edge-chart-asset-strip {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.edge-chart-asset-strip button {
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,.035);
+  color: #a09eb7;
+  padding: 8px;
+  text-align: left;
+}
+
+.edge-chart-asset-strip button.active {
+  border-color: rgba(240,199,94,.5);
+  background: rgba(201,162,39,.1);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+.edge-chart-asset-strip span,
+.edge-chart-asset-strip strong,
+.edge-chart-asset-strip small,
+.edge-market-ladder-row small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  font-family: "Share Tech Mono", monospace;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-chart-asset-strip span {
+  color: #eceaf6;
+  font-size: 12px;
+}
+
+.edge-chart-asset-strip strong {
+  margin-top: 4px;
+  color: var(--gold);
+  font-size: 11px;
+}
+
+.edge-chart-asset-strip small,
+.edge-market-ladder-row small {
+  margin-top: 4px;
+  color: #a09eb7;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.edge-chart-mini-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.edge-chart-mini-head strong {
+  color: #f0f8ff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 13px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.edge-chart-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.edge-chart-calendar-cell {
+  display: grid;
+  place-items: center;
+  min-height: 50px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.2);
+  text-align: center;
+}
+
+.edge-chart-calendar-cell small {
+  color: #8fa4b2;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.edge-chart-calendar-cell strong {
+  color: #dcefff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.edge-chart-calendar-cell.win {
+  border-color: rgba(80,255,134,.4);
+  background: rgba(24, 131, 65, .24);
+}
+
+.edge-chart-calendar-cell.loss {
+  border-color: rgba(255,65,65,.4);
+  background: rgba(133, 25, 43, .28);
+}
+
+.edge-chart-donut {
+  display: grid;
+  place-items: center;
+  width: min(120px, 100%);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(2, 8, 14, .94) 0 48%, transparent 49%),
+    conic-gradient(var(--green) 0 var(--win-rate, 73%), var(--red) var(--win-rate, 73%) 100%);
+}
+
+.edge-chart-donut span,
+.edge-chart-donut small {
+  grid-area: 1 / 1;
+  font-family: "Share Tech Mono", monospace;
+}
+
+.edge-chart-donut span {
+  color: var(--green);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.edge-chart-donut small {
+  align-self: end;
+  margin-bottom: 28px;
+  color: #ff9898;
+  font-size: 10px;
+}
+
+.edge-chart-directive-list,
+.edge-market-flow-grid,
+.edge-market-ladder {
+  display: grid;
+  gap: 7px;
+}
+
+.edge-chart-directive-list div,
+.edge-chart-directive-list button,
+.edge-market-flow-grid div,
+.edge-market-ladder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.035);
+  padding: 8px;
+}
+
+.edge-chart-directive-list strong,
+.edge-market-flow-grid strong,
+.edge-market-ladder-row strong {
+  color: #ecf6ff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.edge-ops-panel {
+  border-color: rgba(201,162,39,.26);
+  background:
+    linear-gradient(135deg, rgba(69,37,181,.12), rgba(255,255,255,.025), rgba(201,162,39,.06)),
+    rgba(12, 13, 26, .68);
 }
 
 .edge-ops-layout {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
+  grid-template-columns: 176px minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
+  min-width: 0;
 }
 
 .edge-ops-nav {
@@ -654,9 +1848,42 @@
   min-width: 0;
   max-height: 930px;
   overflow: auto;
-  border: 1px solid rgba(104,213,255,.16);
-  background: rgba(2, 7, 12, .38);
+  overflow-x: hidden;
+  border: 1px solid rgba(201,162,39,.16);
+  background: rgba(8, 9, 28, .64);
   padding: 14px;
+}
+
+.edge-ops-content * {
+  min-width: 0;
+}
+
+.edge-ops-content [data-testid="trading-overview"] h3 {
+  overflow-wrap: anywhere;
+  font-size: clamp(1.45rem, 2.15vw, 2rem);
+  line-height: .95;
+}
+
+.edge-ops-content h1,
+.edge-ops-content h2,
+.edge-ops-content h3,
+.edge-ops-content strong,
+.edge-ops-content .font-bold,
+.edge-ops-content .font-semibold {
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.edge-ops-content .truncate,
+.edge-ops-content .overflow-hidden {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.edge-ops-content [data-testid="trading-overview"] .p-6 {
+  padding: 1rem;
 }
 
 .edge-ops-content .rounded-xl {
@@ -711,13 +1938,68 @@
 
   .edge-card-grid,
   .edge-watcher-map,
-  .edge-metric-options {
+  .edge-metric-options,
+  .edge-monitor-metrics,
+  .edge-monitor-command-strip,
+  .edge-monitor-asset-tab,
+  .edge-monitor-asset-grid,
+  .edge-workspace-command-row,
+  .edge-directives-hero,
+  .edge-directives-layout,
+  .edge-protect-command-grid,
+  .edge-protect-bridge-grid,
+  .edge-chart-outcome-deck,
+  .edge-market-map-deck,
+  .edge-unified-chart-grid,
+  .edge-unified-chart-panel .edge-market-map-deck {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .edge-risk-row,
+  .edge-lockout-row,
   .edge-protect-overview,
-  .edge-ops-layout {
+  .edge-ops-layout,
+  .edge-monitor-chart-shell,
+  .edge-monitor-chart-shell.rail-collapsed,
+  .edge-monitor-chart-shell.rail-open {
     grid-template-columns: 1fr;
+  }
+
+  .edge-monitor-rail {
+    min-height: 0;
+  }
+
+  .edge-monitor-rail-list {
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+  }
+
+  .edge-monitor-chart {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 760px) {
+  .edge-workspace-command-row,
+  .edge-directives-hero,
+  .edge-directives-layout,
+  .edge-directives-regime,
+  .edge-outcome-tiles,
+  .edge-protect-command-grid,
+  .edge-protect-bridge-grid,
+  .edge-chart-outcome-deck,
+  .edge-market-map-deck,
+  .edge-unified-chart-grid,
+  .edge-unified-chart-panel .edge-market-map-deck,
+  .edge-chart-asset-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .edge-chart-calendar-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .edge-volume-heatmap-command .edge-volume-heatmap-canvas-wrap {
+    min-height: 380px;
+    height: 430px;
   }
 }

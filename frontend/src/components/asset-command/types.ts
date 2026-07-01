@@ -1,13 +1,15 @@
 import type React from 'react';
 
-export type Mode = 'monitor' | 'command' | 'market-map' | 'protect' | 'operations' | 'settings';
-export type OperationsView = 'overview' | 'charts' | 'scanners' | 'advisor' | 'experience' | 'protection' | 'pnl' | 'markets' | 'portfolio' | 'settings' | 'tutorials';
+export type Mode = 'command' | 'charting' | 'greeks' | 'directives' | 'protect' | 'operations' | 'settings';
+export type OperationsView = 'overview' | 'scanners' | 'advisor' | 'experience' | 'protection' | 'pnl' | 'markets' | 'portfolio' | 'settings' | 'tutorials';
 export type Tone = 'green' | 'cyan' | 'gold' | 'red';
-export type EventFilter = 'all' | 'selected' | 'system';
+export type EventFilter = 'all' | 'selected';
 export type CoreColorMetric = 'risk' | 'signal' | 'flow' | 'drawdown';
 export type CoreSizeMetric = 'exposure' | 'liquidity' | 'volatility';
 export type CoreUniverse = 'watchlist' | 'watchers' | 'all';
 export type CoreLabelMode = 'symbol' | 'signal' | 'heat';
+export type BridgeStatus = 'online' | 'degraded' | 'offline' | 'standalone';
+export type DirectiveTone = Tone | 'note';
 
 export interface Watcher {
   plugin: string;
@@ -81,6 +83,68 @@ export interface ProtectionRow {
   invalid: string;
   heat: string;
   action: string;
+  tone: Tone;
+}
+
+export interface DirectiveLedgerEntry {
+  id: string;
+  time: string;
+  bot: string;
+  symbol: string;
+  directive: string;
+  reason: string;
+  confidence: string;
+  regime: string;
+  acknowledgement: string;
+  tone: DirectiveTone;
+}
+
+export interface BotBridgeHealth {
+  name: string;
+  status: BridgeStatus;
+  heartbeat: string;
+  latency: string;
+  contract: string;
+  lastDirective: string;
+  lastAck: string;
+  queueDepth: number;
+  rejectedEvents: number;
+  detail: string;
+  tone: Tone;
+}
+
+export interface PolicyStackRule {
+  id: string;
+  label: string;
+  state: string;
+  strictness: number;
+  reason: string;
+  effect: string;
+  tone: Tone;
+}
+
+export interface OutcomeAttribution {
+  label: string;
+  value: string;
+  detail: string;
+  tone: Tone;
+}
+
+export interface MarketRegimeState {
+  label: string;
+  score: string;
+  detail: string;
+  pressure: string;
+  allowedPosture: string;
+  tone: Tone;
+}
+
+export interface BotLockout {
+  bot: string;
+  scope: string;
+  state: string;
+  reason: string;
+  until: string;
   tone: Tone;
 }
 

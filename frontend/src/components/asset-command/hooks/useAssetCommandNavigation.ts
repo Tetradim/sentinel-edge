@@ -7,9 +7,14 @@ const parseHashState = (): { mode: Mode; operationsView: OperationsView } => {
   if (typeof window === 'undefined') return { mode: 'command', operationsView: 'overview' };
   const raw = window.location.hash.replace('#', '');
   const [modePart, viewPart] = raw.split(':');
-  const mode = modes.includes(modePart as Mode) ? (modePart as Mode) : 'command';
+  const mode = normalizeMode(modePart);
   const operationsView = operationsViews.some((item) => item.id === viewPart) ? (viewPart as OperationsView) : 'overview';
   return { mode, operationsView };
+};
+
+const normalizeMode = (modePart: string): Mode => {
+  if (modePart === 'monitor' || modePart === 'market-map') return 'charting';
+  return modes.includes(modePart as Mode) ? (modePart as Mode) : 'command';
 };
 
 const writeHashState = (mode: Mode, operationsView = 'overview') => {

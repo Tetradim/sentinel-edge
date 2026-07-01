@@ -4,7 +4,6 @@
  * With resizable layouts: Grid, List, Heatmap
  */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import PlotModule from 'react-plotly.js';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -17,7 +16,24 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const Plot = (PlotModule as any).default ?? PlotModule;
+type PlotlyRuntime = {
+  react: (element: HTMLDivElement, data: any[], layout: any, config: any) => Promise<unknown>;
+  purge: (element: HTMLDivElement) => void;
+  Plots?: {
+    resize?: (element: HTMLDivElement) => void;
+  };
+};
+
+let plotlyRuntimePromise: Promise<PlotlyRuntime> | null = null;
+
+function loadPlotlyRuntime() {
+  plotlyRuntimePromise ??= import('plotly.js-dist-min').then((module) => {
+    const runtime = (module as { default?: PlotlyRuntime }).default ?? (module as unknown as PlotlyRuntime);
+    return runtime;
+  });
+
+  return plotlyRuntimePromise;
+}
 
 // Chart type definitions
 export type ChartType = 'area' | 'bar' | 'line' | 'candlestick' | 'heatmap';
@@ -43,41 +59,93 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
   height = 400,
   useResizeHandler = true
 }) => {
+  const plotRef = useRef<HTMLDivElement | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const resolvedLayout = useMemo(
+    () => ({
+      ...layout,
+      height,
+      autosize: true,
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: {
+        color: '#9ca3af'
+      },
+      xaxis: {
+        gridcolor: '#374151',
+        linecolor: '#4b5563',
+        tickfont: { color: '#9ca3af' },
+        ...layout.xaxis
+      },
+      yaxis: {
+        gridcolor: '#374151',
+        linecolor: '#4b5563',
+        tickfont: { color: '#9ca3af' },
+        ...layout.yaxis
+      },
+      margin: { l: 60, r: 20, t: 40, b: 40, ...layout.margin }
+    }),
+    [height, layout],
+  );
+  const resolvedConfig = useMemo(
+    () => ({
+      displayModeBar: false,
+      responsive: true,
+      ...config
+    }),
+    [config],
+  );
+
+  useEffect(() => {
+    const plotElement = plotRef.current;
+    if (!plotElement) return undefined;
+
+    let cancelled = false;
+    setLoadError(null);
+
+    loadPlotlyRuntime()
+      .then((plotly) => {
+        if (cancelled || !plotElement.isConnected) return undefined;
+        return plotly.react(plotElement, data, resolvedLayout, resolvedConfig);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('Chart runtime unavailable');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, resolvedConfig, resolvedLayout]);
+
+  useEffect(() => {
+    const plotElement = plotRef.current;
+    return () => {
+      if (!plotElement) return;
+      loadPlotlyRuntime()
+        .then((plotly) => plotly.purge(plotElement))
+        .catch(() => undefined);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!useResizeHandler) return undefined;
+
+    const resizePlot = () => {
+      const plotElement = plotRef.current;
+      if (!plotElement) return;
+      loadPlotlyRuntime()
+        .then((plotly) => plotly.Plots?.resize?.(plotElement))
+        .catch(() => undefined);
+    };
+
+    window.addEventListener('resize', resizePlot);
+    return () => window.removeEventListener('resize', resizePlot);
+  }, [useResizeHandler]);
+
   return (
     <div className={cn("w-full", className)}>
-      <Plot
-        data={data}
-        layout={{
-          ...layout,
-          height,
-          autosize: true,
-          paper_bgcolor: 'transparent',
-          plot_bgcolor: 'transparent',
-          font: {
-            color: '#9ca3af'
-          },
-          xaxis: {
-            gridcolor: '#374151',
-            linecolor: '#4b5563',
-            tickfont: { color: '#9ca3af' },
-            ...layout.xaxis
-          },
-          yaxis: {
-            gridcolor: '#374151',
-            linecolor: '#4b5563',
-            tickfont: { color: '#9ca3af' },
-            ...layout.yaxis
-          },
-          margin: { l: 60, r: 20, t: 40, b: 40, ...layout.margin }
-        }}
-        config={{
-          displayModeBar: false,
-          responsive: true,
-          ...config
-        }}
-        style={{ width: '100%', height }}
-        useResizeHandler={useResizeHandler}
-      />
+      <div ref={plotRef} style={{ width: '100%', height }} />
+      {loadError && <div className="text-sm text-red-400">{loadError}</div>}
     </div>
   );
 };

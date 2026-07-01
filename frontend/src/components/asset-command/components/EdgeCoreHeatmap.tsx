@@ -55,6 +55,7 @@ export function EdgeCoreHeatmap({
             '--cell-heat': `${cell.heat}%`,
             '--cell-scale': String(cell.scale),
             '--cell-delay': `${index * 35}ms`,
+            '--cell-order': String(index),
           } as React.CSSProperties & Record<string, string>;
           return (
             <button
@@ -85,9 +86,6 @@ export function EdgeCoreHeatmap({
           <strong>{config.sizeMetric}</strong>
         </div>
       </div>
-      <button type="button" className="edge-core-config-button" onClick={() => setOpen(true)}>
-        Configure heatmap
-      </button>
       {open && (
         <CoreHeatmapConfigModal
           config={config}

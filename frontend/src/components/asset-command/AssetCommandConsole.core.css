@@ -2,12 +2,12 @@
   display: grid;
   justify-items: center;
   gap: 10px;
-  width: min(100%, 250px);
+  width: min(100%, 260px);
 }
 
 .edge-core-map {
   position: relative;
-  width: min(100%, 230px);
+  width: min(100%, 238px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -53,13 +53,13 @@
   place-items: center;
   width: 94px;
   aspect-ratio: 1;
-  border: 1px solid rgba(32, 215, 255, .64);
+  border: 1px solid rgba(240, 199, 94, .64);
   background:
-    radial-gradient(circle at center, rgba(32, 215, 255, .24), rgba(3, 11, 16, .9) 68%),
-    rgba(3, 11, 16, .9);
+    radial-gradient(circle at center, rgba(69, 37, 181, .42), rgba(8, 9, 28, .94) 68%),
+    rgba(8, 9, 28, .94);
   color: #dff7ff;
   clip-path: polygon(50% 0, 92% 25%, 92% 75%, 50% 100%, 8% 75%, 8% 25%);
-  box-shadow: 0 0 30px rgba(32, 215, 255, .28), inset 0 0 22px rgba(255, 255, 255, .06);
+  box-shadow: 0 0 30px rgba(201, 162, 39, .24), inset 0 0 22px rgba(255, 255, 255, .06);
 }
 
 .edge-core-center:hover,
@@ -90,7 +90,7 @@
 
 .edge-core-cell {
   --cell-angle: calc((360deg / max(var(--edge-cell-count), 1)) * var(--cell-index, 0));
-  --cell-radius: 78px;
+  --cell-radius: 82px;
   position: absolute;
   z-index: 1;
   display: grid;
@@ -113,17 +113,9 @@
   animation-delay: var(--cell-delay);
 }
 
-.edge-core-cell:nth-of-type(2) { --cell-order: 0; }
-.edge-core-cell:nth-of-type(3) { --cell-order: 1; }
-.edge-core-cell:nth-of-type(4) { --cell-order: 2; }
-.edge-core-cell:nth-of-type(5) { --cell-order: 3; }
-.edge-core-cell:nth-of-type(6) { --cell-order: 4; }
-.edge-core-cell:nth-of-type(7) { --cell-order: 5; }
-.edge-core-cell:nth-of-type(8) { --cell-order: 6; }
-
-.edge-core-cell.heat-low { --cell-color: #50ff86; }
-.edge-core-cell.heat-mid { --cell-color: #f6c14a; }
-.edge-core-cell.heat-high { --cell-color: #ff4141; }
+.edge-core-cell.heat-low { --cell-color: #28d17c; }
+.edge-core-cell.heat-mid { --cell-color: #f0c75e; }
+.edge-core-cell.heat-high { --cell-color: #ff4d5e; }
 
 .edge-core-cell strong {
   white-space: pre-line;
@@ -179,24 +171,6 @@
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.edge-core-config-button {
-  width: 100%;
-  border: 1px solid rgba(246, 193, 74, .36);
-  background: rgba(246, 193, 74, .1);
-  color: var(--gold);
-  padding: 8px 10px;
-  font-family: "Share Tech Mono", monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-}
-
-.edge-core-config-button:hover,
-.edge-core-config-button:focus-visible {
-  border-color: rgba(246, 193, 74, .72);
-  color: #fff6d7;
-  outline: none;
 }
 
 .edge-core-modal-backdrop {

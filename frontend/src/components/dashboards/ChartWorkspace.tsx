@@ -11,210 +11,133 @@ import {
 import { api } from '@/lib/api';
 import type {
   ChartWorkspaceIndicatorId,
-  ChartWorkspaceIndicatorPoint,
   ChartWorkspaceSnapshot,
   MarketMapContext,
   MarketMapProofMarker,
-  OrbSessionSummary,
 } from '@/types';
+import {
+  BAR_LIMIT_OPTIONS,
+  DEFAULT_LAYOUT_STATE,
+  INDICATOR_OPTIONS,
+  INDICATOR_PRESET_OPTIONS,
+  LAYOUT_OPTIONS,
+  LOCAL_PREVIEW_FEED_MESSAGE,
+  MARKET_MAP_LAYOUT_PRESETS,
+  ORB_OVERLAY_SESSION_OPTIONS,
+  ORB_REPLAY_SESSION_OPTIONS,
+  PANEL_OPTIONS,
+  activeRadioClass,
+  activeToolClass,
+  inactiveRadioClass,
+  inactiveToolClass,
+  panelClass,
+} from './chart-workspace/chartWorkspaceConstants';
+import { Metric } from './chart-workspace/Metric';
+import {
+  clearChartWorkspaceLabResult,
+  clearChartWorkspaceLayout,
+  clearChartWorkspacePreferences,
+  inferMarketMapPreset,
+  cloneDefaultPreferencesState,
+  persistChartWorkspaceLabResult,
+  persistChartWorkspaceLayout,
+  persistChartWorkspacePreferences,
+  readChartWorkspaceLabResult,
+  readChartWorkspaceLayout,
+  readChartWorkspacePreferences,
+} from './chart-workspace/chartWorkspaceStorage';
+import {
+  buildMarketMapBias,
+  buildSimulationLabResultMetrics,
+  formatChartType,
+  formatIndicatorPresetLabel,
+  formatLayoutMode,
+  formatMarketMapContextProximity,
+  formatMarketMapContextStatus,
+  formatMarketMapLevelPrice,
+  formatNearestMarketMapLevel,
+  formatOrbOverlaySessionSummary,
+  formatOrbReadiness,
+  formatOrbSessionLevelSummary,
+  formatOrbSessionReadinessDetail,
+  formatOrbSessionStatus,
+  formatParserConfidence,
+  formatProofMarkerTimestamp,
+  formatSelectedIndicators,
+  formatSimulationLabDisabledReason,
+  formatSimulationLabEndpoint,
+  formatSimulationLabExperimentId,
+  formatSimulationLabGate,
+  formatSimulationLabResultMeta,
+  formatSimulationLabResultMismatch,
+  formatSimulationLabResultScopeClass,
+  formatSimulationLabResultScopeLabel,
+  formatSimulationLabResultTitle,
+  formatVolumeOverlay,
+} from './chart-workspace/chartWorkspaceFormatters';
+import type {
+  ChartWorkspaceBarLimit,
+  ChartWorkspaceChartType,
+  ChartWorkspaceIndicatorPresetOption,
+  ChartWorkspaceLayoutMode,
+  ChartWorkspaceLayoutState,
+  ChartWorkspaceOrbOverlaySession,
+  ChartWorkspaceOrbReplaySession,
+  ChartWorkspacePanelId,
+  ChartWorkspacePreferencesState,
+  ChartWorkspaceSimulationLabResult,
+  ChartWorkspaceSimulationLabStatus,
+  MarketMapLayoutPreset,
+} from './chart-workspace/chartWorkspaceTypes';
+import {
+  buildFallbackChartWorkspaceSnapshot,
+  buildFallbackMarketMapContext,
+  buildFallbackProofMarkers,
+} from './chart-workspace/chartWorkspaceFallbackData';
+import {
+  buildIndicatorSnapshotMetrics,
+  buildOscillatorTraces,
+  buildPriceTraces,
+} from './chart-workspace/chartWorkspaceTraces';
 import { PlotlyChart } from '../ui/PlotlyCharts';
-
-const INDICATOR_OPTIONS: { id: ChartWorkspaceIndicatorId; label: string }[] = [
-  { id: 'ema_9', label: 'EMA 9' },
-  { id: 'ema_20', label: 'EMA 20' },
-  { id: 'sma_20', label: 'SMA 20' },
-  { id: 'rsi_14', label: 'RSI 14' },
-  { id: 'macd', label: 'MACD' },
-];
-
-type ChartWorkspaceIndicatorPresetId = 'core' | 'trend' | 'momentum' | 'clean' | 'custom';
-interface ChartWorkspaceIndicatorPresetOption {
-  id: Exclude<ChartWorkspaceIndicatorPresetId, 'custom'>;
-  label: string;
-  indicators: ChartWorkspaceIndicatorId[];
-}
-
-const DEFAULT_INDICATORS: ChartWorkspaceIndicatorId[] = ['ema_9', 'ema_20', 'sma_20', 'rsi_14', 'macd'];
-
-type ChartWorkspaceLayoutMode = 'analysis' | 'execution' | 'research';
-type ChartWorkspacePanelId = 'snapshot' | 'strategy' | 'lab' | 'oscillators';
-type ChartWorkspaceChartType = 'candlestick' | 'line';
-type ChartWorkspaceBarLimit = 120 | 240 | 390;
-type ChartWorkspaceOrbReplaySession = 'market_open' | 'premarket_30m';
-type ChartWorkspaceOrbOverlaySession = 'market_open' | 'premarket_30m';
-type MarketMapLayoutPreset = 'morning_plan' | 'intraday_alerts' | 'replay_proof';
-
-interface ChartWorkspacePanelVisibility {
-  snapshot: boolean;
-  strategy: boolean;
-  lab: boolean;
-  oscillators: boolean;
-}
-
-interface ChartWorkspaceLayoutState {
-  marketMapPreset: MarketMapLayoutPreset;
-  layoutMode: ChartWorkspaceLayoutMode;
-  panelVisibility: ChartWorkspacePanelVisibility;
-}
-
-interface ChartWorkspacePreferencesState {
-  activeSymbol: string;
-  chartType: ChartWorkspaceChartType;
-  indicatorPreset: ChartWorkspaceIndicatorPresetId;
-  selectedIndicators: ChartWorkspaceIndicatorId[];
-  barLimit: ChartWorkspaceBarLimit;
-  showOrbOverlays: boolean;
-  showVolume: boolean;
-  orbOverlaySessions: ChartWorkspaceOrbOverlaySession[];
-}
-
-interface ChartWorkspaceSimulationLabExperiment {
-  id?: string;
-  label?: string;
-  runnable?: boolean;
-  http_method?: string;
-  endpoint_path?: string;
-  result_schema_version?: string;
-  result_metadata_fields?: string[];
-}
-
-interface ChartWorkspaceSimulationLabStatus {
-  enabled?: boolean;
-  default_hidden?: boolean;
-  disabled_reason?: string | null;
-  experiments?: ChartWorkspaceSimulationLabExperiment[];
-}
-
-interface ChartWorkspaceSimulationLabResult {
-  kind: 'orb_backtest' | 'buying_power_allocation' | 'stop_trailing_dca';
-  label: string;
-  symbol?: string;
-  created_at?: string;
-  result: Record<string, unknown> & {
-    schema_version?: string;
-    run_id?: string;
-    input_fingerprint?: string;
-    input_fingerprint_algorithm?: string;
-    summary?: Record<string, unknown>;
-  };
-}
-
-interface ChartWorkspaceIndicatorSnapshotMetric {
-  label: string;
-  value: string;
-  timestamp?: string;
-}
-
-const MARKET_MAP_LAYOUT_STORAGE_KEY = 'sentinel-edge.market-map.layout.v1';
-const MARKET_MAP_PREFERENCES_STORAGE_KEY = 'sentinel-edge.market-map.preferences.v1';
-const CHART_WORKSPACE_LAYOUT_STORAGE_KEY = 'sentinel-edge.chart-workspace.layout.v1';
-const CHART_WORKSPACE_PREFERENCES_STORAGE_KEY = 'sentinel-edge.chart-workspace.preferences.v1';
-const CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY = 'sentinel-edge.chart-workspace.lab-result.v1';
-const DEFAULT_ORB_OVERLAY_SESSIONS: ChartWorkspaceOrbOverlaySession[] = ['market_open', 'premarket_30m'];
-
-const DEFAULT_PANEL_VISIBILITY: ChartWorkspacePanelVisibility = {
-  snapshot: true,
-  strategy: true,
-  lab: true,
-  oscillators: true,
-};
-
-const DEFAULT_LAYOUT_STATE: ChartWorkspaceLayoutState = {
-  marketMapPreset: 'morning_plan',
-  layoutMode: 'analysis',
-  panelVisibility: DEFAULT_PANEL_VISIBILITY,
-};
-
-const MARKET_MAP_LAYOUT_PRESETS: {
-  id: MarketMapLayoutPreset;
-  label: string;
-  detail: string;
-  layoutMode: ChartWorkspaceLayoutMode;
-  panelVisibility: ChartWorkspacePanelVisibility;
-}[] = [
-  {
-    id: 'morning_plan',
-    label: 'Morning Plan',
-    detail: 'Levels, VWAP, trend, and watched tickers before the session.',
-    layoutMode: 'analysis',
-    panelVisibility: { snapshot: true, strategy: true, lab: false, oscillators: true },
-  },
-  {
-    id: 'intraday_alerts',
-    label: 'Intraday Alerts',
-    detail: 'Live alert context, Edge confidence, and options quality.',
-    layoutMode: 'execution',
-    panelVisibility: { snapshot: true, strategy: true, lab: false, oscillators: true },
-  },
-  {
-    id: 'replay_proof',
-    label: 'Replay Proof',
-    detail: 'Alert-chain proof, chart markers, and reconciliation evidence.',
-    layoutMode: 'research',
-    panelVisibility: { snapshot: true, strategy: true, lab: true, oscillators: true },
-  },
-];
-
-const DEFAULT_PREFERENCES_STATE: ChartWorkspacePreferencesState = {
-  activeSymbol: 'SPY',
-  chartType: 'candlestick',
-  indicatorPreset: 'core',
-  selectedIndicators: DEFAULT_INDICATORS,
-  barLimit: 240,
-  showOrbOverlays: true,
-  showVolume: true,
-  orbOverlaySessions: DEFAULT_ORB_OVERLAY_SESSIONS,
-};
-
-const LAYOUT_OPTIONS: { id: ChartWorkspaceLayoutMode; label: string }[] = [
-  { id: 'analysis', label: 'Analysis' },
-  { id: 'execution', label: 'Execution' },
-  { id: 'research', label: 'Research' },
-];
-
-const PANEL_OPTIONS: { id: ChartWorkspacePanelId; label: string }[] = [
-  { id: 'snapshot', label: 'Snapshot' },
-  { id: 'strategy', label: 'Strategy' },
-  { id: 'lab', label: 'Lab' },
-  { id: 'oscillators', label: 'Oscillators' },
-];
-
-const BAR_LIMIT_OPTIONS: { value: ChartWorkspaceBarLimit; label: string }[] = [
-  { value: 120, label: '120 bars' },
-  { value: 240, label: '240 bars' },
-  { value: 390, label: '390 bars' },
-];
-
-const INDICATOR_PRESET_OPTIONS: ChartWorkspaceIndicatorPresetOption[] = [
-  { id: 'core', label: 'Core', indicators: DEFAULT_INDICATORS },
-  { id: 'trend', label: 'Trend', indicators: ['ema_9', 'ema_20', 'sma_20'] },
-  { id: 'momentum', label: 'Momentum', indicators: ['rsi_14', 'macd'] },
-  { id: 'clean', label: 'Clean', indicators: [] },
-];
-
-const ORB_REPLAY_SESSION_OPTIONS: {
-  id: ChartWorkspaceOrbReplaySession;
-  label: string;
-  timeframeMinutes: 30;
-}[] = [
-  { id: 'market_open', label: 'Market open', timeframeMinutes: 30 },
-  { id: 'premarket_30m', label: 'Premarket 30m', timeframeMinutes: 30 },
-];
-
-const ORB_OVERLAY_SESSION_OPTIONS: { id: ChartWorkspaceOrbOverlaySession; label: string }[] = [
-  { id: 'market_open', label: 'Market open ORB' },
-  { id: 'premarket_30m', label: 'Premarket ORB' },
-];
 
 const chartCrosshairAxis = {
   showspikes: true,
   spikemode: 'across',
   spikesnap: 'cursor',
   spikethickness: 1,
-  spikecolor: '#38bdf8',
+  spikecolor: '#f5b342',
 };
 
-export const ChartWorkspace: React.FC = () => {
+type ChartWorkspaceMode = 'charting' | 'market-map';
+
+const chartOutcomeCells = [
+  { day: 'Mon', value: '+$420', tone: 'win' },
+  { day: 'Tue', value: '-$85', tone: 'loss' },
+  { day: 'Wed', value: '+$610', tone: 'win' },
+  { day: 'Thu', value: '+$240', tone: 'win' },
+  { day: 'Fri', value: '-$120', tone: 'loss' },
+  { day: 'Sat', value: '+$0', tone: 'flat' },
+  { day: 'Sun', value: '+$0', tone: 'flat' },
+  { day: 'Mon', value: '+$530', tone: 'win' },
+  { day: 'Tue', value: '+$180', tone: 'win' },
+  { day: 'Wed', value: '-$260', tone: 'loss' },
+  { day: 'Thu', value: '+$390', tone: 'win' },
+  { day: 'Fri', value: '+$710', tone: 'win' },
+  { day: 'Sat', value: '+$0', tone: 'flat' },
+  { day: 'Sun', value: '+$0', tone: 'flat' },
+];
+
+const marketMapTiles = [
+  { label: 'Upper resistance', value: '604.80', tone: 'red' },
+  { label: 'Breakout shelf', value: '603.47', tone: 'gold' },
+  { label: 'VWAP magnet', value: '601.20', tone: 'cyan' },
+  { label: 'Lower support', value: '599.10', tone: 'green' },
+  { label: 'Risk pocket', value: '596.85', tone: 'red' },
+  { label: 'Liquidity pocket', value: '605.35', tone: 'gold' },
+];
+
+export const ChartWorkspace: React.FC<{ workspaceMode?: ChartWorkspaceMode }> = ({ workspaceMode = 'market-map' }) => {
   const [workspacePreferences, setWorkspacePreferences] =
     useState<ChartWorkspacePreferencesState>(readChartWorkspacePreferences);
   const workspacePreferencesRef = useRef(workspacePreferences);
@@ -235,6 +158,7 @@ export const ChartWorkspace: React.FC = () => {
   const labRunInProgressRef = useRef(false);
   const [layoutMessage, setLayoutMessage] = useState('');
   const [viewMessage, setViewMessage] = useState('');
+  const [feedMessage, setFeedMessage] = useState('');
   const {
     activeSymbol,
     chartType,
@@ -257,11 +181,15 @@ export const ChartWorkspace: React.FC = () => {
           indicators: selectedIndicators,
           limit: barLimit,
         });
-        if (!cancelled) setSnapshot(nextSnapshot);
-      } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load chart workspace');
-          setSnapshot(null);
+          setSnapshot(nextSnapshot);
+          setFeedMessage('');
+        }
+      } catch {
+        if (!cancelled) {
+          setError('');
+          setSnapshot(buildFallbackChartWorkspaceSnapshot(activeSymbol, selectedIndicators, barLimit));
+          setFeedMessage(LOCAL_PREVIEW_FEED_MESSAGE);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -303,13 +231,13 @@ export const ChartWorkspace: React.FC = () => {
       })
       .catch(() => {
         if (cancelled) return;
-        setProofMarkers([]);
-        setProofMarkerMessage('Alert proof unavailable');
+        setProofMarkers(buildFallbackProofMarkers(activeSymbol, barLimit));
+        setProofMarkerMessage('Local proof preview');
       });
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol]);
+  }, [activeSymbol, barLimit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,13 +249,13 @@ export const ChartWorkspace: React.FC = () => {
       })
       .catch(() => {
         if (cancelled) return;
-        setMarketMapContext(null);
-        setMarketMapContextMessage('Edge context unavailable');
+        setMarketMapContext(buildFallbackMarketMapContext(activeSymbol, barLimit));
+        setMarketMapContextMessage('Local Edge context preview');
       });
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol]);
+  }, [activeSymbol, barLimit]);
 
   const priceData = useMemo(
     () => buildPriceTraces(snapshot, chartType, showOrbOverlays, showVolume, orbOverlaySessions, proofMarkers),
@@ -357,12 +285,34 @@ export const ChartWorkspace: React.FC = () => {
     ORB_REPLAY_SESSION_OPTIONS.find((option) => option.id === orbReplaySession) || ORB_REPLAY_SESSION_OPTIONS[0];
   const orbSessionStatus = snapshot?.orb_session_status;
   const orbSessionEntries = useMemo(() => Object.values(orbSessionStatus?.sessions ?? {}), [orbSessionStatus]);
-  const oscillatorHeight = layoutMode === 'research' ? 260 : 220;
-  const priceChartHeight = layoutMode === 'research' ? 500 : 430;
+  const isChartingWorkspace = workspaceMode === 'charting';
+  const oscillatorHeight = layoutMode === 'research' ? 280 : 240;
+  const priceChartHeight = isChartingWorkspace
+    ? layoutMode === 'research'
+      ? 680
+      : 620
+    : layoutMode === 'research'
+      ? 600
+      : 540;
   const labActionsReady = Boolean(snapshot?.bars.length && latestBar);
   const labActionDisabled = labRunInProgress || !labActionsReady;
   const labUnavailableMessage = 'Load chart data to run Simulation Lab.';
   const activeChartSymbol = snapshot?.symbol || activeSymbol;
+  const workspaceCopy = isChartingWorkspace
+    ? {
+      eyebrow: 'Charting command deck',
+      heading: `${activeChartSymbol} signal chart`,
+      controlsTitle: 'Docked Chart Controls',
+      layoutLabel: 'Chart layout presets',
+      briefingTitle: 'Chart Outcome Strip',
+    }
+    : {
+      eyebrow: 'Market map command deck',
+      heading: `${activeChartSymbol} support / resistance map`,
+      controlsTitle: 'Market Map Layout',
+      layoutLabel: 'Market Map layout presets',
+      briefingTitle: 'Market Structure Strip',
+    };
   const simulationLabResultSymbolMismatch = Boolean(
     simulationLabResult?.symbol && simulationLabResult.symbol !== activeChartSymbol,
   );
@@ -898,11 +848,14 @@ export const ChartWorkspace: React.FC = () => {
   ) : null;
 
   return (
-    <div className="space-y-4" data-testid="chart-workspace">
+    <div
+      className={`edge-chart-workspace edge-chart-workspace-${workspaceMode} space-y-4`}
+      data-testid="chart-workspace"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">Market Map</p>
-          <h2 className="text-2xl font-bold text-white">{snapshot?.symbol || activeSymbol}</h2>
+          <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">{workspaceCopy.eyebrow}</p>
+          <h2 className="text-2xl font-bold text-white">{workspaceCopy.heading}</h2>
         </div>
         <form onSubmit={submitSymbol} className="flex items-center gap-2">
           <input
@@ -922,18 +875,53 @@ export const ChartWorkspace: React.FC = () => {
         </form>
       </div>
 
+      <section className="edge-workspace-command-row" aria-label={workspaceCopy.briefingTitle}>
+        {isChartingWorkspace ? (
+          <>
+            <article className="edge-workspace-command-card edge-tone-cyan">
+              <span>Trend gate</span>
+              <strong>Permission line rising</strong>
+              <small>Sentinel Edge keeps buys gated until support confirms.</small>
+            </article>
+            <article className="edge-workspace-command-card edge-tone-green">
+              <span>Outcome counter</span>
+              <strong>8W / 3L</strong>
+              <small>Current bot PNL calendar window.</small>
+            </article>
+            <article className="edge-workspace-command-card edge-tone-gold">
+              <span>P&amp;L pulse</span>
+              <strong>+$2.6K week</strong>
+              <small>View can switch day, week, month.</small>
+            </article>
+            <article className="edge-workspace-command-card edge-tone-red">
+              <span>Risk pressure</span>
+              <strong>Reduce over 2.18R</strong>
+              <small>Directive bus can throttle bots without brokerage actions.</small>
+            </article>
+          </>
+        ) : (
+          marketMapTiles.slice(0, 4).map((tile) => (
+            <article key={tile.label} className={`edge-workspace-command-card edge-tone-${tile.tone}`}>
+              <span>{tile.label}</span>
+              <strong>{tile.value}</strong>
+              <small>Live support / resistance map level.</small>
+            </article>
+          ))
+        )}
+      </section>
+
       <section className={panelClass}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
             <BarChart3 className="h-4 w-4 text-cyan-300" />
-            Market Map Layout
+            {workspaceCopy.controlsTitle}
           </div>
           <button type="button" onClick={resetWorkspaceLayout} className={inactiveToolClass}>
             <RefreshCw className="h-4 w-4" />
             Reset
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Market Map layout presets">
+        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label={workspaceCopy.layoutLabel}>
           {MARKET_MAP_LAYOUT_PRESETS.map((preset) => (
             <button
               key={preset.id}
@@ -1091,7 +1079,9 @@ export const ChartWorkspace: React.FC = () => {
               ))}
             </div>
           </div>
-          {viewMessage && <p className="mb-3 text-xs text-slate-400">{viewMessage}</p>}
+          {(viewMessage || feedMessage) && (
+            <p className="mb-3 text-xs text-slate-400">{viewMessage || feedMessage}</p>
+          )}
 
           {error && (
             <p role="alert" className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
@@ -1122,6 +1112,75 @@ export const ChartWorkspace: React.FC = () => {
         {layoutMode !== 'execution' && sidePanels}
       </div>
 
+      {isChartingWorkspace ? (
+        <section className="edge-chart-outcome-deck" aria-label="Charting outcome and PNL tracking">
+          <article className="edge-chart-calendar-card">
+            <div className="edge-chart-mini-head">
+              <span>Bot P&amp;L calendar</span>
+              <strong>Sentinel Pulse</strong>
+            </div>
+            <div className="edge-chart-calendar-grid">
+              {chartOutcomeCells.map((cell, index) => (
+                <div key={`${cell.day}-${index}`} className={`edge-chart-calendar-cell ${cell.tone}`}>
+                  <small>{cell.day}</small>
+                  <strong>{cell.value}</strong>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="edge-chart-winloss-card">
+            <div className="edge-chart-mini-head">
+              <span>Win / loss counter</span>
+              <strong>72.7%</strong>
+            </div>
+            <div className="edge-chart-donut" aria-label="8 wins and 3 losses">
+              <span>8W</span>
+              <small>3L</small>
+            </div>
+          </article>
+          <article className="edge-chart-directive-card">
+            <div className="edge-chart-mini-head">
+              <span>Directive posture</span>
+              <strong>Calculation only</strong>
+            </div>
+            <div className="edge-chart-directive-list">
+              <div><span>Breakout</span><strong>Watch</strong></div>
+              <div><span>Support</span><strong className="edge-green">Holding</strong></div>
+              <div><span>Risk</span><strong className="edge-gold">Reduce size</strong></div>
+            </div>
+          </article>
+        </section>
+      ) : (
+        <section className="edge-market-map-deck" aria-label="Market map breadth and levels">
+          <article className="edge-market-ladder-card">
+            <div className="edge-chart-mini-head">
+              <span>Level ladder</span>
+              <strong>{activeChartSymbol}</strong>
+            </div>
+            <div className="edge-market-ladder">
+              {marketMapTiles.map((tile) => (
+                <div key={tile.label} className={`edge-market-ladder-row edge-tone-${tile.tone}`}>
+                  <span>{tile.label}</span>
+                  <strong>{tile.value}</strong>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="edge-market-flow-card">
+            <div className="edge-chart-mini-head">
+              <span>Map bias</span>
+              <strong>{buildMarketMapBias(snapshot)}</strong>
+            </div>
+            <div className="edge-market-flow-grid">
+              <div><span>Nearest level</span><strong>{formatNearestMarketMapLevel(snapshot)}</strong></div>
+              <div><span>Context</span><strong>{formatMarketMapContextStatus(marketMapContext?.status)}</strong></div>
+              <div><span>Proof markers</span><strong>{proofMarkers.length}</strong></div>
+              <div><span>ORB readiness</span><strong>{formatOrbReadiness(orbSessionStatus?.active_readiness)}</strong></div>
+            </div>
+          </article>
+        </section>
+      )}
+
       {panelVisibility.oscillators && (
         <section className={panelClass}>
           <PlotlyChart
@@ -1141,15 +1200,6 @@ export const ChartWorkspace: React.FC = () => {
   );
 };
 
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2">
-      <div className="text-[11px] uppercase text-slate-500">{label}</div>
-      <div className="mt-1 break-words text-sm font-semibold text-slate-100">{value}</div>
-    </div>
-  );
-}
-
 function buildAllocationCandidates(symbol: string, lastClose: number) {
   const fallbackSymbols = ['QQQ', 'AAPL'];
   const symbols = Array.from(new Set([symbol.toUpperCase(), ...fallbackSymbols])).slice(0, 3);
@@ -1162,809 +1212,16 @@ function buildAllocationCandidates(symbol: string, lastClose: number) {
   }));
 }
 
-function buildPriceTraces(
-  snapshot: ChartWorkspaceSnapshot | null,
-  chartType: 'candlestick' | 'line',
-  includeOrbOverlays = true,
-  includeVolume = true,
-  includeOrbOverlaySession: ChartWorkspaceOrbOverlaySession[] = DEFAULT_ORB_OVERLAY_SESSIONS,
-  proofMarkers: MarketMapProofMarker[] = [],
-) {
-  if (!snapshot) return [];
-  const x = snapshot.bars.map((bar) => bar.timestamp);
-  const baseTrace = chartType === 'candlestick'
-    ? {
-        x,
-        open: snapshot.bars.map((bar) => bar.open),
-        high: snapshot.bars.map((bar) => bar.high),
-        low: snapshot.bars.map((bar) => bar.low),
-        close: snapshot.bars.map((bar) => bar.close),
-        type: 'candlestick',
-        name: snapshot.symbol,
-        increasing: { line: { color: '#22c55e' } },
-        decreasing: { line: { color: '#ef4444' } },
-      }
-    : {
-        x,
-        y: snapshot.bars.map((bar) => bar.close),
-        type: 'scatter',
-        mode: 'lines',
-        name: snapshot.symbol,
-        line: { color: '#22d3ee', width: 2 },
-      };
-  const volumeTrace = includeVolume
-    ? {
-        x,
-        y: snapshot.bars.map((bar) => bar.volume),
-        type: 'bar',
-        name: 'Volume',
-        yaxis: 'y2',
-        marker: { color: 'rgba(148, 163, 184, 0.28)' },
-        opacity: 0.35,
-        hovertemplate: 'Volume %{y:,}<extra></extra>',
-      }
-    : null;
-  const indicatorTraces = Object.entries(snapshot.indicators)
-    .filter(([, indicator]) => indicator.kind === 'overlay')
-    .map(([id, indicator]) => ({
-      x: indicator.points.map((point) => point.timestamp),
-      y: indicator.points.map((point) => point.value),
-      type: 'scatter',
-      mode: 'lines',
-      name: indicator.label || id,
-      line: { width: 1.5 },
-    }));
-  const enabledOrbOverlaySessions = new Set(includeOrbOverlaySession);
-  const orbTraces = includeOrbOverlays
-    ? snapshot.orb_overlays
-        .filter((overlay) => enabledOrbOverlaySessions.has(overlay.session_id as ChartWorkspaceOrbOverlaySession))
-        .flatMap((overlay) => [
-          orbLineTrace(x, overlay.high, `${overlay.label} ${overlay.timeframe} high`, '#f59e0b'),
-          orbLineTrace(x, overlay.low, `${overlay.label} ${overlay.timeframe} low`, '#38bdf8'),
-        ])
-    : [];
-  return [
-    baseTrace,
-    ...(volumeTrace ? [volumeTrace] : []),
-    ...indicatorTraces,
-    ...buildMarketMapLevelTraces(snapshot),
-    ...buildMarketMapProofMarkerTraces(snapshot, proofMarkers),
-    ...orbTraces,
-  ];
-}
-
-function buildMarketMapLevelTraces(snapshot: ChartWorkspaceSnapshot | null) {
-  const bars = snapshot?.bars ?? [];
-  const levels = snapshot?.levels?.items ?? [];
-  if (!bars.length || !levels.length) return [];
-  const x = [bars[0].timestamp, bars[bars.length - 1].timestamp];
-  return levels
-    .filter((level) => Number.isFinite(level.price))
-    .map((level) => ({
-      x,
-      y: [level.price, level.price],
-      type: 'scatter',
-      mode: 'lines',
-      name: level.label,
-      line: {
-        color: marketMapLevelColor(level.kind),
-        dash: level.locked ? 'solid' : 'dot',
-        width: 1.25,
-      },
-      hovertemplate: `${level.label}: ${formatMarketMapLevelPrice(level.price)}<extra></extra>`,
-    }));
-}
-
-function buildMarketMapProofMarkerTraces(
-  snapshot: ChartWorkspaceSnapshot | null,
-  markers: MarketMapProofMarker[],
-) {
-  const bars = snapshot?.bars ?? [];
-  if (!bars.length || !markers.length) return [];
-  const latestClose = bars[bars.length - 1].close;
-  return markers
-    .filter((marker) => marker.timestamp)
-    .map((marker) => {
-      const proofPrice = resolveProofMarkerPrice(marker);
-      return {
-        x: [marker.timestamp],
-        y: [proofPrice ?? latestClose],
-        type: 'scatter',
-        mode: 'markers+text',
-        name: marker.label,
-        text: [marker.kind],
-        textposition: 'top center',
-        marker: {
-          size: 10,
-          color: marker.status === 'accepted' || marker.status === 'pass' ? '#22c55e' : '#f59e0b',
-          symbol: 'diamond',
-        },
-        hovertemplate: `${marker.label}<br>${marker.kind}<br>${marker.status}<extra></extra>`,
-      };
-    });
-}
-
-function buildOscillatorTraces(snapshot: ChartWorkspaceSnapshot | null) {
-  if (!snapshot) return [];
-  const traces: any[] = [];
-  Object.entries(snapshot.indicators).forEach(([id, indicator]) => {
-    if (indicator.kind !== 'oscillator') return;
-    if (id.startsWith('rsi_')) {
-      traces.push({
-        x: indicator.points.map((point) => point.timestamp),
-        y: indicator.points.map((point) => point.value),
-        type: 'scatter',
-        mode: 'lines',
-        name: indicator.label,
-        line: { color: '#a78bfa', width: 2 },
-      });
-    }
-    if (id === 'macd') {
-      traces.push(
-        {
-          x: indicator.points.map((point) => point.timestamp),
-          y: indicator.points.map((point) => point.macd),
-          type: 'scatter',
-          mode: 'lines',
-          name: 'MACD',
-          line: { color: '#22d3ee', width: 1.5 },
-        },
-        {
-          x: indicator.points.map((point) => point.timestamp),
-          y: indicator.points.map((point) => point.signal),
-          type: 'scatter',
-          mode: 'lines',
-          name: 'Signal',
-          line: { color: '#f59e0b', width: 1.5 },
-        },
-        {
-          x: indicator.points.map((point) => point.timestamp),
-          y: indicator.points.map((point) => point.histogram),
-          type: 'bar',
-          name: 'Histogram',
-          marker: { color: '#64748b' },
-        },
-      );
-    }
-  });
-  return traces;
-}
-
-function buildIndicatorSnapshotMetrics(
-  snapshot: ChartWorkspaceSnapshot | null,
-  selectedIndicators: ChartWorkspaceIndicatorId[],
-): ChartWorkspaceIndicatorSnapshotMetric[] {
-  if (!snapshot) return [];
-  const metrics: ChartWorkspaceIndicatorSnapshotMetric[] = [];
-
-  selectedIndicators.forEach((id) => {
-    const indicator = snapshot.indicators[id];
-    if (!indicator) return;
-    const latestPoint = findLatestIndicatorPoint(indicator.points);
-    metrics.push({
-      label: indicator.label || formatIndicatorOptionLabel(id),
-      value: formatIndicatorSnapshotValue(id, latestPoint),
-      timestamp: latestPoint?.timestamp,
-    });
-  });
-
-  return metrics;
-}
-
-function findLatestIndicatorPoint(points: ChartWorkspaceIndicatorPoint[]) {
-  for (let index = points.length - 1; index >= 0; index -= 1) {
-    const point = points[index];
-    if (
-      (point.value !== null && point.value !== undefined) ||
-      (point.macd !== null && point.macd !== undefined) ||
-      (point.signal !== null && point.signal !== undefined) ||
-      (point.histogram !== null && point.histogram !== undefined)
-    ) {
-      return point;
-    }
-  }
-  return undefined;
-}
-
-function formatIndicatorSnapshotValue(id: ChartWorkspaceIndicatorId, point?: ChartWorkspaceIndicatorPoint) {
-  if (!point) return '--';
-  if (id === 'macd') {
-    return [
-      `MACD ${formatIndicatorPointNumber(point.macd)}`,
-      `Sig ${formatIndicatorPointNumber(point.signal)}`,
-      `Hist ${formatIndicatorPointNumber(point.histogram)}`,
-    ].join(' / ');
-  }
-  return formatIndicatorPointNumber(point.value);
-}
-
-function formatIndicatorPointNumber(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '--';
-  return Math.abs(value) >= 100 ? value.toFixed(2) : value.toFixed(4);
-}
-
-function orbLineTrace(x: string[], y: number, name: string, color: string) {
-  return {
-    x: [x[0], x[x.length - 1]],
-    y: [y, y],
-    type: 'scatter',
-    mode: 'lines',
-    name,
-    line: { color, dash: 'dot', width: 1.5 },
-  };
-}
-
-function formatOrbSessionStatus(status?: string) {
-  if (!status) return '--';
-  return status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatOrbReadiness(readiness?: string) {
-  if (!readiness) return '--';
-  return readiness.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatOrbSessionLevelSummary(session: OrbSessionSummary) {
-  const levels = session.levels ?? {};
-  const lockedTimeframes = session.timeframes.filter((timeframe) => levels[timeframe]?.locked);
-  if (lockedTimeframes.length) return `${lockedTimeframes.join(', ')} locked`;
-
-  const validTimeframes = session.timeframes.filter((timeframe) => levels[timeframe]?.is_valid);
-  if (validTimeframes.length) return `${validTimeframes.join(', ')} collecting`;
-
-  return `${session.timeframes.join(', ')} configured`;
-}
-
-function formatOrbSessionReadinessDetail(session: OrbSessionSummary) {
-  const parts: string[] = [];
-  if (session.ready_timeframes.length) parts.push(`ready ${session.ready_timeframes.join(', ')}`);
-  if (session.collecting_timeframes.length) parts.push(`collecting ${session.collecting_timeframes.join(', ')}`);
-  if (session.missing_timeframes.length) parts.push(`missing ${session.missing_timeframes.join(', ')}`);
-  return parts.length ? parts.join(' / ') : formatOrbReadiness(session.readiness);
-}
-
-function formatIndicatorPresetLabel(indicatorPreset: ChartWorkspaceIndicatorPresetId) {
-  if (indicatorPreset === 'custom') return 'Custom';
-  return INDICATOR_PRESET_OPTIONS.find((preset) => preset.id === indicatorPreset)?.label || 'Custom';
-}
-
-function formatSelectedIndicators(indicators: ChartWorkspaceIndicatorId[]) {
-  if (!indicators.length) return 'None';
-  return indicators
-    .map(formatIndicatorOptionLabel)
-    .join(', ');
-}
-
-function formatIndicatorOptionLabel(indicator: ChartWorkspaceIndicatorId) {
-  return INDICATOR_OPTIONS.find((option) => option.id === indicator)?.label || indicator.toUpperCase();
-}
-
-function formatMarketMapLevelPrice(value: number) {
-  return Number.isFinite(value) ? `$${value.toFixed(2)}` : '--';
-}
-
-function buildMarketMapBias(snapshot: ChartWorkspaceSnapshot | null) {
-  const latest = snapshot?.bars?.[snapshot.bars.length - 1];
-  const vwap = snapshot?.levels?.items?.find((level) => level.kind === 'vwap');
-  if (!latest || !vwap) return 'Review';
-  if (latest.close > vwap.price) return 'Above VWAP';
-  if (latest.close < vwap.price) return 'Below VWAP';
-  return 'At VWAP';
-}
-
-function formatNearestMarketMapLevel(snapshot: ChartWorkspaceSnapshot | null) {
-  const latest = snapshot?.bars?.[snapshot.bars.length - 1];
-  const levels = snapshot?.levels?.items ?? [];
-  if (!latest || !levels.length) return '--';
-  const nearest = levels.reduce(
-    (best, level) => {
-      const distance = Math.abs(level.price - latest.close);
-      return distance < best.distance ? { level, distance } : best;
-    },
-    { level: levels[0], distance: Math.abs(levels[0].price - latest.close) },
-  );
-  return `${nearest.level.label} ${formatMarketMapLevelPrice(nearest.level.price)}`;
-}
-
-function marketMapLevelColor(kind: string) {
-  if (kind.includes('high') || kind.includes('upper')) return '#f59e0b';
-  if (kind.includes('low') || kind.includes('lower')) return '#38bdf8';
-  if (kind === 'vwap') return '#22c55e';
-  return '#a78bfa';
-}
-
-function resolveProofMarkerPrice(marker: MarketMapProofMarker) {
-  const price = marker.proof?.price ?? marker.proof?.entry_price ?? marker.proof?.fill_price;
-  if (typeof price === 'number' && Number.isFinite(price)) return price;
-  if (typeof price === 'string') {
-    const numericPrice = Number(price);
-    return Number.isFinite(numericPrice) ? numericPrice : undefined;
-  }
-  return undefined;
-}
-
-function formatParserConfidence(value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-  return value <= 1 ? `${Math.round(value * 100)}%` : `${Math.round(value)}%`;
-}
-
-function formatProofMarkerTimestamp(value: string) {
-  if (!value) return '--';
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) return value;
-  return timestamp.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function formatMarketMapContextStatus(value?: string) {
-  if (!value) return '--';
-  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatMarketMapContextProximity(context: MarketMapContext | null) {
-  const proximity = context?.level_proximity;
-  if (!proximity) return '--';
-  const label = proximity.label || proximity.id || 'Level';
-  const price = typeof proximity.price === 'number' ? formatMarketMapLevelPrice(proximity.price) : '--';
-  if (typeof proximity.distance_pct !== 'number') return `${label} ${price}`;
-  return `${label} ${price} / ${(proximity.distance_pct * 100).toFixed(2)}%`;
-}
-
-function formatOrbOverlaySessionSummary(
-  showOrbOverlays: boolean,
-  orbOverlaySessions: ChartWorkspaceOrbOverlaySession[],
-) {
-  if (!showOrbOverlays) return 'Off';
-  if (!orbOverlaySessions.length) return 'None';
-  return orbOverlaySessions
-    .map((session) => ORB_OVERLAY_SESSION_OPTIONS.find((option) => option.id === session)?.label || session)
-    .join(', ');
-}
-
-function formatVolumeOverlay(showVolume: boolean) {
-  return showVolume ? 'On' : 'Off';
-}
-
-function formatSimulationLabGate(
-  simulationLabStatus: ChartWorkspaceSimulationLabStatus | null,
-  simulationLabEnabled: boolean,
-) {
-  if (!simulationLabStatus) return 'Unknown';
-  return simulationLabEnabled ? 'Enabled' : 'Hidden';
-}
-
-function formatSimulationLabDisabledReason(simulationLabStatus: ChartWorkspaceSimulationLabStatus | null) {
-  return simulationLabStatus?.disabled_reason || '--';
-}
-
-function formatChartType(chartType: ChartWorkspaceChartType) {
-  return chartType === 'candlestick' ? 'Candle' : 'Line';
-}
-
-function formatLayoutMode(layoutMode: ChartWorkspaceLayoutMode) {
-  return layoutMode.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatSimulationLabEndpoint(experiment: ChartWorkspaceSimulationLabExperiment) {
-  const method = experiment.http_method || 'POST';
-  const endpoint = experiment.endpoint_path || 'endpoint unavailable';
-  const schemaVersion = experiment.result_schema_version || 'schema unknown';
-  return `${method} ${endpoint} / ${schemaVersion}`;
-}
-
-function formatSimulationLabExperimentId(id?: string) {
-  if (!id) return 'Experiment';
-  return id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function formatSimulationLabResultTitle(result: ChartWorkspaceSimulationLabResult) {
-  const schemaVersion = result.result.schema_version || 'schema_version unknown';
-  return `${result.label} / ${schemaVersion}`;
-}
-
-function formatSimulationLabResultMeta(result: ChartWorkspaceSimulationLabResult) {
-  const parts: string[] = [];
-  if (result.symbol) parts.push(result.symbol);
-  if (result.created_at) parts.push(formatSimulationLabResultTimestamp(result.created_at));
-  return parts.length ? parts.join(' / ') : 'Session context unavailable';
-}
-
-function formatSimulationLabResultMismatch(result: ChartWorkspaceSimulationLabResult, activeChartSymbol: string) {
-  return `Result symbol differs from active chart: ${result.symbol || 'Unknown'} vs ${activeChartSymbol}`;
-}
-
-function formatSimulationLabResultScopeLabel(hasSymbolMismatch: boolean) {
-  return hasSymbolMismatch ? 'Different chart' : 'Current chart';
-}
-
-function formatSimulationLabResultScopeClass(hasSymbolMismatch: boolean) {
-  const baseClass = 'rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase';
-  return hasSymbolMismatch
-    ? `${baseClass} border-amber-400/30 bg-amber-400/10 text-amber-200`
-    : `${baseClass} border-emerald-400/30 bg-emerald-400/10 text-emerald-200`;
-}
-
-function formatSimulationLabResultTimestamp(value: string) {
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) return value;
-  return timestamp.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResult) {
-  const summary = result.result.summary ?? {};
-  const metrics = [
-    {
-      label: 'schema_version',
-      value: result.result.schema_version || '--',
-    },
-    {
-      label: 'run_id',
-      value: result.result.run_id || '--',
-    },
-    {
-      label: 'input_fp',
-      value: formatSimulationLabFingerprint(result.result.input_fingerprint),
-    },
-  ];
-
-  if (result.kind === 'orb_backtest') {
-    metrics.push(
-      { label: 'breakouts', value: formatSimulationLabResultMetric(summary.breakouts) },
-      { label: 'sessions', value: formatSimulationLabResultMetric(summary.sessions) },
-      { label: 'scored_breakouts', value: formatSimulationLabResultMetric(summary.scored_breakouts) },
-      { label: 'avg_reward_r', value: formatSimulationLabResultMetric(summary.avg_reward_r_multiple) },
-      { label: 'target_hits', value: formatSimulationLabResultMetric(summary.target_hits) },
-      { label: 'stop_hits', value: formatSimulationLabResultMetric(summary.stop_hits) },
-      { label: 'avg_realized_r', value: formatSimulationLabResultMetric(summary.avg_realized_r_multiple) },
-    );
-  }
-
-  if (result.kind === 'buying_power_allocation') {
-    metrics.push(
-      { label: 'allocated_notional', value: formatSimulationLabResultMetric(summary.allocated_notional, 'currency') },
-      { label: 'allocated_count', value: formatSimulationLabResultMetric(summary.allocated_count) },
-      { label: 'skipped_count', value: formatSimulationLabResultMetric(summary.skipped_count) },
-      { label: 'fill_ratio', value: formatSimulationLabResultMetric(summary.fill_ratio, 'ratio') },
-      { label: 'unfilled_requested', value: formatSimulationLabResultMetric(summary.unfilled_requested_notional, 'currency') },
-      { label: 'skipped_reason', value: formatSimulationLabAllocationSkipReason(result.result.skipped) },
-      { label: 'position_limited', value: formatSimulationLabResultMetric(summary.position_limited_count) },
-      { label: 'post_cap_fill', value: formatSimulationLabResultMetric(summary.post_cap_fill_ratio, 'ratio') },
-    );
-  }
-
-  if (result.kind === 'stop_trailing_dca') {
-    metrics.push(
-      { label: 'best_plan', value: formatSimulationLabResultMetric(summary.best_plan) },
-      { label: 'best_pnl', value: formatSimulationLabResultMetric(summary.best_pnl, 'currency') },
-      { label: 'best_pnl_pct', value: formatSimulationLabResultMetric(summary.best_pnl_pct, 'percent') },
-      { label: 'worst_pnl_pct', value: formatSimulationLabResultMetric(summary.worst_pnl_pct, 'percent') },
-    );
-  }
-
-  return metrics;
-}
-
-function formatSimulationLabAllocationSkipReason(value: unknown) {
-  if (!Array.isArray(value) || value.length === 0) return '--';
-  const reasons = Array.from(new Set(value.map((item) => {
-    if (!isRecord(item) || typeof item.reason !== 'string') return '';
-    if (item.reason === 'buying_power_exhausted') return 'buying power exhausted';
-    if (item.reason === 'position_limit') return 'position limit';
-    return item.reason.replace(/[_-]+/g, ' ');
-  }).filter(Boolean)));
-  return reasons.length ? reasons.join(', ') : '--';
-}
-
-function formatSimulationLabResultMetric(value: unknown, mode: 'plain' | 'currency' | 'percent' | 'ratio' = 'plain') {
-  if (value === null || value === undefined || value === '') return '--';
-  if (mode === 'currency' && typeof value === 'number') return `$${value.toLocaleString()}`;
-  if (mode === 'percent' && typeof value === 'number') return `${value.toFixed(2)}%`;
-  if (mode === 'ratio' && typeof value === 'number') return `${(value * 100).toFixed(2)}%`;
-  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
-  return String(value).replace(/[_-]+/g, ' ');
-}
-
-function formatSimulationLabFingerprint(value: unknown) {
-  if (typeof value !== 'string' || !value) return '--';
-  return value.length > 12 ? `${value.slice(0, 12)}...` : value;
-}
-
-function readChartWorkspaceLayout(): ChartWorkspaceLayoutState {
-  if (typeof window === 'undefined') return cloneDefaultLayoutState();
-  try {
-    const storedLayout =
-      window.localStorage.getItem(MARKET_MAP_LAYOUT_STORAGE_KEY) ||
-      window.localStorage.getItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
-    if (!storedLayout) return cloneDefaultLayoutState();
-    return normalizeChartWorkspaceLayout(JSON.parse(storedLayout));
-  } catch {
-    return cloneDefaultLayoutState();
-  }
-}
-
-function persistChartWorkspaceLayout(layout: ChartWorkspaceLayoutState) {
-  if (typeof window === 'undefined') return false;
-  try {
-    window.localStorage.setItem(MARKET_MAP_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function clearChartWorkspaceLayout() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(MARKET_MAP_LAYOUT_STORAGE_KEY);
-    window.localStorage.removeItem(CHART_WORKSPACE_LAYOUT_STORAGE_KEY);
-  } catch {
-    return;
-  }
-}
-
-function readChartWorkspacePreferences(): ChartWorkspacePreferencesState {
-  if (typeof window === 'undefined') return cloneDefaultPreferencesState();
-  try {
-    const storedPreferences =
-      window.localStorage.getItem(MARKET_MAP_PREFERENCES_STORAGE_KEY) ||
-      window.localStorage.getItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
-    if (!storedPreferences) return cloneDefaultPreferencesState();
-    return normalizeChartWorkspacePreferences(JSON.parse(storedPreferences));
-  } catch {
-    return cloneDefaultPreferencesState();
-  }
-}
-
-function persistChartWorkspacePreferences(preferences: ChartWorkspacePreferencesState) {
-  if (typeof window === 'undefined') return false;
-  try {
-    window.localStorage.setItem(MARKET_MAP_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function clearChartWorkspacePreferences() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(MARKET_MAP_PREFERENCES_STORAGE_KEY);
-    window.localStorage.removeItem(CHART_WORKSPACE_PREFERENCES_STORAGE_KEY);
-  } catch {
-    return;
-  }
-}
-
-function readChartWorkspaceLabResult(): ChartWorkspaceSimulationLabResult | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const storedResult = window.localStorage.getItem(CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY);
-    if (!storedResult) return null;
-    return normalizeChartWorkspaceLabResult(JSON.parse(storedResult));
-  } catch {
-    return null;
-  }
-}
-
-function persistChartWorkspaceLabResult(result: ChartWorkspaceSimulationLabResult) {
-  if (typeof window === 'undefined') return false;
-  try {
-    window.localStorage.setItem(CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY, JSON.stringify(result));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function clearChartWorkspaceLabResult() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(CHART_WORKSPACE_LAB_RESULT_STORAGE_KEY);
-  } catch {
-    return;
-  }
-}
-
-function normalizeChartWorkspaceLayout(value: unknown): ChartWorkspaceLayoutState {
-  if (!isRecord(value)) return cloneDefaultLayoutState();
-  const storedPanels = isRecord(value.panelVisibility) ? value.panelVisibility : {};
-  const panelVisibility = {
-    snapshot: typeof storedPanels.snapshot === 'boolean' ? storedPanels.snapshot : DEFAULT_PANEL_VISIBILITY.snapshot,
-    strategy:
-      typeof storedPanels.strategy === 'boolean' ? storedPanels.strategy : DEFAULT_PANEL_VISIBILITY.strategy,
-    lab: typeof storedPanels.lab === 'boolean' ? storedPanels.lab : DEFAULT_PANEL_VISIBILITY.lab,
-    oscillators:
-      typeof storedPanels.oscillators === 'boolean' ? storedPanels.oscillators : DEFAULT_PANEL_VISIBILITY.oscillators,
-  };
-  const layoutMode = isChartWorkspaceLayoutMode(value.layoutMode) ? value.layoutMode : DEFAULT_LAYOUT_STATE.layoutMode;
-  return {
-    marketMapPreset: isMarketMapLayoutPreset(value.marketMapPreset)
-      ? value.marketMapPreset
-      : inferMarketMapPreset(layoutMode, panelVisibility),
-    layoutMode,
-    panelVisibility,
-  };
-}
-
-function normalizeChartWorkspacePreferences(value: unknown): ChartWorkspacePreferencesState {
-  if (!isRecord(value)) return cloneDefaultPreferencesState();
-  const selectedIndicators = normalizeChartWorkspaceIndicators(value.selectedIndicators);
-  return {
-    activeSymbol: normalizeChartWorkspaceSymbol(value.activeSymbol),
-    chartType: isChartWorkspaceChartType(value.chartType) ? value.chartType : DEFAULT_PREFERENCES_STATE.chartType,
-    indicatorPreset: isChartWorkspaceIndicatorPresetId(value.indicatorPreset)
-      ? value.indicatorPreset
-      : inferIndicatorPreset(selectedIndicators),
-    selectedIndicators,
-    barLimit: isChartWorkspaceBarLimit(value.barLimit) ? value.barLimit : DEFAULT_PREFERENCES_STATE.barLimit,
-    showOrbOverlays:
-      typeof value.showOrbOverlays === 'boolean'
-        ? value.showOrbOverlays
-        : DEFAULT_PREFERENCES_STATE.showOrbOverlays,
-    showVolume:
-      typeof value.showVolume === 'boolean'
-        ? value.showVolume
-        : DEFAULT_PREFERENCES_STATE.showVolume,
-    orbOverlaySessions: normalizeOrbOverlaySessions(value.orbOverlaySessions),
-  };
-}
-
-function normalizeChartWorkspaceLabResult(value: unknown): ChartWorkspaceSimulationLabResult | null {
-  if (!isRecord(value)) return null;
-  const kind = value.kind;
-  const label = typeof value.label === 'string' ? value.label.trim() : '';
-  const storedResult = isRecord(value.result) ? value.result : null;
-  if (!isChartWorkspaceSimulationLabResultKind(kind) || !label || !storedResult) return null;
-
-  const summary = isRecord(storedResult.summary) ? storedResult.summary : undefined;
-  const symbol = normalizeChartWorkspaceLabResultSymbol(value.symbol);
-  const createdAt = normalizeChartWorkspaceLabResultTimestamp(value.created_at);
-  return {
-    kind,
-    label,
-    symbol,
-    created_at: createdAt,
-    result: {
-      ...storedResult,
-      schema_version: typeof storedResult.schema_version === 'string' ? storedResult.schema_version : undefined,
-      summary,
-    },
-  };
-}
-
-function normalizeChartWorkspaceLabResultSymbol(value: unknown) {
-  if (typeof value !== 'string') return undefined;
-  const symbol = value.trim().toUpperCase();
-  return /^[A-Z0-9.-]{1,10}$/.test(symbol) ? symbol : undefined;
-}
-
-function normalizeChartWorkspaceLabResultTimestamp(value: unknown) {
-  if (typeof value !== 'string') return undefined;
-  const timestamp = value.trim();
-  return timestamp && !Number.isNaN(Date.parse(timestamp)) ? timestamp : undefined;
-}
-
-function cloneDefaultLayoutState(): ChartWorkspaceLayoutState {
-  return {
-    marketMapPreset: DEFAULT_LAYOUT_STATE.marketMapPreset,
-    layoutMode: DEFAULT_LAYOUT_STATE.layoutMode,
-    panelVisibility: { ...DEFAULT_PANEL_VISIBILITY },
-  };
-}
-
-function cloneDefaultPreferencesState(): ChartWorkspacePreferencesState {
-  return {
-    ...DEFAULT_PREFERENCES_STATE,
-    selectedIndicators: [...DEFAULT_INDICATORS],
-    orbOverlaySessions: [...DEFAULT_ORB_OVERLAY_SESSIONS],
-  };
-}
-
-function isChartWorkspaceLayoutMode(value: unknown): value is ChartWorkspaceLayoutMode {
-  return value === 'analysis' || value === 'execution' || value === 'research';
-}
-
-function isMarketMapLayoutPreset(value: unknown): value is MarketMapLayoutPreset {
-  return MARKET_MAP_LAYOUT_PRESETS.some((option) => option.id === value);
-}
-
-function inferMarketMapPreset(
-  layoutMode: ChartWorkspaceLayoutMode,
-  panelVisibility: ChartWorkspacePanelVisibility,
-): MarketMapLayoutPreset {
-  const matchingPreset = MARKET_MAP_LAYOUT_PRESETS.find(
-    (preset) =>
-      preset.layoutMode === layoutMode &&
-      preset.panelVisibility.snapshot === panelVisibility.snapshot &&
-      preset.panelVisibility.strategy === panelVisibility.strategy &&
-      preset.panelVisibility.lab === panelVisibility.lab &&
-      preset.panelVisibility.oscillators === panelVisibility.oscillators,
-  );
-  return matchingPreset?.id ?? DEFAULT_LAYOUT_STATE.marketMapPreset;
-}
-
-function isChartWorkspaceChartType(value: unknown): value is ChartWorkspaceChartType {
-  return value === 'candlestick' || value === 'line';
-}
-
-function isChartWorkspaceBarLimit(value: unknown): value is ChartWorkspaceBarLimit {
-  return value === 120 || value === 240 || value === 390;
-}
-
-function isChartWorkspaceIndicatorId(value: unknown): value is ChartWorkspaceIndicatorId {
-  return INDICATOR_OPTIONS.some((option) => option.id === value);
-}
-
-function isChartWorkspaceIndicatorPresetId(value: unknown): value is ChartWorkspaceIndicatorPresetId {
-  return value === 'custom' || INDICATOR_PRESET_OPTIONS.some((option) => option.id === value);
-}
-
-function isChartWorkspaceSimulationLabResultKind(value: unknown): value is ChartWorkspaceSimulationLabResult['kind'] {
-  return value === 'orb_backtest' || value === 'buying_power_allocation' || value === 'stop_trailing_dca';
-}
-
-function normalizeChartWorkspaceSymbol(value: unknown) {
-  if (typeof value !== 'string') return DEFAULT_PREFERENCES_STATE.activeSymbol;
-  const symbol = value.trim().toUpperCase();
-  return /^[A-Z0-9.-]{1,10}$/.test(symbol) ? symbol : DEFAULT_PREFERENCES_STATE.activeSymbol;
-}
-
-function normalizeChartWorkspaceIndicators(value: unknown) {
-  if (!Array.isArray(value)) return [...DEFAULT_INDICATORS];
-  return Array.from(new Set(value.filter(isChartWorkspaceIndicatorId)));
-}
-
-function inferIndicatorPreset(indicators: ChartWorkspaceIndicatorId[]): ChartWorkspaceIndicatorPresetId {
-  const normalizedIndicators = normalizeIndicatorPresetSignature(indicators);
-  const matchingPreset = INDICATOR_PRESET_OPTIONS.find(
-    (option) => normalizeIndicatorPresetSignature(option.indicators) === normalizedIndicators,
-  );
-  return matchingPreset?.id ?? 'custom';
-}
-
-function normalizeIndicatorPresetSignature(indicators: ChartWorkspaceIndicatorId[]) {
-  return [...indicators].sort().join(',');
-}
-
-function normalizeOrbOverlaySessions(value: unknown) {
-  if (!Array.isArray(value)) return [...DEFAULT_ORB_OVERLAY_SESSIONS];
-  const sessions = Array.from(new Set(value.filter(isChartWorkspaceOrbOverlaySession)));
-  return sessions.length ? sessions : [];
-}
-
-function isChartWorkspaceOrbOverlaySession(value: unknown): value is ChartWorkspaceOrbOverlaySession {
-  return ORB_OVERLAY_SESSION_OPTIONS.some((option) => option.id === value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function getWorkspaceGridClass(layoutMode: ChartWorkspaceLayoutMode) {
-  if (layoutMode === 'research') return 'grid grid-cols-1 gap-3';
-  if (layoutMode === 'execution') return 'grid grid-cols-1 gap-3 2xl:grid-cols-[280px_minmax(0,1fr)]';
-  return 'grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_280px]';
+  if (layoutMode === 'research') return 'grid grid-cols-1 items-start gap-3';
+  if (layoutMode === 'execution') return 'grid grid-cols-1 items-start gap-3 2xl:grid-cols-[280px_minmax(0,1fr)]';
+  return 'grid grid-cols-1 items-start gap-3 2xl:grid-cols-[minmax(0,1fr)_280px]';
 }
 
 function getSidePanelClass(layoutMode: ChartWorkspaceLayoutMode) {
   if (layoutMode === 'research') return 'grid grid-cols-1 gap-3 2xl:grid-cols-2';
-  if (layoutMode === 'execution') return 'space-y-3 2xl:order-first';
-  return 'space-y-3';
+  if (layoutMode === 'execution') return 'space-y-3 2xl:order-first 2xl:max-h-[760px] 2xl:overflow-y-auto 2xl:pr-1';
+  return 'space-y-3 2xl:max-h-[760px] 2xl:overflow-y-auto 2xl:pr-1';
 }
-
-const panelClass = 'rounded-lg border border-slate-800 bg-slate-950/80 p-3';
-const activeToolClass =
-  'inline-flex h-9 items-center gap-2 rounded-lg border border-cyan-300/60 bg-cyan-400/15 px-3 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60';
-const inactiveToolClass =
-  'inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-300 hover:border-cyan-400/40 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60';
-const activeRadioClass = `${activeToolClass} cursor-pointer`;
-const inactiveRadioClass = `${inactiveToolClass} cursor-pointer`;
 
 export default ChartWorkspace;

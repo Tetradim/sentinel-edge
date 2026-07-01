@@ -3,7 +3,6 @@ import {
   Bell,
   CheckCircle,
   Gauge,
-  LineChart,
   Save,
   Search,
   Shield,
@@ -12,16 +11,22 @@ import {
   Zap,
 } from 'lucide-react';
 import type {
+  BotBridgeHealth,
+  BotLockout,
   CoreColorMetric,
   CoreHeatmapConfig,
   CoreLabelMode,
   CoreSizeMetric,
   CoreUniverse,
+  DirectiveLedgerEntry,
   EventFilter,
   EventLine,
+  MarketRegimeState,
   Metric,
   Mode,
   OperationViewItem,
+  OutcomeAttribution,
+  PolicyStackRule,
   ProtectionRow,
   Ticker,
   Tone,
@@ -91,7 +96,6 @@ export const initialEvents: EventLine[] = [
 export const eventFilterOptions: { id: EventFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'selected', label: 'Selected' },
-  { id: 'system', label: 'System' },
 ];
 
 export const allMetricOptions = Array.from(
@@ -151,11 +155,265 @@ export const protectionRows: ProtectionRow[] = [
   { symbol: 'NVDA', guard: 'RISK / redline', exposure: '21%', stop: '$137.90', invalid: '$135.80', heat: '69', action: 'reduce if 135.80 breaks', tone: 'red' },
 ];
 
+export const marketRegime: MarketRegimeState = {
+  label: 'Gamma pin / breakout watch',
+  score: '72',
+  detail: 'Trend is constructive, but GEX pressure and support proximity require confirmation.',
+  pressure: 'Moderate risk',
+  allowedPosture: 'Advise / block below support',
+  tone: 'gold',
+};
+
+export const directiveLedger: DirectiveLedgerEntry[] = [
+  {
+    id: 'd1',
+    time: '09:42:18',
+    bot: 'Sentinel Pulse',
+    symbol: 'SPY',
+    directive: 'Allow guarded breakout',
+    reason: 'Price above support, MACD-V compression resolving, risk corridor inside limit.',
+    confidence: '0.82',
+    regime: 'Gamma pin',
+    acknowledgement: 'ack 42ms',
+    tone: 'green',
+  },
+  {
+    id: 'd2',
+    time: '09:43:02',
+    bot: 'Discord Trading Bot',
+    symbol: 'NVDA',
+    directive: 'Block buy',
+    reason: 'Heat 69, support shelf weakening, spread widening into redline.',
+    confidence: '0.88',
+    regime: 'Risk expansion',
+    acknowledgement: 'ack 71ms',
+    tone: 'red',
+  },
+  {
+    id: 'd3',
+    time: '09:44:31',
+    bot: 'Futures',
+    symbol: 'NQ',
+    directive: 'Reduce size',
+    reason: 'Correlation cluster elevated and VEX expansion crossed policy threshold.',
+    confidence: '0.76',
+    regime: 'Vol expansion',
+    acknowledgement: 'queued',
+    tone: 'gold',
+  },
+  {
+    id: 'd4',
+    time: '09:45:10',
+    bot: 'Auto-Crypto',
+    symbol: 'BTC',
+    directive: 'Watch only',
+    reason: 'Liquidity acceptable but market regime mismatch keeps breakout inactive.',
+    confidence: '0.64',
+    regime: 'Range chop',
+    acknowledgement: 'ack 55ms',
+    tone: 'cyan',
+  },
+  {
+    id: 'd5',
+    time: '09:46:44',
+    bot: 'Consolidation',
+    symbol: 'AAPL',
+    directive: 'Allow with size cap',
+    reason: 'EMA shelf intact, but same-sector exposure caps requested size.',
+    confidence: '0.79',
+    regime: 'Trend continuation',
+    acknowledgement: 'ack 33ms',
+    tone: 'green',
+  },
+];
+
+export const botBridgeHealth: BotBridgeHealth[] = [
+  {
+    name: 'Sentinel Pulse',
+    status: 'online',
+    heartbeat: '3s',
+    latency: '18ms',
+    contract: 'edge.pulse.v1',
+    lastDirective: 'Allow guarded breakout',
+    lastAck: '09:42:18',
+    queueDepth: 0,
+    rejectedEvents: 0,
+    detail: 'Primary execution bridge acknowledged.',
+    tone: 'green',
+  },
+  {
+    name: 'Discord Trading Bot',
+    status: 'online',
+    heartbeat: '5s',
+    latency: '42ms',
+    contract: 'edge.discord.v1',
+    lastDirective: 'Block buy',
+    lastAck: '09:43:04',
+    queueDepth: 1,
+    rejectedEvents: 0,
+    detail: 'Alert parser receiving suppression directives.',
+    tone: 'green',
+  },
+  {
+    name: 'Auto-Crypto',
+    status: 'degraded',
+    heartbeat: '24s',
+    latency: '88ms',
+    contract: 'edge.crypto.v1',
+    lastDirective: 'Watch only',
+    lastAck: '09:45:11',
+    queueDepth: 2,
+    rejectedEvents: 1,
+    detail: 'Crypto bridge is slow but still accepting advice.',
+    tone: 'gold',
+  },
+  {
+    name: 'Futures',
+    status: 'online',
+    heartbeat: '4s',
+    latency: '21ms',
+    contract: 'edge.futures.v1',
+    lastDirective: 'Reduce size',
+    lastAck: 'queued',
+    queueDepth: 1,
+    rejectedEvents: 0,
+    detail: 'Size controls waiting on acknowledgement.',
+    tone: 'cyan',
+  },
+  {
+    name: 'Tandem Suite',
+    status: 'online',
+    heartbeat: '8s',
+    latency: '36ms',
+    contract: 'edge.tandem.v1',
+    lastDirective: 'Runtime clear',
+    lastAck: '09:41:02',
+    queueDepth: 0,
+    rejectedEvents: 0,
+    detail: 'System supervisor bridge healthy.',
+    tone: 'green',
+  },
+  {
+    name: 'Darkpool Mon',
+    status: 'standalone',
+    heartbeat: 'local',
+    latency: 'n/a',
+    contract: 'read-only',
+    lastDirective: 'Flow input only',
+    lastAck: 'n/a',
+    queueDepth: 0,
+    rejectedEvents: 0,
+    detail: 'Used as intelligence source, not directive target.',
+    tone: 'cyan',
+  },
+  {
+    name: 'Consolidation',
+    status: 'online',
+    heartbeat: '6s',
+    latency: '39ms',
+    contract: 'edge.alerts.v1',
+    lastDirective: 'Allow with size cap',
+    lastAck: '09:46:44',
+    queueDepth: 0,
+    rejectedEvents: 0,
+    detail: 'Options alert bridge applying size caps.',
+    tone: 'green',
+  },
+  {
+    name: 'APK Alerts',
+    status: 'offline',
+    heartbeat: 'lost',
+    latency: 'n/a',
+    contract: 'edge.mobile.v1',
+    lastDirective: 'No route',
+    lastAck: '08:58:10',
+    queueDepth: 4,
+    rejectedEvents: 2,
+    detail: 'Mobile alert bridge is unavailable.',
+    tone: 'red',
+  },
+  {
+    name: 'Extension External',
+    status: 'degraded',
+    heartbeat: '31s',
+    latency: '105ms',
+    contract: 'edge.extension.v1',
+    lastDirective: 'Suppress stale setup',
+    lastAck: '09:39:58',
+    queueDepth: 3,
+    rejectedEvents: 1,
+    detail: 'Browser extension bridge has stale acknowledgements.',
+    tone: 'gold',
+  },
+];
+
+export const policyStackRules: PolicyStackRule[] = [
+  {
+    id: 'stale-data',
+    label: 'Stale data lockout',
+    state: 'armed',
+    strictness: 94,
+    reason: 'Any provider gap over 12s blocks new risk.',
+    effect: 'Block Buy / Watch only',
+    tone: 'green',
+  },
+  {
+    id: 'support-break',
+    label: 'Support break',
+    state: 'active on NVDA',
+    strictness: 88,
+    reason: 'Invalidation shelf is within 0.7 ATR.',
+    effect: 'Stop trading / Reduce size',
+    tone: 'red',
+  },
+  {
+    id: 'gex-vex',
+    label: 'GEX / VEX pressure',
+    state: 'monitoring',
+    strictness: 72,
+    reason: 'Gamma pin makes breakout chasing lower quality.',
+    effect: 'Require confirmation',
+    tone: 'gold',
+  },
+  {
+    id: 'correlation',
+    label: 'Correlation cluster',
+    state: 'watch',
+    strictness: 67,
+    reason: 'QQQ, NVDA, and AAPL exposure move together.',
+    effect: 'Cap size',
+    tone: 'cyan',
+  },
+  {
+    id: 'drawdown',
+    label: 'Daily drawdown',
+    state: 'clear',
+    strictness: 81,
+    reason: 'Loss guard remains below trigger.',
+    effect: 'Allow normal advisory',
+    tone: 'green',
+  },
+];
+
+export const outcomeAttribution: OutcomeAttribution[] = [
+  { label: 'Bad entries blocked', value: '12', detail: '+$4.2K avoided drawdown estimate', tone: 'green' },
+  { label: 'Allowed winners', value: '8', detail: 'Signals that passed policy stack', tone: 'green' },
+  { label: 'False blocks', value: '2', detail: 'Good setups blocked by strict regime', tone: 'gold' },
+  { label: 'Bots stopped in chop', value: '3', detail: 'Suppressed during range conditions', tone: 'cyan' },
+  { label: 'Risk saves', value: '5', detail: 'Reduce/stop directives before support failed', tone: 'red' },
+];
+
+export const botLockouts: BotLockout[] = [
+  { bot: 'Discord Trading Bot', scope: 'NVDA buys', state: 'blocked', reason: 'Support shelf weakening under risk heat', until: 'support reclaim', tone: 'red' },
+  { bot: 'Auto-Crypto', scope: 'BTC breakouts', state: 'watch only', reason: 'Regime mismatch and liquidity drift', until: 'vol reset', tone: 'gold' },
+  { bot: 'Futures', scope: 'NQ size', state: 'capped', reason: 'VEX expansion over threshold', until: 'next sweep', tone: 'cyan' },
+  { bot: 'Sentinel Pulse', scope: 'SPY', state: 'allowed', reason: 'Breakout valid above support', until: 'corridor break', tone: 'green' },
+];
+
 export const nowTime = () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 export const operationsViews: OperationViewItem[] = [
   { id: 'overview', label: 'Trading Overview', icon: Activity },
-  { id: 'charts', label: 'Market Map', icon: LineChart },
   { id: 'scanners', label: 'Scanner Workbench', icon: Search },
   { id: 'advisor', label: 'Advisor Health', icon: Gauge },
   { id: 'experience', label: 'Experience', icon: Zap },
@@ -167,10 +425,12 @@ export const operationsViews: OperationViewItem[] = [
   { id: 'tutorials', label: 'Tutorials', icon: CheckCircle },
 ];
 
-export const modes: Mode[] = ['monitor', 'command', 'market-map', 'protect', 'operations', 'settings'];
+export const modes: Mode[] = ['command', 'charting', 'greeks', 'directives', 'protect', 'operations', 'settings'];
 
 export const modeLabel = (mode: Mode) => {
-  if (mode === 'market-map') return 'Market Map';
+  if (mode === 'charting') return 'Charting';
+  if (mode === 'greeks') return 'Greeks';
+  if (mode === 'directives') return 'Directives';
   if (mode === 'protect') return 'Protect';
   if (mode === 'operations') return 'Ops';
   return mode;

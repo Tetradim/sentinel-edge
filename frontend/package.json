@@ -7,6 +7,8 @@
     "dev": "vite",
     "start": "vite --host 0.0.0.0 --port 3000",
     "build": "tsc && vite build",
+    "test:layout": "node --test tests/asset-command-monitor-layout.test.mjs",
+    "test:bundle": "node --test tests/bundle-budget.test.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
@@ -18,7 +20,6 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-is": "^19.2.5",
-    "react-plotly.js": "^2.6.0",
     "recharts": "^3.8.1",
     "zustand": "^5.0.12"
   },

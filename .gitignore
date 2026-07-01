@@ -24,6 +24,7 @@ backend/.venv/
 # Local verification artifacts
 test_reports/
 verification-summary.json
+.superpowers/
 
 # Local runtime state
 /data/

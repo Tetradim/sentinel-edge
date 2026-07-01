@@ -166,6 +166,24 @@ const PULSE_FIELD_SEMANTIC_PRIORITY_KEYS = [
   'strategy_context_values',
 ];
 
+const AUTOMATION_MODE_OPTIONS: { value: AutomationSettings['mode']; label: string; detail: string }[] = [
+  {
+    value: 'recommend_only',
+    label: 'Observe',
+    detail: 'Calculate, explain, and show recommendations without sending bot directives.',
+  },
+  {
+    value: 'paper',
+    label: 'Advise',
+    detail: 'Send gated advisory directives to connected bots after confidence and cooldown checks pass.',
+  },
+  {
+    value: 'live',
+    label: 'Enforce',
+    detail: 'Operator-gated directive enforcement for connected bots; Edge still does not place broker orders.',
+  },
+];
+
 const isSecretField = (key: string) => {
   const normalized = key.toLowerCase();
   return normalized.includes('api_key') || normalized.includes('secret') || normalized.includes('token');
@@ -487,42 +505,52 @@ export function SettingsDashboard() {
         </div>
       )}
 
-      {/* Autonomous Pulse Handoff */}
+      {/* Advisory Pulse Bridge */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5 text-red-400" />
-          Autonomous Pulse Handoff
+          Advisory Pulse Bridge
         </h3>
         <p className="text-sm text-gray-400 mb-4">
-          Edge can recommend continuously, but Pulse commands are sent only when the global switch and each ticker switch allow it. Turning global handoff off preserves ticker choices.
+          Edge calculates support, resistance, breakout risk, sizing pressure, and block/stop recommendations. It does not place orders from this panel.
         </p>
 
         {!automation ? (
-          <div className="text-sm text-gray-500">Automation settings unavailable until the backend is running.</div>
+          <div className="text-sm text-gray-500">Advisory bridge settings unavailable until the backend is running.</div>
         ) : (
           <div className="space-y-5">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-                <div className="text-sm font-medium text-gray-300">Global handoff</div>
+                <div className="text-sm font-medium text-gray-300">Global advisory bridge</div>
                 <button
                   onClick={() => saveAutomation({ global_enabled: !automation.global_enabled })}
                   className={`mt-3 w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors ${automation.global_enabled ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
                 >
-                  {automation.global_enabled ? 'Enabled' : 'Disabled'}
+                  {automation.global_enabled ? 'Advisory on' : 'Advisory off'}
                 </button>
               </div>
 
               <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-                <label className="text-sm font-medium text-gray-300">Mode</label>
+                <label className="text-sm font-medium text-gray-300">Operating posture</label>
                 <select
                   value={automation.mode}
                   onChange={(event) => saveAutomation({ mode: event.target.value as AutomationSettings['mode'] })}
                   className="mt-3 w-full rounded-lg border border-gray-600 bg-gray-950 px-3 py-2 text-sm text-white"
                 >
-                  <option value="recommend_only">Recommend only</option>
-                  <option value="paper">Paper</option>
-                  <option value="live">Live</option>
+                  {AUTOMATION_MODE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
+                <div className="mt-2 text-xs text-gray-500">{formatAutomationModeDetail(automation.mode)}</div>
+                {automation.mode !== 'recommend_only' && (
+                  <button
+                    type="button"
+                    onClick={() => saveAutomation({ mode: 'recommend_only' })}
+                    className="mt-2 w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300"
+                  >
+                    Return to Observe
+                  </button>
+                )}
               </div>
 
               <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
@@ -554,8 +582,8 @@ export function SettingsDashboard() {
             <div>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Ticker handoff switches</h4>
-                  <p className="text-xs text-gray-500">Per-ticker preferences are preserved even when global handoff is disabled.</p>
+                  <h4 className="text-sm font-semibold text-white">Ticker advisory switches</h4>
+                  <p className="text-xs text-gray-500">Per-ticker advisory permissions are preserved even when the global bridge is disabled.</p>
                 </div>
                 <button
                   onClick={() => saveAutomation({ default_ticker_enabled: !automation.default_ticker_enabled })}
@@ -575,7 +603,7 @@ export function SettingsDashboard() {
                       className={`rounded-lg border px-4 py-3 text-left transition-colors ${enabled ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-gray-700 bg-gray-900/50 text-gray-400 hover:bg-gray-800'}`}
                     >
                       <div className="font-medium">{symbol}</div>
-                      <div className="mt-1 text-xs">{enabled ? 'Handoff allowed when global is on' : 'Recommendations only'}</div>
+                      <div className="mt-1 text-xs">{enabled ? 'Advisory bridge allowed when global is on' : 'Recommendations only'}</div>
                     </button>
                   );
                 })}
@@ -585,14 +613,14 @@ export function SettingsDashboard() {
         )}
       </div>
 
-      {/* Pulse Handoff Contract */}
+      {/* Pulse Advisory Contract */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <ShieldAlert className="w-5 h-5 text-cyan-400" />
-          Pulse handoff contract
+          Pulse advisory contract
         </h3>
         <p className="text-sm text-gray-400 mb-4">
-          Read-only discovery for PULSE_HANDOFF_ENDPOINT so Edge and Pulse agree on the structured handoff envelope before paper or live automation runs.
+          Read-only discovery for PULSE_HANDOFF_ENDPOINT so Edge and Pulse agree on the structured advisory envelope before bridge messages run.
         </p>
 
         {!pulseHandoffContract ? (
@@ -708,7 +736,7 @@ export function SettingsDashboard() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <RuntimeDetail label="schema_version" value={notificationsStatus.schema_version || '--'} />
-              <RuntimeDetail label="mode" value={notificationsStatus.mode || '--'} />
+              <RuntimeDetail label="mode" value={formatOperatorFacingMode(notificationsStatus.mode)} />
               <RuntimeDetail label="secret_values" value={notificationsStatus.secret_values || '--'} />
               <RuntimeDetail
                 label="configured"
@@ -822,7 +850,7 @@ export function SettingsDashboard() {
                         </div>
                       </dl>
                       {action.paper_live_semantics && (
-                        <div className="mt-2 text-xs text-gray-500">{action.paper_live_semantics}</div>
+                        <div className="mt-2 text-xs text-gray-500">{formatOperatorFacingModeText(action.paper_live_semantics)}</div>
                       )}
                     </div>
                   ))}
@@ -1017,6 +1045,25 @@ const RuntimeDetail: React.FC<{ label: string; value: string }> = ({ label, valu
 
 function formatPulseContractLabel(value: string) {
   return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatAutomationModeDetail(mode: AutomationSettings['mode']) {
+  return AUTOMATION_MODE_OPTIONS.find((option) => option.value === mode)?.detail || 'Advisory posture unavailable.';
+}
+
+function formatOperatorFacingMode(mode?: string) {
+  if (!mode) return '--';
+  if (mode === 'recommend_only') return 'Observe';
+  if (mode === 'paper') return 'Advise';
+  if (mode === 'live') return 'Enforce';
+  return mode.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatOperatorFacingModeText(value: string) {
+  return value
+    .replace(/\bpaper\b/gi, 'advisory')
+    .replace(/\blive\b/gi, 'enforced')
+    .replace(/\btrading\b/gi, 'bot control');
 }
 
 function formatPulseContractBoolean(value?: boolean) {

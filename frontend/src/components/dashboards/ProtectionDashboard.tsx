@@ -166,8 +166,8 @@ export const ProtectionDashboard: React.FC = () => {
   const handoffBlocked = state.ready ? !runtimeReady : true;
   const readinessGuardTitle = state.ready ? 'Readiness blockers' : 'Readiness unavailable';
   const readinessGuardMessage = state.ready
-    ? 'Edge runtime must be ready before enabling paper handoff.'
-    : 'Unable to confirm Edge runtime readiness. Refresh or check /api/ready before enabling paper handoff.';
+    ? 'Edge runtime must be ready before enabling advisory bridge messages.'
+    : 'Unable to confirm Edge runtime readiness. Refresh or check /api/ready before enabling advisory bridge messages.';
   const readinessCheckedAt = formatAge(state.ready?.timestamp || null);
 
   const positionStats = useMemo(() => {
@@ -206,14 +206,6 @@ export const ProtectionDashboard: React.FC = () => {
     global_enabled: false,
     mode: 'recommend_only',
   }));
-
-  const enablePaperHandoff = () => {
-    if (handoffBlocked) return;
-    runGuardedAction('automation', () => api.updateAutomationSettings({
-      global_enabled: true,
-      mode: 'paper',
-    }));
-  };
 
   const enableTrailing = (symbol: string) => {
     if (!window.confirm(`Enable a ${trailingPercent.toFixed(2)}% trailing stop for ${symbol} through Pulse?`)) return;
@@ -255,7 +247,7 @@ export const ProtectionDashboard: React.FC = () => {
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
           <span>Updated: {state.refreshedAt || 'not yet'}</span>
           <span>Circuit: {circuitState}</span>
-          <span>Mode: {automationSettings.mode || 'recommend_only'}</span>
+          <span>Mode: {formatAutomationMode(automationSettings.mode)}</span>
         </div>
         {state.error && <p role="alert" className="mt-3 text-sm text-red-300">{state.error}</p>}
         {actionError && <p className="mt-3 text-sm text-red-300">{actionError}</p>}
@@ -396,11 +388,11 @@ export const ProtectionDashboard: React.FC = () => {
         <section className="rounded-xl border border-gray-800 bg-gradient-to-br from-gray-900/90 to-gray-800/50 p-6">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-white">
             <SlidersHorizontal className="h-5 w-5 text-blue-400" />
-            Handoff Mode
+            Advisory Bridge
           </h3>
           <dl className="mt-4 space-y-3 text-sm">
             <ProtectionDetail label="Automation" value={automationEnabled ? 'Enabled' : 'Recommend only'} />
-            <ProtectionDetail label="Mode" value={automationSettings.mode || 'recommend_only'} />
+            <ProtectionDetail label="Mode" value={formatAutomationMode(automationSettings.mode)} />
             <ProtectionDetail label="Min confidence" value={String(automationSettings.min_confidence ?? 0.6)} />
             <ProtectionDetail label="Cooldown" value={`${automationSettings.cooldown_seconds ?? 0}s`} />
           </dl>
@@ -413,14 +405,9 @@ export const ProtectionDashboard: React.FC = () => {
             >
               Recommend only
             </button>
-            <button
-              type="button"
-              onClick={enablePaperHandoff}
-              disabled={busyAction === 'automation' || handoffBlocked}
-              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
-            >
-              Enable paper handoff
-            </button>
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-200">
+              Advisory bridge only
+            </div>
           </div>
           <div className="mt-5 grid gap-3">
             <HandoffEventCard
@@ -436,7 +423,7 @@ export const ProtectionDashboard: React.FC = () => {
             />
           </div>
           <div className="mt-5 rounded-lg border border-gray-800 bg-gray-950/50 p-3 text-xs text-gray-400">
-            Live mode is intentionally not enabled from this tab. Use Settings after reviewing ticker-level permissions.
+            Brokerage execution is intentionally not exposed from Sentinel Edge. This panel only controls calculation visibility, suppression, and advisory bridge status.
           </div>
         </section>
       </div>
@@ -648,3 +635,8 @@ const ProtectionDetail: React.FC<{ label: string; value: string }> = ({ label, v
     <dd className="font-medium text-white">{value}</dd>
   </div>
 );
+
+function formatAutomationMode(mode: unknown) {
+  if (mode === 'recommend_only' || !mode) return 'Recommend only';
+  return 'Advisory bridge only';
+}

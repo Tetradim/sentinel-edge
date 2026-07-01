@@ -32,5 +32,40 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['zustand', 'framer-motion', 'lucide-react'],
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const normalizedId = id.replaceAll('\\', '/');
+            if (!normalizedId.includes('/node_modules/')) return undefined;
+
+            const nodeModulePath = normalizedId.split('/node_modules/').pop() ?? normalizedId;
+            const packagePath = nodeModulePath.startsWith('.vite/deps/')
+              ? nodeModulePath.slice('.vite/deps/'.length)
+              : nodeModulePath;
+            if (
+              packagePath === 'react.js' ||
+              packagePath.startsWith('react/') ||
+              packagePath.startsWith('react_') ||
+              packagePath.startsWith('react-dom') ||
+              packagePath.startsWith('scheduler/')
+            ) {
+              return 'vendor-react';
+            }
+            if (
+              packagePath.startsWith('plotly') ||
+              packagePath.startsWith('react-plotly') ||
+              packagePath.startsWith('recharts')
+            ) {
+              return 'vendor-charts';
+            }
+            if (packagePath.startsWith('lucide-react')) return 'vendor-icons';
+            if (packagePath.startsWith('framer-motion')) return 'vendor-motion';
+            if (packagePath.startsWith('zustand')) return 'vendor-state';
+            return 'vendor';
+          },
+        },
+      },
+    },
   };
 });

@@ -28,11 +28,9 @@ export function useAssetCommandState() {
   const eventFilterCounts: Record<EventFilter, number> = {
     all: events.length,
     selected: events.filter((event) => event.symbol === selected.symbol).length,
-    system: events.filter((event) => event.symbol === 'EDGE' || event.symbol === 'PROTECT').length,
   };
   const visibleEvents = events.filter((event) => {
     if (eventFilter === 'selected') return event.symbol === selected.symbol;
-    if (eventFilter === 'system') return event.symbol === 'EDGE' || event.symbol === 'PROTECT';
     return true;
   });
 
@@ -111,7 +109,7 @@ export function useAssetCommandState() {
   const runCommand = (action: string) => {
     const labels: Record<string, string> = {
       arm: 'Arm Trigger',
-      backtest: 'Backtest Window',
+      'risk sweep': 'Risk Sweep',
       alert: 'Convert to Alert',
       mute: 'Mute Watch',
     };

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentinel Edge — Live Risk Brain UI</title>
+<style>
+:root{
+  --bg-void:#06060b;
+  --bg-deep:#08091c;
+  --bg-card:#0c0d1a;
+  --bg-card-2:#101126;
+  --border-soft:rgba(201,162,39,0.16);
+  --border-hot:rgba(240,199,94,0.42);
+  --gold:#C9A227;
+  --gold-bright:#F0C75E;
+  --purple:#4525B5;
+  --purple-2:#6c4dff;
+  --purple-soft:rgba(69,37,181,0.38);
+  --text-1:#ECEAF6;
+  --text-2:#A09EB7;
+  --text-3:#5A5870;
+  --green:#28D17C;
+  --green-soft:rgba(40,209,124,0.14);
+  --red:#FF4D5E;
+  --red-soft:rgba(255,77,94,0.14);
+  --amber:#FFB84D;
+  --amber-soft:rgba(255,184,77,0.14);
+  --cyan:#00D5FF;
+  --cyan-soft:rgba(0,213,255,0.13);
+  --font-head:'Space Grotesk','Inter','Segoe UI',system-ui,sans-serif;
+  --font-ui:'Rajdhani','Inter','Segoe UI',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','SFMono-Regular','Consolas',monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg-void);color:var(--text-1)}
+body{
+  font-family:var(--font-ui);
+  overflow:hidden;
+  background-image:
+    radial-gradient(circle at 18% 9%, rgba(69,37,181,.28), transparent 31%),
+    radial-gradient(circle at 92% 0%, rgba(201,162,39,.16), transparent 24%),
+    linear-gradient(60deg, rgba(201,162,39,.026) 25%, transparent 25.5%, transparent 75%, rgba(201,162,39,.026) 75.5%),
+    linear-gradient(-60deg, rgba(201,162,39,.023) 25%, transparent 25.5%, transparent 75%, rgba(201,162,39,.023) 75.5%);
+  background-size:auto, auto, 70px 121px, 70px 121px;
+}
+button,input,select{font:inherit}
+button{border:0}
+.app-shell{height:100vh;display:grid;grid-template-columns:260px minmax(0,1fr);overflow:hidden}
+.sidebar{
+  position:relative;
+  background:linear-gradient(180deg, rgba(12,13,26,.98), rgba(6,6,11,.96));
+  border-right:1px solid var(--border-soft);
+  padding:18px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  min-height:0;
+}
+.sidebar:before{
+  content:"";
+  position:absolute;inset:0 0 auto; height:2px;
+  background:linear-gradient(90deg, transparent, var(--purple), var(--gold-bright), transparent);
+  pointer-events:none;
+}
+.brand{display:flex;gap:12px;align-items:center;padding:4px 4px 12px;border-bottom:1px solid rgba(201,162,39,.11)}
+.logo{
+  width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 35%, rgba(240,199,94,.28), rgba(69,37,181,.26) 50%, rgba(8,9,28,.95) 80%);
+  border:1px solid rgba(240,199,94,.28);box-shadow:0 0 28px -9px var(--purple-2), inset 0 0 25px rgba(240,199,94,.08)
+}
+.logo svg{width:28px;height:28px;filter:drop-shadow(0 0 8px rgba(240,199,94,.45))}
+.brand h1{margin:0;font:700 20px/1 var(--font-head);letter-spacing:.05em;text-transform:uppercase}
+.brand p{margin:4px 0 0;color:var(--text-2);font:600 12px/1 var(--font-ui);letter-spacing:.08em;text-transform:uppercase}
+.nav{display:grid;gap:7px}
+.nav button,.glass-btn{
+  display:flex;align-items:center;gap:10px;width:100%;height:38px;padding:0 12px;border-radius:9px;
+  color:var(--text-2);background:rgba(255,255,255,.025);border:1px solid transparent;cursor:pointer;
+  transition:.16s ease;color:var(--text-2);text-align:left
+}
+.nav button:hover,.glass-btn:hover{color:var(--gold-bright);border-color:rgba(201,162,39,.26);background:rgba(201,162,39,.07)}
+.nav button.active{color:var(--text-1);border-color:rgba(240,199,94,.32);background:linear-gradient(90deg,rgba(69,37,181,.36),rgba(201,162,39,.08));box-shadow:0 0 22px -16px var(--gold-bright) inset}
+.nav svg,.glass-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9}
+.side-card{
+  position:relative;border:1px solid var(--border-soft);border-radius:14px;background:rgba(12,13,26,.78);
+  padding:13px;box-shadow:0 18px 45px -30px black;overflow:hidden
+}
+.side-card:before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.65}
+.side-card h3{margin:0 0 10px;font:700 12px/1.1 var(--font-head);text-transform:uppercase;letter-spacing:.08em;color:var(--text-2)}
+.status-line{display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-2);padding:7px 0;border-bottom:1px solid rgba(255,255,255,.055)}
+.status-line:last-child{border-bottom:0;padding-bottom:0}
+.pulse-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.48;transform:scale(.82)}}
+.side-footer{margin-top:auto;display:grid;gap:10px}
+.core-mode{display:flex;align-items:center;gap:8px;color:var(--green);font:700 13px var(--font-ui);text-transform:uppercase;letter-spacing:.08em}
+.main{min-width:0;overflow:auto;padding:14px 16px 18px;scrollbar-color:rgba(240,199,94,.35) transparent}
+.topbar{
+  position:sticky;top:0;z-index:20;margin:-14px -16px 14px;padding:13px 16px 12px;
+  background:linear-gradient(180deg, rgba(6,6,11,.96), rgba(6,6,11,.87));
+  border-bottom:1px solid var(--border-soft);backdrop-filter:blur(12px);
+  display:grid;grid-template-columns:minmax(250px,1fr) auto;gap:12px;align-items:center
+}
+.mission{display:flex;align-items:center;gap:12px;min-width:0}.mission h2{margin:0;font:700 18px var(--font-head);letter-spacing:.05em;text-transform:uppercase}.mission p{margin:2px 0 0;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.mission .slash{width:2px;height:34px;background:linear-gradient(var(--purple),var(--gold-bright));border-radius:4px;box-shadow:0 0 15px rgba(240,199,94,.5)}
+.top-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}.select-wrap{position:relative}.select-wrap select,.chip-input{
+  height:36px;border-radius:9px;background:rgba(8,9,28,.92);border:1px solid var(--border-soft);color:var(--text-1);padding:0 34px 0 12px;outline:0;min-width:104px;font-weight:700
+}.chip-input{min-width:92px;padding:0 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--gold-bright)}
+.segment{display:flex;border:1px solid var(--border-soft);border-radius:10px;overflow:hidden;height:36px;background:rgba(8,9,28,.8)}.segment button{min-width:58px;padding:0 12px;background:transparent;color:var(--text-2);cursor:pointer;border-right:1px solid rgba(201,162,39,.14);font-weight:700;letter-spacing:.03em}.segment button:last-child{border-right:0}.segment button.active{background:linear-gradient(180deg,rgba(69,37,181,.85),rgba(69,37,181,.48));color:#fff;box-shadow:inset 0 0 18px rgba(240,199,94,.08)}
+.action-btn{
+  height:36px;border-radius:10px;padding:0 13px;background:rgba(255,255,255,.03);border:1px solid var(--border-soft);color:var(--text-1);cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.02em;transition:.16s ease
+}.action-btn:hover{background:rgba(201,162,39,.08);border-color:rgba(240,199,94,.35);color:var(--gold-bright)}.action-btn.live{color:var(--green);border-color:rgba(40,209,124,.28);background:rgba(40,209,124,.07)}.action-btn.danger{color:var(--red);border-color:rgba(255,77,94,.28);background:rgba(255,77,94,.07)}.action-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.kpi-row{display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px;margin-bottom:10px}.kpi{
+  min-height:91px;border:1px solid var(--border-soft);border-radius:14px;background:linear-gradient(180deg,rgba(12,13,26,.94),rgba(8,9,28,.82));padding:12px 13px;position:relative;overflow:hidden;box-shadow:0 18px 50px -36px rgba(0,0,0,.8)
+}.kpi:after{content:"";position:absolute;right:-30px;bottom:-34px;width:110px;height:76px;background:radial-gradient(circle,rgba(69,37,181,.28),transparent 66%);pointer-events:none}.kpi label{display:flex;gap:6px;align-items:center;color:var(--text-2);font:700 11px var(--font-head);text-transform:uppercase;letter-spacing:.08em}.kpi .value{margin-top:10px;font:800 28px/1 var(--font-head);letter-spacing:-.02em}.kpi .value.small{font-size:23px}.kpi .sub{display:flex;justify-content:space-between;gap:8px;margin-top:8px;color:var(--text-2);font:600 12px var(--font-ui)}.mini-spark{position:absolute;right:10px;bottom:11px;width:78px;height:28px;opacity:.85}.ok{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}.blue{color:var(--cyan)}.gold{color:var(--gold-bright)}
+.grid{display:grid;grid-template-columns:1.18fr .92fr .78fr;grid-auto-rows:minmax(156px,auto);gap:10px;align-items:stretch}.panel{
+  position:relative;border:1px solid var(--border-soft);border-radius:14px;background:linear-gradient(180deg,rgba(12,13,26,.96),rgba(8,9,28,.88));box-shadow:0 20px 65px -44px black;overflow:hidden;min-width:0
+}.panel:before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,rgba(240,199,94,.72),rgba(69,37,181,.65),transparent);opacity:.75}.panel-head{height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;border-bottom:1px solid rgba(201,162,39,.1)}.panel-title{display:flex;align-items:center;gap:8px;min-width:0}.panel-title h3{margin:0;font:700 14px var(--font-head);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.panel-title .meta{color:var(--text-2);font:600 12px var(--font-ui);white-space:nowrap}.panel-tools{display:flex;gap:7px;align-items:center}.icon-btn{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.025);border:1px solid var(--border-soft);color:var(--text-2);cursor:pointer}.icon-btn:hover{color:var(--gold-bright);background:rgba(201,162,39,.08);border-color:rgba(240,199,94,.35)}.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}.panel-body{padding:14px;height:calc(100% - 46px)}
+.heat-panel{grid-column:span 2;min-height:428px}.mesh-panel{min-height:428px}.feed-panel{min-height:348px}.breakout-panel{min-height:306px}.levels-panel{min-height:306px}.rules-panel{min-height:306px}.gamma-panel{grid-column:span 1;min-height:300px}.risk-panel{min-height:300px}.audit-panel{grid-column:span 2;min-height:260px}
+.chart-stage{position:relative;height:100%;min-height:348px;background:#08091c;border:1px solid rgba(201,162,39,.1);border-radius:10px;overflow:hidden}.chart-stage canvas{position:absolute;inset:0;width:100%;height:100%}.chart-tooltip{position:absolute;pointer-events:none;opacity:0;background:rgba(10,10,20,.96);border:1px solid var(--border-soft);box-shadow:0 18px 38px rgba(0,0,0,.48);border-radius:8px;padding:8px 10px;font:12px var(--font-mono);z-index:10;transition:opacity .06s ease;white-space:nowrap}.chart-tooltip.visible{opacity:1}.legend{display:flex;gap:12px;align-items:center;font:700 11px var(--font-ui);color:var(--text-2);flex-wrap:wrap}.leg{display:inline-flex;gap:6px;align-items:center}.leg i{width:8px;height:8px;border-radius:99px;background:var(--gold)}.heat-legend{position:absolute;right:10px;top:50px;z-index:4;display:flex;align-items:center;gap:6px;font:10px var(--font-mono);color:var(--text-2);writing-mode:vertical-rl}.heat-scale{width:12px;height:154px;border:1px solid rgba(255,255,255,.08);border-radius:7px;background:linear-gradient(to top,#08091C 0%,#102A7A 13%,#0C6CBC 30%,#00A8A8 45%,#2ABC5C 58%,#CAD22A 70%,#EB9620 82%,#E64820 92%,#DE1E28 100%);box-shadow:0 0 22px -12px var(--gold-bright)}
+.bot-mesh{position:relative;height:100%;min-height:345px}.brain-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:118px;height:118px;border-radius:32px;display:grid;place-items:center;text-align:center;background:radial-gradient(circle at 50% 35%,rgba(240,199,94,.22),rgba(69,37,181,.35) 48%,rgba(8,9,28,.95) 76%);border:1px solid rgba(240,199,94,.42);box-shadow:0 0 55px -8px rgba(69,37,181,.85), inset 0 0 40px rgba(201,162,39,.08);z-index:2}.brain-core b{font:800 18px var(--font-head);display:block;letter-spacing:.03em}.brain-core span{font:700 10px var(--font-ui);color:var(--gold-bright);text-transform:uppercase;letter-spacing:.12em}.mesh-lines{position:absolute;inset:0;opacity:.9}.bot-node{position:absolute;width:194px;min-height:72px;border:1px solid var(--border-soft);border-radius:13px;background:rgba(12,13,26,.84);display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px;padding:10px;cursor:pointer;transition:.16s ease;box-shadow:0 15px 34px -30px rgba(0,0,0,.95)}.bot-node:hover,.bot-node.active{border-color:rgba(240,199,94,.42);transform:translateY(-1px);box-shadow:0 0 0 1px rgba(240,199,94,.07),0 18px 40px -28px rgba(240,199,94,.4)}.bot-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:900;font-family:var(--font-head);background:rgba(69,37,181,.35);color:#fff;box-shadow:inset 0 0 18px rgba(255,255,255,.05)}.bot-node strong{display:block;font:700 13px var(--font-head);line-height:1.1}.bot-node small{display:block;color:var(--text-2);font:600 11px var(--font-ui);margin-top:2px}.bot-node .bot-state{font:800 11px var(--font-ui);margin-top:5px;text-transform:uppercase;letter-spacing:.08em}.bot-spark{width:38px;height:24px}.node-0{left:5%;top:13%}.node-1{right:5%;top:13%}.node-2{left:2%;top:43%}.node-3{right:3%;top:43%}.node-4{left:5%;bottom:8%}.node-5{right:5%;bottom:8%}.node-6{left:50%;top:0;transform:translateX(-50%)}.node-7{left:50%;bottom:0;transform:translateX(-50%)}
+.feed-list{display:grid;gap:8px;max-height:294px;overflow:auto;padding-right:2px;scrollbar-color:rgba(240,199,94,.34) transparent}.decision{display:grid;grid-template-columns:72px 110px 1fr 64px;gap:9px;align-items:center;padding:10px;border:1px solid rgba(201,162,39,.1);background:rgba(255,255,255,.022);border-radius:10px}.decision .time{font:11px var(--font-mono);color:var(--text-3)}.decision b{font:700 13px var(--font-head)}.decision p{margin:2px 0 0;color:var(--text-2);font:600 12px var(--font-ui)}.tag{display:inline-flex;align-items:center;justify-content:center;height:24px;border-radius:7px;padding:0 9px;font:800 11px var(--font-ui);letter-spacing:.06em;text-transform:uppercase}.tag.allow{background:rgba(40,209,124,.13);color:var(--green);border:1px solid rgba(40,209,124,.25)}.tag.block,.tag.stop,.tag.sell{background:rgba(255,77,94,.13);color:var(--red);border:1px solid rgba(255,77,94,.25)}.tag.reduce,.tag.watch{background:rgba(255,184,77,.13);color:var(--amber);border:1px solid rgba(255,184,77,.26)}.tag.audit{background:rgba(69,37,181,.22);color:#bdb3ff;border:1px solid rgba(108,77,255,.35)}.severity{font:800 11px var(--font-ui);text-transform:uppercase;text-align:right}.severity.high{color:var(--red)}.severity.medium{color:var(--amber)}.severity.low{color:var(--green)}
+.table{width:100%;border-collapse:collapse;font-family:var(--font-ui)}.table th{text-align:left;color:var(--text-2);font:700 11px var(--font-head);letter-spacing:.08em;text-transform:uppercase;padding:0 8px 8px;border-bottom:1px solid rgba(201,162,39,.12)}.table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.055);font:700 13px var(--font-ui)}.table .mono{font-family:var(--font-mono);font-size:12px;color:var(--text-2)}.table tr:hover td{background:rgba(201,162,39,.035)}
+.rules{display:grid;gap:9px}.rule{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border-radius:10px;background:rgba(255,255,255,.024);border:1px solid rgba(201,162,39,.1)}.rule strong{font:700 13px var(--font-head);display:block}.rule span{color:var(--text-2);font-size:12px}.toggle{width:44px;height:24px;border-radius:99px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);padding:2px;cursor:pointer;flex:0 0 auto}.toggle i{display:block;width:18px;height:18px;border-radius:50%;background:var(--text-3);transition:.16s ease}.toggle.on{background:rgba(40,209,124,.16);border-color:rgba(40,209,124,.35)}.toggle.on i{transform:translateX(20px);background:var(--green);box-shadow:0 0 12px var(--green)}
+.risk-stack{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:center;height:100%}.gauge{--p:50;position:relative;width:142px;height:142px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--green) calc(var(--p)*1%), rgba(255,255,255,.07) 0);box-shadow:inset 0 0 0 14px rgba(8,9,28,.95)}.gauge:before{content:"";position:absolute;inset:18px;border-radius:50%;background:rgba(8,9,28,.95);border:1px solid rgba(201,162,39,.1)}.gauge .center{position:relative;text-align:center}.gauge b{font:800 28px var(--font-head)}.gauge span{display:block;color:var(--text-2);font:700 11px var(--font-ui);text-transform:uppercase;letter-spacing:.08em}.risk-bars{display:grid;gap:9px}.metric-row{display:grid;grid-template-columns:100px 1fr 44px;align-items:center;gap:9px;color:var(--text-2);font:700 12px var(--font-ui)}.bar-track{height:7px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}.bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--gold-bright))}
+.audit-stream{height:196px;overflow:auto;border-radius:10px;border:1px solid rgba(201,162,39,.1);background:rgba(8,9,28,.55);padding:10px;font:12px var(--font-mono);color:var(--text-2)}.audit-line{padding:5px 0;border-bottom:1px solid rgba(255,255,255,.045)}.audit-line b{color:var(--gold-bright);font-weight:700}.audit-line .green{color:var(--green)}.audit-line .red{color:var(--red)}.audit-line .amber{color:var(--amber)}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(2,2,8,.78);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;padding:22px}.modal.open{display:flex}.modal-card{width:min(1420px,96vw);height:min(850px,92vh);border-radius:17px;background:linear-gradient(180deg,rgba(12,13,26,.98),rgba(8,9,28,.96));border:1px solid var(--border-hot);box-shadow:0 30px 100px rgba(0,0,0,.7),0 0 90px -30px var(--purple-2);overflow:hidden;display:grid;grid-template-rows:56px 1fr}.modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;border-bottom:1px solid var(--border-soft)}.modal-head h3{margin:0;font:800 18px var(--font-head);text-transform:uppercase;letter-spacing:.06em}.modal-content{display:grid;grid-template-columns:1fr 330px;gap:12px;padding:14px;min-height:0}.modal-chart{position:relative;border-radius:12px;border:1px solid rgba(201,162,39,.14);background:#08091c;overflow:hidden}.modal-chart canvas{position:absolute;inset:0;width:100%;height:100%}.modal-aside{display:grid;grid-template-rows:auto 1fr;gap:12px;min-height:0}.note{border:1px solid rgba(201,162,39,.12);border-radius:12px;background:rgba(255,255,255,.024);padding:12px}.note h4{margin:0 0 9px;font:800 13px var(--font-head);text-transform:uppercase;letter-spacing:.08em}.note p{margin:0;color:var(--text-2);font-size:13px;line-height:1.45}.modal-feed{overflow:auto}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1420px){.kpi-row{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr 1fr}.mesh-panel,.feed-panel,.breakout-panel,.levels-panel,.rules-panel,.gamma-panel,.risk-panel{min-height:320px}.heat-panel,.audit-panel{grid-column:span 2}.decision{grid-template-columns:66px 96px 1fr 54px}.bot-node{width:176px}.modal-content{grid-template-columns:1fr 300px}}
+@media(max-width:980px){body{overflow:auto}.app-shell{height:auto;min-height:100vh;grid-template-columns:1fr}.sidebar{position:relative;min-height:auto}.nav{grid-template-columns:repeat(2,1fr)}.topbar{grid-template-columns:1fr;position:relative}.kpi-row,.grid{grid-template-columns:1fr}.heat-panel,.audit-panel{grid-column:span 1}.modal-content{grid-template-columns:1fr}.modal-card{height:92vh}.modal-aside{display:none}.app-shell{overflow:visible}.main{overflow:visible}.bot-node{position:relative;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;width:100%}.bot-mesh{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:auto}.brain-core,.mesh-lines{display:none}}
+@media(max-width:560px){.main{padding:10px}.topbar{margin:-10px -10px 10px;padding:10px}.kpi-row{grid-template-columns:1fr}.nav{grid-template-columns:1fr}.decision{grid-template-columns:1fr}.severity{text-align:left}.risk-stack{grid-template-columns:1fr;place-items:center}.top-actions{justify-content:flex-start}.segment button{min-width:auto}.modal{padding:8px}.modal-card{width:100%;height:96vh}.panel-body{padding:10px}.chart-stage{min-height:300px}}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Sentinel Edge Navigation">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><path d="M32 5 55 14v16c0 14.5-9.3 24.5-23 29C18.3 54.5 9 44.5 9 30V14L32 5Z" fill="rgba(240,199,94,.14)" stroke="#F0C75E" stroke-width="2"/><path d="M22 28h8V17h4v11h8l-10 14L22 28Z" fill="#28D17C" opacity=".95"/><path d="M19 42h26" stroke="#6c4dff" stroke-width="3" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h1>Sentinel Edge</h1>
+        <p>AI Risk & Control Brain</p>
+      </div>
+    </div>
+
+    <nav class="nav" id="navButtons">
+      <button class="active" data-view="overview"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5v8A1.5 1.5 0 0 1 19.5 21h-15A1.5 1.5 0 0 1 3 19.5z"/><path d="M9 21v-7h6v7"/></svg>Command Center</button>
+      <button data-view="mesh"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 7l3 3m7-3-3 3M7 17l3-3m7 3-3-3"/></svg>Bot Mesh</button>
+      <button data-view="risk"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="m8 12 3 3 5-6"/></svg>Risk Engine</button>
+      <button data-view="levels"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M8 17V7"/><path d="M12 20V4"/><path d="M16 16V8"/><path d="M20 18V6"/></svg>S/R Monitor</button>
+      <button data-view="breakouts"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9"/><path d="M14 6h7v7"/></svg>Breakout Radar</button>
+      <button data-view="policies"><svg viewBox="0 0 24 24"><path d="M7 3h10l4 4v14H7z"/><path d="M17 3v5h5"/><path d="M10 12h7M10 16h7"/></svg>Policies</button>
+      <button data-view="audit"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Audit Log</button>
+      <button data-view="settings"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1.1 1.66V21a2 2 0 0 1-4 0v-.06a1.8 1.8 0 0 0-1.1-1.66 1.8 1.8 0 0 0-2 .36l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.66-1.1H3a2 2 0 0 1 0-4h.06a1.8 1.8 0 0 0 1.66-1.1 1.8 1.8 0 0 0-.36-2l-.04-.04A2 2 0 1 1 7.15 3.7l.04.04a1.8 1.8 0 0 0 2 .36A1.8 1.8 0 0 0 10.3 2.44V2a2 2 0 0 1 4 0v.06a1.8 1.8 0 0 0 1.1 1.66 1.8 1.8 0 0 0 2-.36l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1.8 1.8 0 0 0-.36 2 1.8 1.8 0 0 0 1.66 1.1H21a2 2 0 0 1 0 4h-.06A1.8 1.8 0 0 0 19.4 15Z"/></svg>Settings</button>
+    </nav>
+
+    <section class="side-card">
+      <h3>Sentinel Status</h3>
+      <div class="core-mode"><span class="pulse-dot"></span><span id="sideState">Operational</span></div>
+      <div class="status-line"><span>Mode</span><strong id="sideMode" class="gold">Strict Guard</strong></div>
+      <div class="status-line"><span>Monitored Bots</span><strong id="sideBotCount">8/8</strong></div>
+      <div class="status-line"><span>Decision Bus</span><strong class="ok">Connected</strong></div>
+      <div class="status-line"><span>Brokerage</span><strong class="warn">Read Only</strong></div>
+    </section>
+
+    <section class="side-card">
+      <h3>Guardrail Summary</h3>
+      <div class="status-line"><span>Block Buy</span><strong id="sideBlock" class="bad">0</strong></div>
+      <div class="status-line"><span>Stop Trading</span><strong id="sideStop" class="bad">0</strong></div>
+      <div class="status-line"><span>Reduce Size</span><strong id="sideReduce" class="warn">0</strong></div>
+      <div class="status-line"><span>Allow</span><strong id="sideAllow" class="ok">0</strong></div>
+    </section>
+
+    <div class="side-footer">
+      <button class="glass-btn" id="docBtn"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg> View Decision Contract</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="mission">
+        <div class="slash" aria-hidden="true"></div>
+        <div>
+          <h2>Sentinel Edge Live Control</h2>
+          <p>Non-trading calculation brain: breakouts, support/resistance, risk, and bot permissioning.</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="select-wrap"><select id="symbolSelect" aria-label="Symbol"></select></div>
+        <div class="segment" id="heatMode" role="group" aria-label="Heatmap mode">
+          <button class="active" data-mode="GEX">GEX</button>
+          <button data-mode="VEX">VEX</button>
+          <button data-mode="VOL">VOL</button>
+        </div>
+        <input class="chip-input" id="strictInput" type="text" value="STRICT 72" readonly title="Policy strictness" />
+        <button class="action-btn live" id="pauseBtn"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg><span>Live</span></button>
+        <button class="action-btn" id="sweepBtn"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Run Sweep</button>
+        <button class="action-btn danger" id="injectBtn"><svg viewBox="0 0 24 24"><path d="M12 2 2 22h20z"/><path d="M12 8v6M12 18h.01"/></svg>Inject Break</button>
+        <span class="chip-input" id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <section class="kpi-row" aria-label="KPIs">
+      <article class="kpi"><label>Risk Score</label><div class="value ok" id="riskScore">18</div><div class="sub"><span id="riskTone">Low Risk</span><span id="riskDelta" class="ok">-2.1</span></div><canvas class="mini-spark" id="sparkRisk"></canvas></article>
+      <article class="kpi"><label>Portfolio Health</label><div class="value ok" id="portfolioHealth">92%</div><div class="sub"><span>Bot ecosystem</span><span class="ok">Stable</span></div><canvas class="mini-spark" id="sparkHealth"></canvas></article>
+      <article class="kpi"><label>Active Alerts</label><div class="value warn" id="activeAlerts">3</div><div class="sub"><span>Needs review</span><span id="alertDelta" class="warn">+1</span></div><canvas class="mini-spark" id="sparkAlerts"></canvas></article>
+      <article class="kpi"><label>Blocked Signals</label><div class="value bad" id="blockedSignals">7</div><div class="sub"><span>Last 60 min</span><span class="bad">+3</span></div><canvas class="mini-spark" id="sparkBlocked"></canvas></article>
+      <article class="kpi"><label>Bots Monitored</label><div class="value blue" id="botsMonitored">8/8</div><div class="sub"><span>Decision bus</span><span class="ok">Online</span></div><canvas class="mini-spark" id="sparkBots"></canvas></article>
+      <article class="kpi"><label>Latency</label><div class="value small gold" id="latency">34ms</div><div class="sub"><span>Risk engine</span><span class="ok">Fast</span></div><canvas class="mini-spark" id="sparkLatency"></canvas></article>
+    </section>
+
+    <section class="grid">
+      <article class="panel heat-panel" data-panel="heatmap">
+        <header class="panel-head">
+          <div class="panel-title"><h3>Sentinel Heatmap + Guard Lines</h3><span class="meta" id="heatMeta">SPY · GEX / VEX overlay</span></div>
+          <div class="panel-tools">
+            <div class="legend"><span class="leg"><i style="background:var(--green)"></i>Permission Flow</span><span class="leg"><i style="background:var(--red)"></i>Risk Pressure</span><span class="leg"><i style="background:var(--gold-bright)"></i>Spot</span></div>
+            <button class="icon-btn expand" data-open="heatmap" title="Expand"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          </div>
+        </header>
+        <div class="panel-body">
+          <div class="chart-stage" id="heatStage">
+            <canvas id="heatCanvas"></canvas>
+            <div class="heat-legend"><span>High</span><div class="heat-scale"></div><span>Low</span></div>
+            <div class="chart-tooltip" id="heatTip"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel mesh-panel" data-panel="mesh">
+        <header class="panel-head">
+          <div class="panel-title"><h3>Bot Ecosystem</h3><span class="meta" id="meshFilter">All bots</span></div>
+          <div class="panel-tools"><button class="icon-btn" id="clearBotFilter" title="Clear bot filter"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        </header>
+        <div class="panel-body"><div class="bot-mesh" id="botMesh"><svg class="mesh-lines" id="meshLines"></svg><div class="brain-core"><div><b>EDGE</b><span>Control Brain</span></div></div></div></div>
+      </article>
+
+      <article class="panel feed-panel" data-panel="feed">
+        <header class="panel-head">
+          <div class="panel-title"><h3>Recent Sentinel Decisions</h3><span class="meta" id="feedMeta">Live rule output</span></div>
+          <div class="panel-tools"><button class="icon-btn" id="clearFeed" title="Clear feed"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6v14h8V6M10 10v7M14 10v7M9 6l1-3h4l1 3"/></svg></button></div>
+        </header>
+        <div class="panel-body"><div class="feed-list" id="feedList"></div></div>
+      </article>
+
+      <article class="panel breakout-panel" data-panel="breakout">
+        <header class="panel-head">
+          <div class="panel-title"><h3>Breakout / S-R Radar</h3><span class="meta" id="breakoutMeta">Support and resistance monitor</span></div>
+          <div class="panel-tools"><button class="icon-btn expand" data-open="breakout" title="Expand"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
+        </header>
+        <div class="panel-body"><div class="chart-stage"><canvas id="breakoutCanvas"></canvas><div class="chart-tooltip" id="breakoutTip"></div></div></div>
+      </article>
+
+      <article class="panel levels-panel" data-panel="levels">
+        <header class="panel-head"><div class="panel-title"><h3>Key Levels Monitor</h3><span class="meta">Don't-buy / sell triggers</span></div><div class="panel-tools"><button class="icon-btn expand" data-open="levels" title="Expand"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div></header>
+        <div class="panel-body"><table class="table"><thead><tr><th>Symbol</th><th>Support</th><th>Price</th><th>Resistance</th><th>Status</th></tr></thead><tbody id="levelsBody"></tbody></table></div>
+      </article>
+
+      <article class="panel rules-panel" data-panel="rules">
+        <header class="panel-head"><div class="panel-title"><h3>Policy Stack</h3><span class="meta">Guardrails that tell bots no</span></div><div class="panel-tools"><button class="icon-btn" id="strictUp" title="Raise strictness"><svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg></button><button class="icon-btn" id="strictDown" title="Lower strictness"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button></div></header>
+        <div class="panel-body"><div class="rules" id="rulesList"></div></div>
+      </article>
+
+      <article class="panel gamma-panel" data-panel="gamma">
+        <header class="panel-head"><div class="panel-title"><h3>Gamma by Strike</h3><span class="meta">Permission bias by level</span></div><div class="panel-tools"><button class="icon-btn expand" data-open="gamma" title="Expand"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div></header>
+        <div class="panel-body"><div class="chart-stage"><canvas id="gammaCanvas"></canvas><div class="chart-tooltip" id="gammaTip"></div></div></div>
+      </article>
+
+      <article class="panel risk-panel" data-panel="risk">
+        <header class="panel-head"><div class="panel-title"><h3>Risk Exposure</h3><span class="meta">Composite constraints</span></div><div class="panel-tools"><button class="icon-btn expand" data-open="risk" title="Expand"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div></header>
+        <div class="panel-body"><div class="risk-stack"><div class="gauge" id="riskGauge"><div class="center"><b id="riskGaugeValue">18</b><span>Total Risk</span></div></div><div class="risk-bars" id="riskBars"></div></div></div>
+      </article>
+
+      <article class="panel audit-panel" data-panel="audit">
+        <header class="panel-head"><div class="panel-title"><h3>Audit Trail</h3><span class="meta">Every advisory decision logged</span></div><div class="panel-tools"><button class="icon-btn" id="exportLog" title="Download log"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg></button></div></header>
+        <div class="panel-body"><div class="audit-stream" id="auditStream"></div></div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-card">
+    <header class="modal-head"><h3 id="modalTitle">Expanded Sentinel Window</h3><div class="top-actions"><button class="action-btn" id="modalSweep"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Recalculate</button><button class="action-btn" id="modalClose">Close</button></div></header>
+    <div class="modal-content">
+      <div class="modal-chart"><canvas id="modalCanvas"></canvas><div class="chart-tooltip" id="modalTip"></div></div>
+      <aside class="modal-aside">
+        <div class="note"><h4 id="modalNoteTitle">Sentinel Readout</h4><p id="modalNote">Expanded view uses the same live data stream and rule engine as the command center.</p></div>
+        <div class="note modal-feed"><h4>Decision Context</h4><div class="feed-list" id="modalFeed"></div></div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const COLOR_STOPS = [
+    {t:0.00,c:[8,9,28]},{t:0.13,c:[16,42,122]},{t:0.30,c:[12,108,188]},
+    {t:0.45,c:[0,168,168]},{t:0.58,c:[42,188,92]},{t:0.70,c:[202,210,42]},
+    {t:0.82,c:[235,150,32]},{t:0.92,c:[230,72,32]},{t:1.00,c:[222,30,40]}
+  ];
+  const BOT_DEFS = [
+    {id:'auto', name:'Auto-Crypto', role:'Crypto Trading', icon:'₿', color:'#F0A236', symbols:['BTC-USD','ETH-USD']},
+    {id:'futures', name:'Futures Bot', role:'Futures Monitoring', icon:'↗', color:'#4D8DFF', symbols:['ESU6','NQU6']},
+    {id:'tandem', name:'Tandem Suite', role:'Options Flow', icon:'∞', color:'#00D5FF', symbols:['SPY','QQQ']},
+    {id:'darkpool', name:'Darkpool Mon', role:'Dark Pool Monitor', icon:'◉', color:'#9B68FF', symbols:['SPY','TSLA','NVDA']},
+    {id:'consolidation', name:'Consolidation', role:'Data Aggregator', icon:'▣', color:'#28D17C', symbols:['SPY','QQQ','TSLA','BTC-USD']},
+    {id:'apk', name:'APK Alerts', role:'Mobile Alerts', icon:'!', color:'#FF4D5E', symbols:['SPY','QQQ','ESU6']},
+    {id:'pulse', name:'Sentinel Pulse', role:'Market Intelligence', icon:'ψ', color:'#B36BFF', symbols:['SPY','QQQ','BTC-USD','ESU6']},
+    {id:'extension', name:'Extension External', role:'Browser Extension', icon:'✚', color:'#F0C75E', symbols:['SPY','QQQ','TSLA','NVDA']}
+  ];
+  const SYMBOL_SEEDS = [
+    {sym:'SPY', bot:'tandem', price:603.47, support:598.50, resistance:604.25, vol:0.35},
+    {sym:'QQQ', bot:'tandem', price:492.18, support:488.50, resistance:496.75, vol:0.42},
+    {sym:'TSLA', bot:'darkpool', price:228.45, support:213.20, resistance:237.80, vol:1.45},
+    {sym:'NVDA', bot:'darkpool', price:159.32, support:154.40, resistance:162.80, vol:0.85},
+    {sym:'ESU6', bot:'futures', price:6023.25, support:5950.00, resistance:6050.00, vol:2.75},
+    {sym:'NQU6', bot:'futures', price:22114.50, support:21950.00, resistance:22340.00, vol:9.5},
+    {sym:'BTC-USD', bot:'auto', price:106782, support:103250, resistance:108500, vol:96},
+    {sym:'ETH-USD', bot:'auto', price:3892, support:3740, resistance:4025, vol:8.5}
+  ];
+  const RULES = [
+    {id:'srBreak', name:'Support Break Lockout', desc:'Tell bots to sell / stop trading after confirmed support failure', on:true},
+    {id:'resistanceNoBuy', name:'Resistance Do-Not-Buy', desc:'Block new buys when price is extended into resistance', on:true},
+    {id:'volThrottle', name:'Volatility Throttle', desc:'Reduce size when realized volatility expands beyond policy', on:true},
+    {id:'liquidityGate', name:'Liquidity Gate', desc:'Block thin-liquidity entries and unstable prints', on:true},
+    {id:'correlationCap', name:'Correlation Cap', desc:'Prevent bots from stacking the same market exposure', on:true},
+    {id:'newsLock', name:'Event / News Lockout', desc:'Temporary halt during high-impact event windows', on:false}
+  ];
+
+  const state = {
+    live:true, heatMode:'GEX', selected:'SPY', strictness:72, filterBot:'all', tick:0, modalType:null,
+    symbols:{}, histories:{}, decisions:[], audit:[], rules:JSON.parse(JSON.stringify(RULES)), kpiHistory:{risk:[],health:[],alerts:[],blocked:[],bots:[],latency:[]}
+  };
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+  const fmt = (n,d=2)=>Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const money = n => Math.abs(n)>=1000000 ? (n/1000000).toFixed(1)+'M' : Math.abs(n)>=1000 ? (n/1000).toFixed(1)+'K' : n.toFixed(0);
+  const rnd = (min=0,max=1)=>min+Math.random()*(max-min);
+  function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+  function nowTime(){return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});}
+  function colorMix(t){
+    t=clamp(t,0,1);
+    for(let i=0;i<COLOR_STOPS.length-1;i++){
+      const a=COLOR_STOPS[i], b=COLOR_STOPS[i+1];
+      if(t>=a.t && t<=b.t){const lt=(t-a.t)/((b.t-a.t)||1);return [0,1,2].map(k=>Math.round(a.c[k]+(b.c[k]-a.c[k])*lt));}
+    }
+    return COLOR_STOPS[COLOR_STOPS.length-1].c;
+  }
+  function fitCanvas(canvas){
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1,Math.floor(rect.width*dpr));
+    canvas.height = Math.max(1,Math.floor(rect.height*dpr));
+    canvas.style.width = rect.width+'px'; canvas.style.height = rect.height+'px';
+    const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {ctx,w:rect.width,h:rect.height};
+  }
+  function drawGrid(ctx,w,h,pad={l:42,r:18,t:20,b:34}){
+    ctx.save(); ctx.strokeStyle='rgba(236,234,246,.075)'; ctx.lineWidth=1;
+    for(let i=0;i<=6;i++){const x=pad.l+(w-pad.l-pad.r)*i/6; ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke();}
+    for(let j=0;j<=4;j++){const y=pad.t+(h-pad.t-pad.b)*j/4; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();}
+    ctx.restore();
+  }
+  function drawPath(ctx, pts, color, width=2, dash=null){
+    if(!pts.length) return;
+    ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineJoin='round'; ctx.lineCap='round'; if(dash) ctx.setLineDash(dash);
+    ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); ctx.restore();
+  }
+  function statusClass(status){return status==='Allow'?'ok':status==='Stop Trading'||status==='Sell' || status==='Block Buy'?'bad':'warn'}
+
+  function initData(){
+    SYMBOL_SEEDS.forEach(seed=>{
+      state.symbols[seed.sym] = {...seed, momentum:0, volume:rnd(40,120), risk:18, status:'Allow', lastDecision:'ALLOW', changed:0, liq:rnd(.72,.96), driftBias:rnd(-0.05,0.05)};
+      state.histories[seed.sym] = {price:[],support:[],resistance:[],volume:[],permission:[],pressure:[],risk:[],gamma:[]};
+      for(let i=0;i<160;i++) stepSymbol(seed.sym, true);
+    });
+    ['ALLOW','WATCH','BLOCK_BUY','REDUCE_SIZE','STOP_TRADING','ALLOW','WATCH','BLOCK_BUY'].forEach((kind,i)=>addDecision(pick(Object.keys(state.symbols)), kind, i===0));
+  }
+  function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+  function stepSymbol(sym, warm=false){
+    const s=state.symbols[sym], hist=state.histories[sym];
+    const pressureBias = (s.price-s.support)/(s.resistance-s.support||1)-0.5;
+    const noise = gauss()*s.vol*(warm?0.58:0.26);
+    const meanRev = -pressureBias*s.vol*0.09;
+    const trend = Math.sin((state.tick+(sym.charCodeAt(0)*3))/31)*s.vol*0.055 + s.driftBias;
+    const change = noise + meanRev + trend;
+    s.price = Math.max(0.01, s.price + change);
+    s.momentum = clamp((s.momentum*0.82) + change/(s.vol||1)*10, -10, 10);
+    if(Math.random()<0.018 && !warm){ s.support += gauss()*s.vol*0.3; s.resistance += gauss()*s.vol*0.3; }
+    if(s.price > s.resistance + s.vol*3){ s.support += s.vol*0.55; s.resistance += s.vol*0.8; }
+    if(s.price < s.support - s.vol*3){ s.support -= s.vol*0.8; s.resistance -= s.vol*0.55; }
+    if(s.support > s.resistance - s.vol*4){ s.support -= s.vol*2; s.resistance += s.vol*2; }
+    s.volume = Math.max(5, (s.volume*0.78 + (40+Math.abs(change)*42+rnd(0,34))*0.22));
+    s.changed = change;
+    const distSupport=(s.price-s.support)/Math.max(1,s.price); const distResistance=(s.resistance-s.price)/Math.max(1,s.price);
+    const volRisk=clamp(Math.abs(s.momentum)*4 + Math.abs(change)/(s.vol||1)*18,0,100);
+    const srRisk = s.price<s.support ? 88 : distSupport<0.004 ? 54 : distResistance<0.004 ? 42 : 14;
+    const liqRisk = (1-s.liq)*45;
+    s.risk = clamp(srRisk*0.52+volRisk*0.32+liqRisk+state.strictness*0.06,0,100);
+    const d = decide(s);
+    s.status = d.status; s.lastDecision=d.kind;
+    hist.price.push(s.price); hist.support.push(s.support); hist.resistance.push(s.resistance); hist.volume.push(s.volume);
+    const permission = clamp(50 + s.momentum*4 - s.risk*0.42 + (d.kind==='ALLOW'?24:0), 0, 100);
+    const pressure = clamp(50 + s.risk*0.55 - s.momentum*3 + (d.kind==='STOP_TRADING'?28:0), 0, 100);
+    hist.permission.push(permission); hist.pressure.push(pressure); hist.risk.push(s.risk); hist.gamma.push(buildGamma(s));
+    for(const k of Object.keys(hist)) while(hist[k].length>180) hist[k].shift();
+    return d;
+  }
+  function decide(s){
+    const rules = Object.fromEntries(state.rules.map(r=>[r.id,r.on]));
+    const distSupport=(s.price-s.support)/Math.max(1,s.price), distResistance=(s.resistance-s.price)/Math.max(1,s.price);
+    if(rules.srBreak && s.price < s.support) return {kind:'STOP_TRADING', status:'Stop Trading', reason:`Support broken at ${fmt(s.support,2)}`, severity:'high'};
+    if(rules.resistanceNoBuy && distResistance < 0.0025) return {kind:'BLOCK_BUY', status:'Block Buy', reason:`Price into resistance ${fmt(s.resistance,2)}`, severity:'high'};
+    if(rules.srBreak && distSupport < 0.003) return {kind:'WATCH', status:'Watch', reason:`Testing support ${fmt(s.support,2)}`, severity:'medium'};
+    if(rules.volThrottle && Math.abs(s.momentum)>7.4) return {kind:'REDUCE_SIZE', status:'Reduce Size', reason:'Volatility/momentum outside guardrail', severity:'medium'};
+    if(rules.liquidityGate && s.liq<0.62) return {kind:'BLOCK_BUY', status:'Block Buy', reason:'Liquidity gate below threshold', severity:'high'};
+    if(s.price > s.resistance && s.momentum > 2.5) return {kind:'ALLOW', status:'Allow', reason:`Breakout confirmed above ${fmt(s.resistance,2)}`, severity:'low'};
+    return {kind:'ALLOW', status:'Allow', reason:'Conditions inside policy envelope', severity:'low'};
+  }
+  function buildGamma(s){
+    const arr=[]; const step = Math.max(1, Math.round(s.price*0.004)); const center = Math.round(s.price/step)*step;
+    for(let i=-10;i<=10;i++){
+      const strike=center+i*step; const dx=(strike-s.price)/(step*4.2); const bell=Math.exp(-dx*dx/2);
+      const call=bell*(45+rnd(-4,8))*(1+Math.max(0,s.momentum)/16);
+      const put=-bell*(42+rnd(-9,7))*(1+Math.max(0,-s.momentum)/14);
+      arr.push({strike,call,put});
+    }
+    return arr;
+  }
+  function injectBreak(){
+    const s=state.symbols[state.selected];
+    const direction = Math.random()>.5 ? 'down' : 'up';
+    if(direction==='down') s.price = s.support - s.vol*rnd(1.1,2.2); else s.price = s.resistance + s.vol*rnd(1.1,2.2);
+    s.momentum += direction==='down' ? -8 : 8;
+    const d = decide(s); addDecision(state.selected, direction==='down'?'STOP_TRADING':'BLOCK_BUY', false, d.reason);
+    logAudit(state.selected, 'EVENT', direction==='down'?'Injected support break':'Injected resistance extension', direction==='down'?'red':'amber');
+    tick(true);
+  }
+  function runSweep(){
+    Object.keys(state.symbols).forEach(sym=>{ const d=decide(state.symbols[sym]); if(d.kind!=='ALLOW' || Math.random()<.28) addDecision(sym,d.kind,false,d.reason); });
+    logAudit('EDGE','SWEEP','Full guardrail recalculation completed','green');
+    renderAll();
+  }
+  function addDecision(sym, kind, silent=false, reason=null){
+    const s=state.symbols[sym] || state.symbols[state.selected]; const d=decide(s); const mapped = kind || d.kind;
+    const actionMap={ALLOW:'ALLOW TRADE',BLOCK_BUY:'BLOCK BUY',STOP_TRADING:'STOP TRADING',REDUCE_SIZE:'REDUCE SIZE',WATCH:'WATCH',SELL:'SELL RISK'};
+    const sev = mapped==='ALLOW'?'low': mapped==='WATCH'||mapped==='REDUCE_SIZE'?'medium':'high';
+    const entry={time:nowTime(),sym:s.sym,bot:s.bot,action:actionMap[mapped]||mapped,kind:mapped,reason:reason||d.reason,severity:sev,price:s.price};
+    state.decisions.unshift(entry); state.decisions=state.decisions.slice(0,42);
+    if(!silent) logAudit(s.sym, entry.action, entry.reason, sev==='high'?'red':sev==='medium'?'amber':'green');
+  }
+  function logAudit(scope, action, msg, tone='green'){
+    state.audit.unshift({time:nowTime(),scope,action,msg,tone}); state.audit=state.audit.slice(0,90);
+  }
+
+  function tick(force=false){
+    state.tick++;
+    if(!state.live && !force) return;
+    let created=0;
+    Object.keys(state.symbols).forEach(sym=>{
+      const prev=state.symbols[sym].lastDecision; const d=stepSymbol(sym);
+      if(d.kind!==prev || (d.kind!=='ALLOW' && Math.random()<.035)){ addDecision(sym,d.kind,true,d.reason); created++; }
+    });
+    if(created) logAudit('EDGE','ROUTE',`${created} advisory events emitted to bot mesh`, created>1?'amber':'green');
+    updateKpiHistory();
+    renderAll();
+  }
+  function updateKpiHistory(){
+    const syms=Object.values(state.symbols); const avg=syms.reduce((a,s)=>a+s.risk,0)/syms.length;
+    const blocked=state.decisions.filter(d=>['BLOCK_BUY','STOP_TRADING','SELL'].includes(d.kind)).length;
+    const alerts=syms.filter(s=>s.status!=='Allow').length;
+    const values={risk:avg, health:100-avg*.74, alerts, blocked, bots:8, latency:18+rnd(0,32)};
+    for(const [k,v] of Object.entries(values)){state.kpiHistory[k].push(v); while(state.kpiHistory[k].length>50) state.kpiHistory[k].shift();}
+  }
+
+  function renderAll(){
+    updateHeader(); renderKpis(); renderBots(); renderFeed(); renderLevels(); renderRules(); renderRisk(); renderAudit();
+    drawHeatmap(); drawBreakout(); drawGamma(); drawSparks(); if(state.modalType) drawModal();
+  }
+  function updateHeader(){
+    $('#clock').textContent=nowTime(); $('#sideMode').textContent = state.strictness>=72?'Strict Guard':state.strictness>=52?'Balanced':'Loose'; $('#strictInput').value='STRICT '+Math.round(state.strictness);
+    $('#heatMeta').textContent=`${state.selected} · ${state.heatMode} / risk overlay`; $('#breakoutMeta').textContent=`${state.selected} support and resistance monitor`;
+    $('#botsMonitored').textContent=`${BOT_DEFS.length}/${BOT_DEFS.length}`; $('#sideBotCount').textContent=`${BOT_DEFS.length}/${BOT_DEFS.length}`;
+    const counts=countDecisions(); $('#sideBlock').textContent=counts.block; $('#sideStop').textContent=counts.stop; $('#sideReduce').textContent=counts.reduce; $('#sideAllow').textContent=counts.allow;
+  }
+  function countDecisions(){return state.decisions.slice(0,30).reduce((a,d)=>{ if(d.kind==='BLOCK_BUY')a.block++; else if(d.kind==='STOP_TRADING')a.stop++; else if(d.kind==='REDUCE_SIZE')a.reduce++; else if(d.kind==='ALLOW')a.allow++; return a;},{block:0,stop:0,reduce:0,allow:0});}
+  function renderKpis(){
+    const syms=Object.values(state.symbols); const avg=syms.reduce((a,s)=>a+s.risk,0)/syms.length; const alerts=syms.filter(s=>s.status!=='Allow').length; const blocked=state.decisions.filter(d=>['BLOCK_BUY','STOP_TRADING','SELL'].includes(d.kind)).length;
+    const riskEl=$('#riskScore'); riskEl.textContent=Math.round(avg); riskEl.className='value '+(avg>65?'bad':avg>38?'warn':'ok'); $('#riskTone').textContent=avg>65?'High Risk':avg>38?'Caution':'Low Risk';
+    $('#portfolioHealth').textContent=Math.round(100-avg*.74)+'%'; $('#activeAlerts').textContent=alerts; $('#blockedSignals').textContent=blocked; $('#latency').textContent=Math.round(18+rnd(0,32))+'ms';
+    $('#alertDelta').textContent = alerts ? '+'+alerts : '0'; $('#riskDelta').textContent = (gauss()>0?'+':'')+gauss().toFixed(1);
+    const status = avg>65?'Containment':avg>38?'Watch Mode':'Operational'; $('#sideState').textContent=status;
+  }
+  function renderBots(){
+    const mesh=$('#botMesh'); $$('.bot-node',mesh).forEach(n=>n.remove());
+    BOT_DEFS.forEach((bot,i)=>{
+      const related=Object.values(state.symbols).filter(s=>bot.symbols.includes(s.sym));
+      const worst=related.reduce((m,s)=>Math.max(m,s.risk),0); const status=worst>66?'Blocked':worst>42?'Watch':'Healthy';
+      const node=document.createElement('div'); node.className=`bot-node node-${i} ${state.filterBot===bot.id?'active':''}`; node.dataset.bot=bot.id;
+      node.innerHTML=`<div class="bot-icon" style="background:radial-gradient(circle at 30% 20%, ${bot.color}55, rgba(69,37,181,.42)); color:${bot.color}">${bot.icon}</div><div><strong>${bot.name}</strong><small>${bot.role}</small><div class="bot-state ${status==='Healthy'?'ok':status==='Watch'?'warn':'bad'}">${status}</div></div><canvas class="bot-spark"></canvas>`;
+      node.addEventListener('click',()=>{state.filterBot=state.filterBot===bot.id?'all':bot.id; $('#meshFilter').textContent=state.filterBot==='all'?'All bots':bot.name; renderAll();});
+      mesh.appendChild(node); drawTinySpark($('canvas',node), related.map(s=>100-s.risk), bot.color);
+    });
+    drawMeshLines();
+  }
+  function drawMeshLines(){
+    const svg=$('#meshLines'); if(!svg) return; const parent=svg.parentElement.getBoundingClientRect(); svg.setAttribute('viewBox',`0 0 ${parent.width} ${parent.height}`); svg.innerHTML='';
+    if(parent.width<400) return;
+    const center={x:parent.width/2,y:parent.height/2};
+    $$('.bot-node',$('#botMesh')).forEach(node=>{const r=node.getBoundingClientRect(); const p={x:r.left-parent.left+r.width/2,y:r.top-parent.top+r.height/2}; const line=document.createElementNS('http://www.w3.org/2000/svg','path'); line.setAttribute('d',`M${center.x} ${center.y} C${center.x} ${p.y}, ${p.x} ${center.y}, ${p.x} ${p.y}`); line.setAttribute('stroke','rgba(240,199,94,.24)'); line.setAttribute('stroke-width','1.2'); line.setAttribute('fill','none'); svg.appendChild(line);});
+  }
+  function renderFeed(container=$('#feedList'), limit=12){
+    const list=container; if(!list) return; list.innerHTML='';
+    const rows=state.decisions.filter(d=>state.filterBot==='all'||d.bot===state.filterBot).slice(0,limit);
+    rows.forEach(d=>{
+      const div=document.createElement('div'); div.className='decision';
+      const kindClass = d.kind==='ALLOW'?'allow':d.kind==='REDUCE_SIZE'?'reduce':d.kind==='WATCH'?'watch':d.kind==='STOP_TRADING'?'stop':'block';
+      div.innerHTML=`<div class="time">${d.time}<br>${d.sym}</div><div class="tag ${kindClass}">${d.action}</div><div><b>${d.reason}</b><p>${BOT_DEFS.find(b=>b.id===d.bot)?.name||'Sentinel'} · price ${fmt(d.price,2)}</p></div><div class="severity ${d.severity}">${d.severity}</div>`;
+      list.appendChild(div);
+    });
+    $('#feedMeta').textContent=state.filterBot==='all'?'Live rule output':`Filtered: ${BOT_DEFS.find(b=>b.id===state.filterBot)?.name}`;
+  }
+  function renderLevels(){
+    const body=$('#levelsBody'); body.innerHTML='';
+    Object.values(state.symbols).forEach(s=>{
+      const tr=document.createElement('tr'); const cls=statusClass(s.status);
+      tr.innerHTML=`<td><strong>${s.sym}</strong></td><td class="mono">${fmt(s.support,2)}</td><td class="mono ${s.changed>=0?'ok':'bad'}">${fmt(s.price,2)}</td><td class="mono">${fmt(s.resistance,2)}</td><td class="${cls}">${s.status}</td>`;
+      tr.addEventListener('click',()=>{state.selected=s.sym; $('#symbolSelect').value=s.sym; renderAll();});
+      body.appendChild(tr);
+    });
+  }
+  function renderRules(){
+    const list=$('#rulesList'); list.innerHTML='';
+    state.rules.forEach(rule=>{
+      const div=document.createElement('div'); div.className='rule';
+      div.innerHTML=`<div><strong>${rule.name}</strong><span>${rule.desc}</span></div><button class="toggle ${rule.on?'on':''}" aria-label="Toggle ${rule.name}"><i></i></button>`;
+      $('button',div).addEventListener('click',()=>{rule.on=!rule.on; logAudit('POLICY', rule.on?'ENABLE':'DISABLE', rule.name, rule.on?'green':'amber'); renderAll();});
+      list.appendChild(div);
+    });
+  }
+  function renderRisk(){
+    const syms=Object.values(state.symbols); const avg=syms.reduce((a,s)=>a+s.risk,0)/syms.length; const gauge=$('#riskGauge'); gauge.style.setProperty('--p', Math.round(avg)); $('#riskGaugeValue').textContent=Math.round(avg);
+    const metrics=[['Market',avg],['Volatility',syms.reduce((a,s)=>a+Math.abs(s.momentum)*6,0)/syms.length],['Liquidity',syms.reduce((a,s)=>a+(1-s.liq)*100,0)/syms.length],['S/R Stress',syms.reduce((a,s)=>a+(s.status==='Allow'?12:s.status==='Watch'?54:84),0)/syms.length],['Correlation',32+rnd(-8,8)]];
+    const box=$('#riskBars'); box.innerHTML=''; metrics.forEach(([name,val])=>{val=clamp(val,0,100); const div=document.createElement('div'); div.className='metric-row'; div.innerHTML=`<span>${name}</span><div class="bar-track"><div class="bar-fill" style="width:${val}%;background:${val>66?'linear-gradient(90deg,var(--amber),var(--red))':val>42?'linear-gradient(90deg,var(--green),var(--amber))':'linear-gradient(90deg,var(--cyan),var(--green))'}"></div></div><strong class="${val>66?'bad':val>42?'warn':'ok'}">${Math.round(val)}%</strong>`; box.appendChild(div);});
+  }
+  function renderAudit(){
+    const stream=$('#auditStream'); stream.innerHTML='';
+    state.audit.slice(0,36).forEach(a=>{const div=document.createElement('div'); div.className='audit-line'; div.innerHTML=`<span>${a.time}</span> · <b>${a.scope}</b> · <span class="${a.tone}">${a.action}</span> · ${a.msg}`; stream.appendChild(div);});
+  }
+
+  function drawHeatmap(canvas=$('#heatCanvas'), tip=$('#heatTip'), expanded=false){
+    const {ctx,w,h}=fitCanvas(canvas); ctx.clearRect(0,0,w,h);
+    const s=state.symbols[state.selected], hist=state.histories[state.selected]; const pad={l:48,r:expanded?42:74,t:24,b:42}; const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
+    const prices=hist.price, vols=hist.volume; if(!prices.length) return;
+    const pMin=Math.min(...prices,...hist.support)-s.vol*5, pMax=Math.max(...prices,...hist.resistance)+s.vol*5; const cols=prices.length, rows=70;
+    const off=document.createElement('canvas'); off.width=cols; off.height=rows; const ox=off.getContext('2d'); const img=ox.createImageData(cols,rows);
+    for(let c=0;c<cols;c++){
+      const price=prices[c], support=hist.support[c], resistance=hist.resistance[c], vol=vols[c];
+      for(let r=0;r<rows;r++){
+        const level=pMax-(r/(rows-1))*(pMax-pMin); const sigma=(pMax-pMin)/13; let intensity=Math.exp(-Math.pow(level-price,2)/(2*sigma*sigma))*(.45+vol/140);
+        intensity += Math.exp(-Math.pow(level-support,2)/(2*Math.pow(sigma*.52,2)))*.30;
+        intensity += Math.exp(-Math.pow(level-resistance,2)/(2*Math.pow(sigma*.48,2)))*.36;
+        if(state.heatMode==='VEX') intensity *= (hist.pressure[c]/78); else if(state.heatMode==='GEX') intensity *= (hist.permission[c]/82); else intensity *= (vol/110);
+        const rgb=colorMix(clamp(intensity,0,1)); const idx=(r*cols+c)*4; img.data[idx]=rgb[0]; img.data[idx+1]=rgb[1]; img.data[idx+2]=rgb[2]; img.data[idx+3]=255;
+      }
+    }
+    ox.putImageData(img,0,0); ctx.save(); ctx.imageSmoothingEnabled=true; ctx.filter='blur(.45px)'; ctx.drawImage(off,pad.l,pad.t,plotW,plotH); ctx.restore();
+    drawGrid(ctx,w,h,pad);
+    const xAt=i=>pad.l+(i/(cols-1))*plotW; const yAt=p=>pad.t+(pMax-p)/(pMax-pMin)*plotH;
+    const pricePts=prices.map((p,i)=>({x:xAt(i),y:yAt(p)})); drawPath(ctx,pricePts,'rgba(240,199,94,.75)',1.4);
+    drawPath(ctx,hist.support.map((p,i)=>({x:xAt(i),y:yAt(p)})),'rgba(40,209,124,.65)',1.1,[5,4]);
+    drawPath(ctx,hist.resistance.map((p,i)=>({x:xAt(i),y:yAt(p)})),'rgba(255,77,94,.68)',1.1,[5,4]);
+    const permPts=hist.permission.map((v,i)=>({x:xAt(i),y:pad.t+plotH-(v/100)*plotH*.82-plotH*.08}));
+    const pressPts=hist.pressure.map((v,i)=>({x:xAt(i),y:pad.t+plotH-(v/100)*plotH*.82-plotH*.08}));
+    drawPath(ctx,permPts,'#28D17C',2.2); drawPath(ctx,pressPts,'#FF4D5E',2.2);
+    const maxVol=Math.max(...vols); const barW=Math.max(1,plotW/cols*.72); vols.forEach((v,i)=>{const bh=(v/maxVol)*(expanded?54:36); ctx.fillStyle=prices[i]>=prices[Math.max(0,i-1)]?'rgba(40,209,124,.72)':'rgba(255,77,94,.72)'; ctx.fillRect(xAt(i)-barW/2,h-pad.b+8-bh,barW,bh);});
+    ctx.save(); ctx.fillStyle='rgba(236,234,246,.62)'; ctx.font='11px JetBrains Mono, Consolas, monospace'; ctx.textAlign='right'; ctx.textBaseline='middle'; for(let j=0;j<=5;j++){const p=pMin+(pMax-pMin)*j/5; ctx.fillText(fmt(p,2),pad.l-8,yAt(p));} ctx.textAlign='center'; ctx.textBaseline='top'; for(let i=0;i<=6;i++){ctx.fillText(i===0?'open':i===6?'now':`${i*10}m`,pad.l+plotW*i/6,h-pad.b+20);} ctx.restore();
+    const lastY=yAt(s.price); ctx.save(); ctx.strokeStyle='rgba(240,199,94,.7)'; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(pad.l,lastY);ctx.lineTo(w-pad.r,lastY);ctx.stroke(); ctx.fillStyle='#F0C75E'; ctx.font='700 12px JetBrains Mono, Consolas, monospace'; ctx.textAlign='left'; ctx.fillText(fmt(s.price,2),w-pad.r+6,lastY); ctx.restore();
+    canvas.onmousemove=(e)=>showChartTip(e,canvas,tip,(x,y)=>{const i=clamp(Math.round(((x-pad.l)/plotW)*(cols-1)),0,cols-1); const lvl=pMax-((y-pad.t)/plotH)*(pMax-pMin); return `<div><b>${state.selected}</b> ${state.heatMode}</div><div>Price: ${fmt(prices[i],2)}</div><div>Level: ${fmt(lvl,2)}</div><div class="ok">Permit: ${Math.round(hist.permission[i])}</div><div class="bad">Pressure: ${Math.round(hist.pressure[i])}</div>`;});
+    canvas.onmouseleave=()=>tip&&tip.classList.remove('visible');
+  }
+  function drawBreakout(canvas=$('#breakoutCanvas'), tip=$('#breakoutTip'), expanded=false){
+    const {ctx,w,h}=fitCanvas(canvas); ctx.clearRect(0,0,w,h); const s=state.symbols[state.selected], hist=state.histories[state.selected]; const pad={l:48,r:20,t:24,b:34}; drawGrid(ctx,w,h,pad);
+    const arr=hist.price; const all=[...arr,...hist.support,...hist.resistance]; const pMin=Math.min(...all)-s.vol*3, pMax=Math.max(...all)+s.vol*3; const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b; const xAt=i=>pad.l+(i/(arr.length-1))*plotW; const yAt=p=>pad.t+(pMax-p)/(pMax-pMin)*plotH;
+    ctx.save(); ctx.fillStyle='rgba(40,209,124,.06)'; ctx.fillRect(pad.l,yAt(s.resistance),plotW,Math.max(2,yAt(s.resistance-s.vol*1.5)-yAt(s.resistance))); ctx.fillStyle='rgba(255,77,94,.07)'; ctx.fillRect(pad.l,yAt(s.support+s.vol*1.5),plotW,Math.max(2,yAt(s.support)-yAt(s.support+s.vol*1.5))); ctx.restore();
+    drawPath(ctx,hist.resistance.map((p,i)=>({x:xAt(i),y:yAt(p)})),'rgba(255,77,94,.8)',1.5,[6,4]); drawPath(ctx,hist.support.map((p,i)=>({x:xAt(i),y:yAt(p)})),'rgba(40,209,124,.8)',1.5,[6,4]); drawPath(ctx,arr.map((p,i)=>({x:xAt(i),y:yAt(p)})),'rgba(240,199,94,.92)',2.4);
+    const proj=[]; let lp=s.price; for(let k=0;k<26;k++){lp+=s.momentum*s.vol*.015 + Math.sin(k/3)*s.vol*.08; proj.push({x:pad.l+plotW+(k/25)*plotW*.18,y:yAt(lp)});} drawPath(ctx,proj,'rgba(108,77,255,.85)',2,[3,4]);
+    ctx.save(); ctx.fillStyle='rgba(236,234,246,.65)'; ctx.font='11px JetBrains Mono, Consolas, monospace'; ctx.textAlign='right'; ctx.textBaseline='middle'; for(let j=0;j<=4;j++){const p=pMin+(pMax-pMin)*j/4; ctx.fillText(fmt(p,2),pad.l-8,yAt(p));} ctx.fillStyle='#28D17C'; ctx.textAlign='left'; ctx.fillText('Support '+fmt(s.support,2),pad.l+8,yAt(s.support)-8); ctx.fillStyle='#FF4D5E'; ctx.fillText('Resistance '+fmt(s.resistance,2),pad.l+8,yAt(s.resistance)-8); ctx.restore();
+    canvas.onmousemove=(e)=>showChartTip(e,canvas,tip,(x,y)=>`<div><b>${state.selected}</b> Breakout Radar</div><div>Price: ${fmt(s.price,2)}</div><div class="ok">Support: ${fmt(s.support,2)}</div><div class="bad">Resistance: ${fmt(s.resistance,2)}</div><div>Status: ${s.status}</div>`); canvas.onmouseleave=()=>tip&&tip.classList.remove('visible');
+  }
+  function drawGamma(canvas=$('#gammaCanvas'), tip=$('#gammaTip'), expanded=false){
+    const {ctx,w,h}=fitCanvas(canvas); ctx.clearRect(0,0,w,h); const s=state.symbols[state.selected], gam=state.histories[state.selected].gamma.at(-1)||buildGamma(s); const pad={l:50,r:20,t:22,b:36}; drawGrid(ctx,w,h,pad); const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b; const max=Math.max(...gam.map(g=>Math.max(Math.abs(g.call),Math.abs(g.put))))||1; const zero=pad.t+plotH*.52; const bw=plotW/gam.length*.62;
+    gam.forEach((g,i)=>{const x=pad.l+i*plotW/(gam.length-1); const ch=(g.call/max)*plotH*.43, ph=(g.put/max)*plotH*.43; ctx.fillStyle='rgba(40,209,124,.86)'; ctx.fillRect(x-bw/2,zero-ch,bw,ch); ctx.fillStyle='rgba(255,77,94,.88)'; ctx.fillRect(x-bw/2,zero,bw,-ph); if(i%3===0){ctx.fillStyle='rgba(236,234,246,.58)';ctx.font='10px JetBrains Mono,Consolas,monospace';ctx.textAlign='center';ctx.fillText(Math.round(g.strike),x,h-pad.b+15);}});
+    const spotX=pad.l+clamp((s.price-gam[0].strike)/(gam.at(-1).strike-gam[0].strike),0,1)*plotW; ctx.save(); ctx.strokeStyle='#F0C75E'; ctx.setLineDash([3,3]); ctx.beginPath();ctx.moveTo(spotX,pad.t);ctx.lineTo(spotX,h-pad.b);ctx.stroke(); ctx.fillStyle='#F0C75E'; ctx.font='700 11px JetBrains Mono,Consolas,monospace'; ctx.textAlign='center'; ctx.fillText('Spot '+fmt(s.price,2),spotX,pad.t-5); ctx.restore();
+    ctx.fillStyle='rgba(236,234,246,.6)'; ctx.font='11px JetBrains Mono,Consolas,monospace'; ctx.textAlign='right'; ctx.fillText('Call Γ',pad.l-6,zero-plotH*.32); ctx.fillText('Put Γ',pad.l-6,zero+plotH*.32);
+    canvas.onmousemove=(e)=>showChartTip(e,canvas,tip,(x,y)=>{const i=clamp(Math.round(((x-pad.l)/plotW)*(gam.length-1)),0,gam.length-1); const g=gam[i]; return `<div><b>Strike ${Math.round(g.strike)}</b></div><div class="ok">Call Γ ${g.call.toFixed(1)}M</div><div class="bad">Put Γ ${g.put.toFixed(1)}M</div>`;}); canvas.onmouseleave=()=>tip&&tip.classList.remove('visible');
+  }
+  function drawSparks(){
+    drawTinySpark($('#sparkRisk'), state.kpiHistory.risk, '#FFB84D'); drawTinySpark($('#sparkHealth'), state.kpiHistory.health, '#28D17C'); drawTinySpark($('#sparkAlerts'), state.kpiHistory.alerts, '#FFB84D'); drawTinySpark($('#sparkBlocked'), state.kpiHistory.blocked, '#FF4D5E'); drawTinySpark($('#sparkBots'), state.kpiHistory.bots, '#00D5FF'); drawTinySpark($('#sparkLatency'), state.kpiHistory.latency, '#F0C75E');
+  }
+  function drawTinySpark(canvas, data, color){
+    if(!canvas) return; const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const w=rect.width||78,h=rect.height||28; canvas.width=w*dpr; canvas.height=h*dpr; canvas.style.width=w+'px'; canvas.style.height=h+'px'; const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); if(!data||data.length<2) return; const min=Math.min(...data), max=Math.max(...data); const pts=data.map((v,i)=>({x:i/(data.length-1)*w,y:h-((v-min)/(max-min||1))*h*.72-h*.14})); drawPath(ctx,pts,color,1.7);
+  }
+  function showChartTip(e, canvas, tip, htmlFn){
+    if(!tip) return; const r=canvas.getBoundingClientRect(); const x=e.clientX-r.left,y=e.clientY-r.top; tip.innerHTML=htmlFn(x,y); tip.classList.add('visible'); const tw=tip.offsetWidth||160, th=tip.offsetHeight||80; let left=x+16,top=y+16; if(left+tw>r.width) left=x-tw-16; if(top+th>r.height) top=y-th-16; tip.style.left=left+'px'; tip.style.top=top+'px';
+  }
+  function openModal(type){
+    state.modalType=type; const titles={heatmap:'Sentinel Heatmap Expanded',breakout:'Breakout / Support-Resistance Expanded',gamma:'Gamma by Strike Expanded',risk:'Risk Exposure Expanded',levels:'Key Levels Expanded'}; $('#modalTitle').textContent=titles[type]||'Sentinel Window';
+    $('#modalNoteTitle').textContent = type==='heatmap'?'Heatmap Readout':type==='gamma'?'Gamma Readout':type==='breakout'?'Breakout Readout':type==='risk'?'Risk Readout':'Level Readout';
+    $('#modalNote').textContent = modalNoteText(type); $('#modal').classList.add('open'); renderFeed($('#modalFeed'),7); requestAnimationFrame(drawModal);
+  }
+  function modalNoteText(type){
+    const s=state.symbols[state.selected];
+    if(type==='heatmap') return `${state.selected} combines the intensity map with green permission flow and red risk pressure. Sentinel uses this to tell bots when buying is unsafe near resistance or when support breaks.`;
+    if(type==='gamma') return `Gamma-by-strike shows where permission bias changes around spot ${fmt(s.price,2)}. It is advisory only and does not route trades.`;
+    if(type==='breakout') return `Breakout radar monitors support ${fmt(s.support,2)} and resistance ${fmt(s.resistance,2)}. A support failure emits stop-trading or sell-risk instructions to dependent bots.`;
+    if(type==='risk') return `Composite risk blends S/R stress, momentum, volatility, liquidity and policy strictness. Current ${state.selected} status: ${s.status}.`;
+    return `Key level table is the bot-facing contract: support, resistance, price, and current advisory status.`;
+  }
+  function drawModal(){
+    const c=$('#modalCanvas'), t=$('#modalTip'); if(!state.modalType || !c) return;
+    if(state.modalType==='heatmap') drawHeatmap(c,t,true); else if(state.modalType==='breakout') drawBreakout(c,t,true); else if(state.modalType==='gamma') drawGamma(c,t,true); else if(state.modalType==='risk') drawRiskModal(c); else if(state.modalType==='levels') drawLevelsModal(c);
+  }
+  function drawRiskModal(canvas){
+    const {ctx,w,h}=fitCanvas(canvas); ctx.clearRect(0,0,w,h); const syms=Object.values(state.symbols); const pad={l:70,r:40,t:48,b:60}; drawGrid(ctx,w,h,pad); const max=100; const bw=(w-pad.l-pad.r)/syms.length*.55;
+    syms.forEach((s,i)=>{const x=pad.l+(i+.5)*(w-pad.l-pad.r)/syms.length; const val=s.risk; const y=pad.t+(1-val/max)*(h-pad.t-pad.b); ctx.fillStyle=val>66?'rgba(255,77,94,.82)':val>42?'rgba(255,184,77,.82)':'rgba(40,209,124,.82)'; ctx.fillRect(x-bw/2,y,bw,h-pad.b-y); ctx.fillStyle='rgba(236,234,246,.72)'; ctx.font='12px JetBrains Mono,Consolas,monospace'; ctx.textAlign='center'; ctx.fillText(s.sym,x,h-pad.b+22); ctx.fillText(Math.round(val),x,y-8);});
+    ctx.fillStyle='#F0C75E'; ctx.font='800 22px Space Grotesk, Segoe UI, sans-serif'; ctx.textAlign='left'; ctx.fillText('Composite Risk by Bot Symbol',pad.l,pad.t-18);
+  }
+  function drawLevelsModal(canvas){
+    const {ctx,w,h}=fitCanvas(canvas); ctx.clearRect(0,0,w,h); ctx.fillStyle='rgba(8,9,28,1)'; ctx.fillRect(0,0,w,h); ctx.font='14px JetBrains Mono,Consolas,monospace'; const cols=[40,170,330,490,665]; const headers=['Symbol','Support','Price','Resistance','Advisory']; ctx.fillStyle='#F0C75E'; headers.forEach((hd,i)=>ctx.fillText(hd,cols[i],48)); ctx.strokeStyle='rgba(201,162,39,.22)'; ctx.beginPath();ctx.moveTo(36,64);ctx.lineTo(w-36,64);ctx.stroke(); Object.values(state.symbols).forEach((s,i)=>{const y=96+i*42; ctx.fillStyle='rgba(255,255,255,.025)'; ctx.fillRect(32,y-22,w-64,34); ctx.fillStyle='#ECEAF6'; ctx.fillText(s.sym,cols[0],y); ctx.fillStyle='#28D17C'; ctx.fillText(fmt(s.support,2),cols[1],y); ctx.fillStyle=s.changed>=0?'#28D17C':'#FF4D5E'; ctx.fillText(fmt(s.price,2),cols[2],y); ctx.fillStyle='#FF4D5E'; ctx.fillText(fmt(s.resistance,2),cols[3],y); ctx.fillStyle=s.status==='Allow'?'#28D17C':s.status==='Watch'?'#FFB84D':'#FF4D5E'; ctx.fillText(s.status,cols[4],y);});
+  }
+
+  function exportAudit(){
+    const text=state.audit.map(a=>`${a.time},${a.scope},${a.action},${a.msg}`).join('\n'); const blob=new Blob([text],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='sentinel-edge-audit-log.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function initUI(){
+    const sel=$('#symbolSelect'); Object.keys(state.symbols).forEach(sym=>{const o=document.createElement('option'); o.value=sym; o.textContent=sym; sel.appendChild(o);}); sel.value=state.selected; sel.addEventListener('change',e=>{state.selected=e.target.value; logAudit('UI','SYMBOL',`Selected ${state.selected}`,'green'); renderAll();});
+    $('#heatMode').addEventListener('click',e=>{if(e.target.dataset.mode){state.heatMode=e.target.dataset.mode; $$('#heatMode button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.heatMode)); renderAll();}});
+    $('#pauseBtn').addEventListener('click',()=>{state.live=!state.live; const b=$('#pauseBtn'); b.classList.toggle('live',state.live); $('span',b).textContent=state.live?'Live':'Paused'; logAudit('EDGE',state.live?'LIVE':'PAUSE',state.live?'Live updates resumed':'Live updates paused',state.live?'green':'amber');});
+    $('#sweepBtn').addEventListener('click',runSweep); $('#modalSweep').addEventListener('click',runSweep); $('#injectBtn').addEventListener('click',injectBreak); $('#clearFeed').addEventListener('click',()=>{state.decisions=[];logAudit('UI','CLEAR','Decision feed cleared','amber');renderAll();}); $('#clearBotFilter').addEventListener('click',()=>{state.filterBot='all';$('#meshFilter').textContent='All bots';renderAll();});
+    $('#strictUp').addEventListener('click',()=>{state.strictness=clamp(state.strictness+5,0,100);logAudit('POLICY','STRICTNESS',`Raised to ${state.strictness}`,'amber');renderAll();}); $('#strictDown').addEventListener('click',()=>{state.strictness=clamp(state.strictness-5,0,100);logAudit('POLICY','STRICTNESS',`Lowered to ${state.strictness}`,'green');renderAll();});
+    $$('.expand').forEach(b=>b.addEventListener('click',()=>openModal(b.dataset.open))); $('#modalClose').addEventListener('click',()=>{$('#modal').classList.remove('open');state.modalType=null;}); $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){$('#modal').classList.remove('open');state.modalType=null;}}); $('#exportLog').addEventListener('click',exportAudit);
+    $('#docBtn').addEventListener('click',()=>openModal('levels'));
+    $('#navButtons').addEventListener('click',e=>{const btn=e.target.closest('button'); if(!btn)return; $$('#navButtons button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); const panel=$(`[data-panel="${btn.dataset.view}"]`) || (btn.dataset.view==='overview'?$('.heat-panel'):null); panel?.scrollIntoView({behavior:'smooth',block:'center'});});
+    window.addEventListener('resize',()=>{renderAll();});
+  }
+
+  initData(); initUI(); updateKpiHistory(); for(let i=0;i<5;i++) logAudit('EDGE','BOOT',i===0?'Sentinel Edge advisory bus online':`Loaded policy module ${i}`,'green'); renderAll();
+  setInterval(()=>tick(),1100); setInterval(()=>{$('#clock').textContent=nowTime();},500);
+})();
+</script>
+</body>
+</html>

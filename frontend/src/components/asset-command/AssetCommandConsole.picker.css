@@ -6,13 +6,15 @@
 }
 
 .edge-picker-panel {
-  min-height: 392px;
+  min-height: 0;
 }
 
 .edge-ticker-picker {
   position: relative;
-  min-height: 304px;
-  padding: 14px 14px 54px;
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  padding: 12px;
   outline: none;
 }
 
@@ -23,29 +25,22 @@
 }
 
 .edge-ticker-picker::before {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 126px;
-  height: 58px;
-  border-top: 1px solid var(--cyan);
-  border-bottom: 1px solid var(--cyan);
-  background: rgba(32,215,255,.12);
-  box-shadow: 0 0 24px rgba(32,215,255,.18);
-  content: "";
+  display: none;
 }
 
 .edge-picker-item {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 48px 1fr auto;
-  gap: 7px;
+  grid-template-columns: 52px minmax(0, 1fr) 56px;
+  gap: 8px;
   align-items: center;
   width: 100%;
-  border: 0;
-  background: transparent;
-  padding: 8px;
+  min-height: 38px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: rgba(255,255,255,.018);
+  padding: 8px 9px;
   color: #9eb0bc;
   font-family: "Share Tech Mono", monospace;
   font-size: 12px;
@@ -54,10 +49,21 @@
 }
 
 .edge-picker-item.active {
-  background: rgba(32,215,255,.18);
-  border-left: 3px solid var(--cyan);
+  background: rgba(201,162,39,.12);
+  border-color: rgba(240,199,94,.42);
+  border-left: 3px solid var(--gold);
   color: #e9f8ff;
-  transform: scale(1.02);
+  transform: none;
+  box-shadow: inset 0 0 18px rgba(201,162,39,.08);
+}
+
+.edge-picker-item b,
+.edge-picker-item span,
+.edge-picker-item em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .edge-picker-item em {
