@@ -8,9 +8,9 @@ import { VolumeHeatmap } from './VolumeHeatmap';
 const botNames = [
   'Sentinel Pulse',
   'Discord Trading Bot',
-  'Auto-Crypto',
+  'Sentinel Chain',
   'Futures',
-  'Tandem Suite',
+  'Sentinel Core',
   'Darkpool Mon',
   'APK Alerts',
   'Extension External',
@@ -19,9 +19,9 @@ const botNames = [
 const botOffset: Record<string, number> = {
   'Sentinel Pulse': 0,
   'Discord Trading Bot': 2,
-  'Auto-Crypto': 4,
+  'Sentinel Chain': 4,
   Futures: 6,
-  'Tandem Suite': 8,
+  'Sentinel Core': 8,
   'Darkpool Mon': 10,
   'APK Alerts': 12,
   'Extension External': 14,

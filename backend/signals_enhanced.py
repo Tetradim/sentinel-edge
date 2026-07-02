@@ -65,7 +65,7 @@ from metrics import (
     edge_macd_crossover_total,
     edge_support_level,
     edge_resistance_level,
-    edge_consolidation_detected,
+    edge_sentinel_echo_detected,
     edge_volatility_surge,
     edge_confidence_score,
     edge_signal_quality,
@@ -1267,11 +1267,11 @@ class SignalEngineEnhanced:
                     symbol=symbol, timeframe=self.default_timeframe
                 ).set(resistance)
             
-            # Consolidation
-            consolidation = indicators.get('consolidation', False)
-            edge_consolidation_detected.labels(
+            # Sentinel Echo
+            sentinel_echo = indicators.get('sentinel-echo', False)
+            edge_sentinel_echo_detected.labels(
                 symbol=symbol, timeframe=self.default_timeframe
-            ).set(1 if consolidation else 0)
+            ).set(1 if sentinel_echo else 0)
             
             # Volatility surge
             volatility_pct = indicators.get('volatility_percentile', 0)

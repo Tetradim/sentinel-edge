@@ -204,7 +204,7 @@ export const directiveLedger: DirectiveLedgerEntry[] = [
   {
     id: 'd4',
     time: '09:45:10',
-    bot: 'Auto-Crypto',
+    bot: 'Sentinel Chain',
     symbol: 'BTC',
     directive: 'Watch only',
     reason: 'Liquidity acceptable but market regime mismatch keeps breakout inactive.',
@@ -216,7 +216,7 @@ export const directiveLedger: DirectiveLedgerEntry[] = [
   {
     id: 'd5',
     time: '09:46:44',
-    bot: 'Consolidation',
+    bot: 'Sentinel Echo',
     symbol: 'AAPL',
     directive: 'Allow with size cap',
     reason: 'EMA shelf intact, but same-sector exposure caps requested size.',
@@ -255,7 +255,7 @@ export const botBridgeHealth: BotBridgeHealth[] = [
     tone: 'green',
   },
   {
-    name: 'Auto-Crypto',
+    name: 'Sentinel Chain',
     status: 'degraded',
     heartbeat: '24s',
     latency: '88ms',
@@ -281,11 +281,11 @@ export const botBridgeHealth: BotBridgeHealth[] = [
     tone: 'cyan',
   },
   {
-    name: 'Tandem Suite',
+    name: 'Sentinel Core',
     status: 'online',
     heartbeat: '8s',
     latency: '36ms',
-    contract: 'edge.tandem.v1',
+    contract: 'edge.sentinel-core.v1',
     lastDirective: 'Runtime clear',
     lastAck: '09:41:02',
     queueDepth: 0,
@@ -307,7 +307,7 @@ export const botBridgeHealth: BotBridgeHealth[] = [
     tone: 'cyan',
   },
   {
-    name: 'Consolidation',
+    name: 'Sentinel Echo',
     status: 'online',
     heartbeat: '6s',
     latency: '39ms',
@@ -405,7 +405,7 @@ export const outcomeAttribution: OutcomeAttribution[] = [
 
 export const botLockouts: BotLockout[] = [
   { bot: 'Discord Trading Bot', scope: 'NVDA buys', state: 'blocked', reason: 'Support shelf weakening under risk heat', until: 'support reclaim', tone: 'red' },
-  { bot: 'Auto-Crypto', scope: 'BTC breakouts', state: 'watch only', reason: 'Regime mismatch and liquidity drift', until: 'vol reset', tone: 'gold' },
+  { bot: 'Sentinel Chain', scope: 'BTC breakouts', state: 'watch only', reason: 'Regime mismatch and liquidity drift', until: 'vol reset', tone: 'gold' },
   { bot: 'Futures', scope: 'NQ size', state: 'capped', reason: 'VEX expansion over threshold', until: 'next sweep', tone: 'cyan' },
   { bot: 'Sentinel Pulse', scope: 'SPY', state: 'allowed', reason: 'Breakout valid above support', until: 'corridor break', tone: 'green' },
 ];

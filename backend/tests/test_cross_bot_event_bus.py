@@ -150,8 +150,8 @@ class CrossBotEventBusTests(unittest.TestCase):
         self.assertEqual(result["event"]["event_type"], "edge.action")
         self.assertEqual(result["event"]["payload"]["symbol"], "QQQ")
         self.assertIn("sentinel-pulse", result["event"]["target_bots"])
-        self.assertNotIn("auto-crypto", result["event"]["target_bots"])
-        self.assertNotIn("darkpool-mon", result["event"]["target_bots"])
+        self.assertNotIn("sentinel-chain", result["event"]["target_bots"])
+        self.assertNotIn("sentinel-flare", result["event"]["target_bots"])
 
     def test_generic_event_publish_route_requires_operator_secret(self):
         from bot_event_bus_routes import publish_bot_event

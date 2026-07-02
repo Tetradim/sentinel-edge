@@ -1,25 +1,25 @@
-# Sentinel Edge + Consolidation S/R Watch Design
+# Sentinel Edge + Sentinel Echo S/R Watch Design
 
 ## Purpose
 
-S/R Watch is a split-control position-management feature for Sentinel Edge and Consolidation. It lets Edge watch support and resistance structure for option positions held by trading bots, then send audited directives when structure confirms that an option should be closed, protected, or scaled.
+S/R Watch is a split-control position-management feature for Sentinel Edge and Sentinel Echo. It lets Edge watch support and resistance structure for option positions held by trading bots, then send audited directives when structure confirms that an option should be closed, protected, or scaled.
 
-The feature is not a broker-order path in Edge. Edge owns market-structure observation and directive generation. Consolidation owns option positions, broker execution, risk controls, stop/trailing behavior, order retries, and reconciliation.
+The feature is not a broker-order path in Edge. Edge owns market-structure observation and directive generation. Sentinel Echo owns option positions, broker execution, risk controls, stop/trailing behavior, order retries, and reconciliation.
 
 ## Product Goals
 
 1. Let operators switch a watched bot from ORB Watch to S/R Watch.
 2. Let Edge maintain a ranked intraday support/resistance map seeded from opening-market levels and updated as new highs/lows and swing pivots appear.
-3. Let Edge watch confirmed option positions from Consolidation and other options bots.
-4. Tell Consolidation to immediately close adverse positions:
+3. Let Edge watch confirmed option positions from Sentinel Echo and other options bots.
+4. Tell Sentinel Echo to immediately close adverse positions:
    - Long calls close when the underlying confirms a support break.
    - Long puts close when the underlying confirms a resistance break.
-5. Tell Consolidation to scale favorable positions:
+5. Tell Sentinel Echo to scale favorable positions:
    - Long calls can add when the underlying confirms a resistance break.
    - Long puts can add when the underlying confirms a support break.
 6. Preserve standalone operation:
-   - Edge can run as a market-structure watcher without Consolidation.
-   - Consolidation can keep trading from Discord alerts without Edge.
+   - Edge can run as a market-structure watcher without Sentinel Echo.
+   - Sentinel Echo can keep trading from Discord alerts without Edge.
 
 ## Existing System Fit
 
@@ -28,10 +28,10 @@ Sentinel Edge already has related pieces:
 - `backend/chart_workspace.py` builds Market Map levels for session high/low, prior-day high/low, premarket high/low, opening range high/low, VWAP, and ATR bands.
 - `backend/orb.py` tracks ORB sessions and breakout state.
 - `backend/signals.py` uses ORB high/low in signal scoring.
-- `backend/shared/bot_event_bus.py` provides append-only bot events and already names `consolidation` as an Edge action target.
+- `backend/shared/bot_event_bus.py` provides append-only bot events and already names `sentinel-echo` as an Edge action target.
 - `backend/server.py` exposes `GET /api/market-map/context/{symbol}` and `GET /api/market-map/proof-markers/{symbol}`.
 
-Consolidation already has related pieces:
+Sentinel Echo already has related pieces:
 
 - Discord ingestion and source policy controls.
 - Per-source allowed actions and ticker allow/block lists.
@@ -54,7 +54,7 @@ Edge UI owns observation and directive settings:
 - Advisory-only vs executable-intent directive mode.
 - Directive and verdict audit log.
 
-Consolidation UI owns execution response settings:
+Sentinel Echo UI owns execution response settings:
 
 - Whether to auto-act on Edge directives.
 - Immediate sell behavior.
@@ -65,7 +65,7 @@ Consolidation UI owns execution response settings:
 - Pre-close trailing-stop response.
 - Broker retry, cancel, replace, and reconciliation behavior.
 
-Edge may display Consolidation response policy as read-only when Consolidation publishes it. Edge must not directly mutate Consolidation broker or risk settings.
+Edge may display Sentinel Echo response policy as read-only when Sentinel Echo publishes it. Edge must not directly mutate Sentinel Echo broker or risk settings.
 
 ## Settings Precedence
 
@@ -76,7 +76,7 @@ Settings resolve from most specific to least specific:
 3. Bot override.
 4. Global default.
 
-This precedence applies on both sides. Edge applies it to observation/directive rules. Consolidation applies it to execution/risk responses.
+This precedence applies on both sides. Edge applies it to observation/directive rules. Sentinel Echo applies it to execution/risk responses.
 
 ## Edge S/R Watch Settings
 
@@ -101,7 +101,7 @@ Each watched bot/source/symbol can configure:
 
 Turning S/R Watch on for a scope replaces ORB Watch for that scope's bot directives. It does not remove Edge's existing ORB calculations, displays, tests, metrics, or independent Edge/Pulse workflows.
 
-## Consolidation Response Settings
+## Sentinel Echo Response Settings
 
 Each bot/source/symbol can configure:
 
@@ -123,18 +123,18 @@ Each bot/source/symbol can configure:
 - `move_stops_to_breakeven_enabled`: default false.
 - `pre_close_trailing_rescue_enabled`: default false.
 
-When `stop_trading_after_time_enabled` is true, Consolidation blocks new entries and scale-ins after the cutoff, but still allows protective sells, adverse S/R sells, stop-loss sells, trailing-stop sells, and force-flat actions.
+When `stop_trading_after_time_enabled` is true, Sentinel Echo blocks new entries and scale-ins after the cutoff, but still allows protective sells, adverse S/R sells, stop-loss sells, trailing-stop sells, and force-flat actions.
 
 ## Position Truth
 
-Edge must not infer real positions from Discord text. Consolidation owns position truth.
+Edge must not infer real positions from Discord text. Sentinel Echo owns position truth.
 
-Consolidation should publish position and fill updates to the bot event bus or expose a read endpoint that Edge can poll. Position identity must be contract-level:
+Sentinel Echo should publish position and fill updates to the bot event bus or expose a read endpoint that Edge can poll. Position identity must be contract-level:
 
 ```json
 {
-  "position_id": "consolidation-pos-123",
-  "bot_id": "consolidation",
+  "position_id": "sentinel-echo-pos-123",
+  "bot_id": "sentinel-echo",
   "underlying": "AAPL",
   "option_type": "CALL",
   "strike": 210,
@@ -148,7 +148,7 @@ Consolidation should publish position and fill updates to the bot event bus or e
 }
 ```
 
-Rules apply per position. If a bot holds multiple option contracts on the same underlying, Edge evaluates each position independently. Consolidation still enforces aggregate exposure limits.
+Rules apply per position. If a bot holds multiple option contracts on the same underlying, Edge evaluates each position independently. Sentinel Echo still enforces aggregate exposure limits.
 
 ## S/R Level Engine
 
@@ -207,27 +207,27 @@ Adverse exits:
 - Long call + confirmed support break: emit `close_position`.
 - Long put + confirmed resistance break: emit `close_position`.
 - Default close size is full position.
-- Consolidation executes immediately using aggressive marketable limit behavior.
+- Sentinel Echo executes immediately using aggressive marketable limit behavior.
 
 Favorable scale-ins:
 
 - Long call + confirmed resistance break: emit `scale_in`.
 - Long put + confirmed support break: emit `scale_in`.
 - Default size is 25% of available buying power.
-- Consolidation applies buying power, max contracts, max premium, source policy, readiness, broker capability, duplicate, and exposure gates before placing an order.
+- Sentinel Echo applies buying power, max contracts, max premium, source policy, readiness, broker capability, duplicate, and exposure gates before placing an order.
 
 Pre-close protection:
 
 - Break-even reference is the option contract entry premium.
-- If premium is at or above entry near cutoff and configured, Consolidation may move stops to break-even.
-- If premium is below entry and the underlying breaks favorably near close, Edge may emit a directive for Consolidation to enable its own trailing stop instead of forcing immediate exit.
+- If premium is at or above entry near cutoff and configured, Sentinel Echo may move stops to break-even.
+- If premium is below entry and the underlying breaks favorably near close, Edge may emit a directive for Sentinel Echo to enable its own trailing stop instead of forcing immediate exit.
 - Adverse S/R breaks still take priority over trailing rescue.
 
 0DTE behavior:
 
 - `strict_0dte_exits_enabled` defaults true.
 - Same-day expiration positions use stricter exits when enabled.
-- Strict mode may require faster adverse exits, fewer scale-ins, or tighter cutoff rules as configured in Consolidation.
+- Strict mode may require faster adverse exits, fewer scale-ins, or tighter cutoff rules as configured in Sentinel Echo.
 
 ## Directive Contract
 
@@ -238,9 +238,9 @@ Example:
 ```json
 {
   "contract_version": "edge.sr.directive.v1",
-  "directive_id": "sr:AAPL:consolidation-pos-123:close_position:support:20260624T143000Z",
-  "target_bot": "consolidation",
-  "position_id": "consolidation-pos-123",
+  "directive_id": "sr:AAPL:sentinel-echo-pos-123:close_position:support:20260624T143000Z",
+  "target_bot": "sentinel-echo",
+  "position_id": "sentinel-echo-pos-123",
   "underlying": "AAPL",
   "option_type": "CALL",
   "action": "close_position",
@@ -265,11 +265,11 @@ Example:
 }
 ```
 
-Consolidation must treat directives as instructions requiring local validation, not as broker orders.
+Sentinel Echo must treat directives as instructions requiring local validation, not as broker orders.
 
 ## Synchronous Evaluation Contract
 
-Consolidation can ask Edge before acting on a new alert:
+Sentinel Echo can ask Edge before acting on a new alert:
 
 ```text
 POST /api/sr/evaluate
@@ -279,7 +279,7 @@ Request:
 
 ```json
 {
-  "bot_id": "consolidation",
+  "bot_id": "sentinel-echo",
   "source_channel": "discord-alerts",
   "underlying": "AAPL",
   "intent": "open_call",
@@ -308,8 +308,8 @@ Statuses are `pass`, `review`, or `block`.
 
 Position update:
 
-1. Consolidation receives Discord alert and executes or updates a position through its own gates.
-2. Consolidation publishes `consolidation.position.updated` with contract-level identity.
+1. Sentinel Echo receives Discord alert and executes or updates a position through its own gates.
+2. Sentinel Echo publishes `sentinel-echo.position.updated` with contract-level identity.
 3. Edge stores or refreshes the watched position state.
 
 Directive:
@@ -317,27 +317,27 @@ Directive:
 1. Edge updates S/R levels from current market data.
 2. Edge evaluates watched positions against actionable levels.
 3. Edge emits `edge.sr.directive.v1` to the bot event bus.
-4. Consolidation consumes the directive.
-5. Consolidation validates position, settings, broker, duplicate, sizing, readiness, and reconciliation requirements.
-6. Consolidation places or rejects the action and publishes `consolidation.directive.feedback`.
+4. Sentinel Echo consumes the directive.
+5. Sentinel Echo validates position, settings, broker, duplicate, sizing, readiness, and reconciliation requirements.
+6. Sentinel Echo places or rejects the action and publishes `sentinel-echo.directive.feedback`.
 
 Pre-entry gate:
 
-1. Consolidation parses a Discord alert.
+1. Sentinel Echo parses a Discord alert.
 2. Source policy allows the alert.
-3. Consolidation calls `POST /api/sr/evaluate`.
-4. Consolidation uses the Edge response as an additional deterministic gate.
-5. Consolidation records the Edge verdict in alert/trade proof.
+3. Sentinel Echo calls `POST /api/sr/evaluate`.
+4. Sentinel Echo uses the Edge response as an additional deterministic gate.
+5. Sentinel Echo records the Edge verdict in alert/trade proof.
 
 ## Failure Handling
 
 If Edge is unavailable:
 
-- Consolidation standalone behavior remains configurable.
+- Sentinel Echo standalone behavior remains configurable.
 - For live automation, the recommended default is `review` or `block` for new entries and scale-ins.
-- Protective exits remain allowed through Consolidation's own stop/loss/trailing/risk controls.
+- Protective exits remain allowed through Sentinel Echo's own stop/loss/trailing/risk controls.
 
-If Consolidation is unavailable:
+If Sentinel Echo is unavailable:
 
 - Edge can continue computing levels and recording theoretical directives.
 - Edge must mark directives as not delivered.
@@ -351,13 +351,13 @@ If market data is stale or missing:
 If a directive is repeated:
 
 - Edge dedupes by position, level, action, and confirmation window.
-- Consolidation also dedupes by directive ID.
+- Sentinel Echo also dedupes by directive ID.
 
 ## Safety Rules
 
 - Edge never places broker orders.
-- Edge never directly mutates Consolidation broker/risk settings.
-- Consolidation never treats an Edge directive as sufficient for execution.
+- Edge never directly mutates Sentinel Echo broker/risk settings.
+- Sentinel Echo never treats an Edge directive as sufficient for execution.
 - Adverse exits outrank scale-ins and trailing rescue.
 - Scale-ins require explicit caps.
 - Strict 0DTE exits default on.
@@ -378,17 +378,17 @@ If a directive is repeated:
    - `POST /api/sr/evaluate`.
    - `edge.sr.directive.v1` event emission.
    - Directive dedupe/cooldown.
-4. Consolidation position truth publication:
+4. Sentinel Echo position truth publication:
    - Publish contract-level position updates.
    - Expose current positions for Edge recovery.
-5. Consolidation directive consumer:
+5. Sentinel Echo directive consumer:
    - Validate Edge directives.
    - Close adverse positions.
    - Scale favorable positions within caps.
    - Publish directive feedback.
 6. Split UI:
    - Edge Watched Bots / S/R Watch screen.
-   - Consolidation Edge Directives / response-policy screen.
+   - Sentinel Echo Edge Directives / response-policy screen.
    - Read-only cross-bot policy/status views where useful.
 
 ## Test Strategy
@@ -404,7 +404,7 @@ Edge backend:
 - Event-bus directive contract.
 - Missing/stale market data response.
 
-Consolidation backend:
+Sentinel Echo backend:
 
 - Position update publication.
 - Directive consumption with valid/invalid position IDs.
@@ -421,13 +421,13 @@ Integration:
 - Edge receives position truth.
 - OHLCV replay confirms support or resistance break.
 - Edge emits directive.
-- Consolidation executes or blocks with explicit reason.
+- Sentinel Echo executes or blocks with explicit reason.
 - Audit chain links alert, position, Edge directive, order, fill, and feedback.
 
 ## Open Implementation Notes
 
 - Reuse Market Map level payload shape where possible, but add stateful ranked S/R memory for live watch behavior.
-- Do not reuse Consolidation's stale `/api/v1/analyze` Edge client as-is; replace it with the S/R evaluation contract.
+- Do not reuse Sentinel Echo's stale `/api/v1/analyze` Edge client as-is; replace it with the S/R evaluation contract.
 - Keep ORB Watch behavior backwards compatible.
 - Prefer paper/simulation validation before any live directive auto-action.
 - Update readiness documentation to clarify that S/R Watch is not live-money proof by itself.

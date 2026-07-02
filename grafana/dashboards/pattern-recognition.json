@@ -161,9 +161,9 @@
     {
       "id": 15,
       "type": "stat",
-      "title": "Consolidation Alerts",
+      "title": "Sentinel Echo Alerts",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 36 },
-      "targets": [{ "refId": "A", "expr": "sum(edge_consolidation_detected{symbol=~\"$symbol\",timeframe=~\"$timeframe\"})" }],
+      "targets": [{ "refId": "A", "expr": "sum(edge_sentinel_echo_detected{symbol=~\"$symbol\",timeframe=~\"$timeframe\"})" }],
       "options": { "colorMode": "value", "graphMode": "none" },
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 }] } } }
     },

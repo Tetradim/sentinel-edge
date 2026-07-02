@@ -2251,7 +2251,7 @@ async def evaluate_support_resistance(request: SupportResistanceEvaluateRequest)
                 payload=directive,
                 correlation_id=str(directive.get("directive_id") or ""),
                 dedupe_key=str(directive.get("directive_id") or ""),
-                target_bots=["consolidation"],
+                target_bots=["sentinel-echo"],
                 trace={"symbol": sym, "source": "support_resistance_evaluate"},
             )
             published_event = event.model_dump(mode="json")

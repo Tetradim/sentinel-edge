@@ -21,17 +21,17 @@ class BotSuiteLauncherStaticTests(unittest.TestCase):
         script = PS1.read_text(encoding="utf-8")
 
         self.assertIn("Sentinel-Pulse-branch-audit", script)
-        self.assertIn("darkpool-mon-frontend-check", script)
-        self.assertIn("Consolidation", script)
-        self.assertIn("Auto-Crypto", script)
-        self.assertIn("Tandem-Suite", script)
+        self.assertIn("sentinel-flare-frontend-check", script)
+        self.assertIn("Sentinel Echo", script)
+        self.assertIn("Sentinel-Chain", script)
+        self.assertIn("Sentinel-Core", script)
         self.assertIn("sentinel-edge", script)
         self.assertIn("Launch-Sentinel-Pulse-Local.ps1", script)
         self.assertIn("Launch-Sentinel-Edge-Local.ps1", script)
-        self.assertIn("Launch-Darkpool-Monitor.ps1", script)
-        self.assertIn("Launch-Consolidation-Bot.ps1", script)
-        self.assertIn("Launch-Auto-Crypto.ps1", script)
-        self.assertIn("Launch-Sentinel-Tandem.ps1", script)
+        self.assertIn("Launch-Sentinel-Flare.ps1", script)
+        self.assertIn("Launch-Sentinel-Echo.ps1", script)
+        self.assertIn("Launch-Sentinel-Chain.ps1", script)
+        self.assertIn("Launch-Sentinel-Core.ps1", script)
         self.assertIn("OpenComponentBrowsers", script)
         self.assertIn("SkipDarkpool", script)
         self.assertIn("SkipDiscord", script)
@@ -51,8 +51,8 @@ class BotSuiteLauncherStaticTests(unittest.TestCase):
             "[int]$DiscordFrontendPort = 3003",
             "[int]$CryptoBackendPort = 8004",
             "[int]$CryptoFrontendPort = 3004",
-            "[int]$TandemBackendPort = 8005",
-            "[int]$TandemFrontendPort = 3005",
+            "[int]$SentinelCoreBackendPort = 8005",
+            "[int]$SentinelCoreFrontendPort = 3005",
         ]
         for default in expected_defaults:
             with self.subTest(default=default):

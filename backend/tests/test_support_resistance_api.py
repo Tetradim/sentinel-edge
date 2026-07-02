@@ -74,7 +74,7 @@ class SupportResistanceApiTests(unittest.TestCase):
         self.assertEqual(body["directive"]["schema_version"], "edge.sr.directive.v1")
         self.assertEqual(body["directive"]["action"], "request_scale_in")
 
-    def test_evaluate_endpoint_can_emit_consolidation_directive_event(self):
+    def test_evaluate_endpoint_can_emit_sentinel_echo_directive_event(self):
         previous_event_dir = os.environ.get("BOT_EVENT_BUS_DIR")
         with tempfile.TemporaryDirectory() as temp_dir:
             os.environ["BOT_EVENT_BUS_DIR"] = temp_dir
@@ -116,7 +116,7 @@ class SupportResistanceApiTests(unittest.TestCase):
         self.assertEqual(body["directive"]["action"], "close_position")
         self.assertIsNotNone(body["event"])
         self.assertEqual(events[0]["event_type"], "edge.sr.directive.v1")
-        self.assertEqual(events[0]["target_bots"], ["consolidation"])
+        self.assertEqual(events[0]["target_bots"], ["sentinel-echo"])
         self.assertEqual(events[0]["payload"]["action"], "close_position")
 
     def test_preview_evaluation_does_not_consume_scale_in_state(self):

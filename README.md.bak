@@ -69,7 +69,7 @@ sentinel-edge/
 │   │   └── yfinance_provider.py    # Yahoo Finance (fallback)
 │   ├── backtest/
 │   │   ├── engine.py                # BacktestEngine with slippage/commission
-│   │   ├── monte_carlo.py          # Monte Carlo simulation engine
+│   │   ├── monte_carlo.py          # Monte Carlo Sentinel Archive
 │   │   └── runner.py                # Backtest CLI runner
 │   ├── strategies/
 │   │   ├── versioning.py            # Strategy version manager

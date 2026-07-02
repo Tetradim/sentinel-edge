@@ -1,7 +1,7 @@
 # OpenClaw Handoff: P0 Security Research
 
 Date: 2026-06-07
-Repo: `C:\Users\Lite OS\.openclaw\workspace\repos\sentinel-edge`
+Repo: `C:\Users\automation\GitBots\Sentinel-Edge`
 Branch reviewed: `OC-Iteration`
 
 ## Scope

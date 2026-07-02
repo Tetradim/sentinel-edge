@@ -300,18 +300,18 @@ button{border:0}
     {t:0.82,c:[235,150,32]},{t:0.92,c:[230,72,32]},{t:1.00,c:[222,30,40]}
   ];
   const BOT_DEFS = [
-    {id:'auto', name:'Auto-Crypto', role:'Crypto Trading', icon:'₿', color:'#F0A236', symbols:['BTC-USD','ETH-USD']},
-    {id:'futures', name:'Futures Bot', role:'Futures Monitoring', icon:'↗', color:'#4D8DFF', symbols:['ESU6','NQU6']},
-    {id:'tandem', name:'Tandem Suite', role:'Options Flow', icon:'∞', color:'#00D5FF', symbols:['SPY','QQQ']},
+    {id:'auto', name:'Sentinel Chain', role:'Crypto Trading', icon:'₿', color:'#F0A236', symbols:['BTC-USD','ETH-USD']},
+    {id:'futures', name:'Sentinel Iron', role:'Futures Monitoring', icon:'↗', color:'#4D8DFF', symbols:['ESU6','NQU6']},
+    {id:'sentinel-core', name:'Sentinel Core', role:'Options Flow', icon:'∞', color:'#00D5FF', symbols:['SPY','QQQ']},
     {id:'darkpool', name:'Darkpool Mon', role:'Dark Pool Monitor', icon:'◉', color:'#9B68FF', symbols:['SPY','TSLA','NVDA']},
-    {id:'consolidation', name:'Consolidation', role:'Data Aggregator', icon:'▣', color:'#28D17C', symbols:['SPY','QQQ','TSLA','BTC-USD']},
+    {id:'sentinel-echo', name:'Sentinel Echo', role:'Data Aggregator', icon:'▣', color:'#28D17C', symbols:['SPY','QQQ','TSLA','BTC-USD']},
     {id:'apk', name:'APK Alerts', role:'Mobile Alerts', icon:'!', color:'#FF4D5E', symbols:['SPY','QQQ','ESU6']},
     {id:'pulse', name:'Sentinel Pulse', role:'Market Intelligence', icon:'ψ', color:'#B36BFF', symbols:['SPY','QQQ','BTC-USD','ESU6']},
     {id:'extension', name:'Extension External', role:'Browser Extension', icon:'✚', color:'#F0C75E', symbols:['SPY','QQQ','TSLA','NVDA']}
   ];
   const SYMBOL_SEEDS = [
-    {sym:'SPY', bot:'tandem', price:603.47, support:598.50, resistance:604.25, vol:0.35},
-    {sym:'QQQ', bot:'tandem', price:492.18, support:488.50, resistance:496.75, vol:0.42},
+    {sym:'SPY', bot:'sentinel-core', price:603.47, support:598.50, resistance:604.25, vol:0.35},
+    {sym:'QQQ', bot:'sentinel-core', price:492.18, support:488.50, resistance:496.75, vol:0.42},
     {sym:'TSLA', bot:'darkpool', price:228.45, support:213.20, resistance:237.80, vol:1.45},
     {sym:'NVDA', bot:'darkpool', price:159.32, support:154.40, resistance:162.80, vol:0.85},
     {sym:'ESU6', bot:'futures', price:6023.25, support:5950.00, resistance:6050.00, vol:2.75},

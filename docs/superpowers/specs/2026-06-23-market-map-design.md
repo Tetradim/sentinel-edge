@@ -4,7 +4,7 @@
 
 Market Map is Sentinel Edge's visual trading cockpit. It turns existing chart, scanner, ORB, Simulation Lab, cross-bot event bus, and market coverage capabilities into one operator surface for planning, live alert context, and replay proof.
 
-The feature belongs in Sentinel Edge. Consolidation should keep focusing on Discord alert ingestion, broker execution, and reconciliation. Sentinel Edge should provide market context and scoring that Consolidation can request before trading.
+The feature belongs in Sentinel Edge. Sentinel Echo should keep focusing on Discord alert ingestion, broker execution, and reconciliation. Sentinel Edge should provide market context and scoring that Sentinel Echo can request before trading.
 
 ## Product Thesis
 
@@ -217,10 +217,10 @@ If options market data is unavailable, show that explicitly and keep any trade r
 Target flow:
 
 1. Chrome/Discord bridge or bot observes alert.
-2. Consolidation parses alert and creates audit proof.
-3. Consolidation asks Sentinel Edge for market-map context.
+2. Sentinel Echo parses alert and creates audit proof.
+3. Sentinel Echo asks Sentinel Edge for market-map context.
 4. Sentinel Edge returns level proximity, market state, confidence, and warnings.
-5. Consolidation uses that context in its deterministic decision gate.
+5. Sentinel Echo uses that context in its deterministic decision gate.
 6. Market Map displays the whole chain for review and replay.
 
 Sentinel Edge should never silently assume a source is trusted. Source/channel/author proof remains owned by the alert-ingestion bot and should be displayed when available.
@@ -267,7 +267,7 @@ Slice 4: Alert and proof markers
 
 Slice 5: Edge scoring API
 
-- Add endpoint for Consolidation to request market-map context for a parsed alert.
+- Add endpoint for Sentinel Echo to request market-map context for a parsed alert.
 - Return deterministic pass/review/block reasons.
 - Keep response read-only and audit-friendly.
 
@@ -294,7 +294,7 @@ Frontend:
 Integration:
 
 - Replay fixture where a Discord alert marker appears on a candle and links to an alert-chain proof row.
-- Edge context response fixture consumed by Consolidation in simulation mode only.
+- Edge context response fixture consumed by Sentinel Echo in simulation mode only.
 
 ## Safety Rules
 

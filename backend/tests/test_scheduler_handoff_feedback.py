@@ -147,8 +147,8 @@ class SchedulerHandoffFeedbackTests(unittest.TestCase):
         for call in publish_event_mock.call_args_list:
             target_bots = call.kwargs["target_bots"]
             self.assertIn("sentinel-pulse", target_bots)
-            self.assertNotIn("auto-crypto", target_bots)
-            self.assertNotIn("darkpool-mon", target_bots)
+            self.assertNotIn("sentinel-chain", target_bots)
+            self.assertNotIn("sentinel-flare", target_bots)
 
 
 if __name__ == "__main__":

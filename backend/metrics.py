@@ -587,9 +587,9 @@ edge_resistance_level = Gauge(
     ["symbol", "timeframe"]
 )
 
-edge_consolidation_detected = Gauge(
-    "edge_consolidation_detected",
-    "Consolidation detected (1=yes, 0=no)",
+edge_sentinel_echo_detected = Gauge(
+    "edge_sentinel_echo_detected",
+    "Sentinel Echo detected (1=yes, 0=no)",
     ["symbol", "timeframe"]
 )
 

@@ -1,6 +1,6 @@
 # Support/Resistance Watch Contract
 
-Sentinel Edge owns market-structure observation for S/R Watch. It does not place broker orders and does not mutate Consolidation risk settings.
+Sentinel Edge owns market-structure observation for S/R Watch. It does not place broker orders and does not mutate Sentinel Echo risk settings.
 
 ## Endpoint
 
@@ -30,8 +30,8 @@ Response fields:
 - Long call + resistance break: `request_scale_in`.
 - Long put + support break: `request_scale_in`.
 
-Close directives include `execution_hint.immediate=true` and prefer a marketable limit. Scale-in directives include a sizing hint only; Consolidation remains responsible for buying-power checks, position caps, and broker execution.
+Close directives include `execution_hint.immediate=true` and prefer a marketable limit. Scale-in directives include a sizing hint only; Sentinel Echo remains responsible for buying-power checks, position caps, and broker execution.
 
 ## Event Bus
 
-When requested, Edge publishes `edge.sr.directive.v1` through the existing bot event bus with `target_bots=["consolidation"]`. The directive includes `directive_id` and UTC `created_at` so consumers can reject duplicates and stale events.
+When requested, Edge publishes `edge.sr.directive.v1` through the existing bot event bus with `target_bots=["sentinel-echo"]`. The directive includes `directive_id` and UTC `created_at` so consumers can reject duplicates and stale events.

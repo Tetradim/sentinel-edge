@@ -1,4 +1,4 @@
-"""Comprehensive Backtesting & Simulation Engine - Phase 8
+"""Comprehensive Backtesting & Sentinel Archive - Phase 8
 
 This module provides:
 - BacktestEngine: Historical backtesting with realistic execution
@@ -951,7 +951,7 @@ class BacktestEngine:
 # ============================================================================
 
 class MonteCarloEngine:
-    """Monte Carlo simulation engine - replaces old monte_carlo.py
+    """Monte Carlo Sentinel Archive - replaces old monte_carlo.py
     
     Usage:
         mc = MonteCarloEngine()

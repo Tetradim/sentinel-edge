@@ -40,7 +40,7 @@ All bots should use `bot-event.v1`:
   "created_at": "2026-06-19T14:30:00+00:00",
   "correlation_id": "edge:SPY:stop_buying:market_open:123:test",
   "dedupe_key": "edge:SPY:stop_buying:market_open:123:test",
-  "target_bots": ["sentinel-pulse", "consolidation"],
+  "target_bots": ["sentinel-pulse", "sentinel-echo"],
   "payload": {},
   "trace": {}
 }
@@ -48,7 +48,7 @@ All bots should use `bot-event.v1`:
 
 ## Edge Actions
 
-Sentinel Edge emits `edge.action` only after market gates, automation gates, and the direct Pulse HTTP handoff accept the command. It emits `edge.action.feedback` for accepted, rejected, failed, and suppressed outcomes after Pulse feedback is known. These execution events target only stock/options execution-capable bots; signal-only watchers such as Darkpool-Mon and excluded crypto/futures bots such as Auto-Crypto must not receive Edge execution action targets.
+Sentinel Edge emits `edge.action` only after market gates, automation gates, and the direct Pulse HTTP handoff accept the command. It emits `edge.action.feedback` for accepted, rejected, failed, and suppressed outcomes after Pulse feedback is known. These execution events target only stock/options execution-capable bots; signal-only watchers such as Sentinel-Flare and excluded Sentinel Chain/Sentinel Iron services must not receive Edge execution action targets.
 
 The action payload uses `edge.action.v1`:
 

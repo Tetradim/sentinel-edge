@@ -1,13 +1,13 @@
 # Sentinel Bot Suite Launcher
-# Starts the local Sentinel Edge, Sentinel Pulse, Darkpool, Discord options, Auto-Crypto, and Tandem launchers.
+# Starts the local Sentinel Edge, Sentinel Pulse, Darkpool, Discord options, Sentinel-Chain, and Sentinel Core launchers.
 
 param(
-    [string]$EdgeRoot = "C:\Users\Lite OS\.openclaw\workspace\repos\sentinel-edge",
+    [string]$EdgeRoot = "C:\Users\automation\GitBots\Sentinel-Edge",
     [string]$PulseRoot = "C:\Users\Lite OS\Documents\Codex\2026-05-22\based-on-my-analysis-of-the\Sentinel-Pulse-branch-audit",
-    [string]$DarkpoolRoot = "C:\Users\Lite OS\Documents\Codex\2026-06-17\files-mentioned-by-the-user-pasted\work\darkpool-mon-frontend-check",
-    [string]$DiscordRoot = "C:\Users\Lite OS\Documents\Codex\2026-06-17\files-mentioned-by-the-user-readme\work\Consolidation",
-    [string]$CryptoRoot = "C:\Users\Lite OS\Documents\Codex\2026-06-17\start-by-researching-crypto-trading-bots\work\Auto-Crypto",
-    [string]$TandemRoot = "C:\Users\Lite OS\Documents\Codex\2026-06-12\c-users-lite-os-openclaw-workspace\work\Tandem-Suite",
+    [string]$DarkpoolRoot = "C:\Users\Lite OS\Documents\Codex\2026-06-17\files-mentioned-by-the-user-pasted\work\sentinel-flare-frontend-check",
+    [string]$DiscordRoot = "C:\Users\automation\GitBots\Sentinel-Echo",
+    [string]$CryptoRoot = "C:\Users\automation\GitBots\Sentinel-Chain",
+    [string]$SentinelCoreRoot = "C:\Users\automation\GitBots\Sentinel-Core",
     [int]$EdgeBackendPort = 8000,
     [int]$EdgeFrontendPort = 3000,
     [int]$PulseBackendPort = 8001,
@@ -18,14 +18,14 @@ param(
     [int]$DiscordFrontendPort = 3003,
     [int]$CryptoBackendPort = 8004,
     [int]$CryptoFrontendPort = 3004,
-    [int]$TandemBackendPort = 8005,
-    [int]$TandemFrontendPort = 3005,
+    [int]$SentinelCoreBackendPort = 8005,
+    [int]$SentinelCoreFrontendPort = 3005,
     [switch]$SkipEdge,
     [switch]$SkipPulse,
     [switch]$SkipDarkpool,
     [switch]$SkipDiscord,
     [switch]$SkipCrypto,
-    [switch]$SkipTandem,
+    [switch]$SkipSentinelCore,
     [switch]$OpenComponentBrowsers,
     [switch]$NoBrowser,
     [switch]$InstallDeps,
@@ -151,7 +151,7 @@ function Test-ExplicitComponentSelection {
         "SkipDarkpool",
         "SkipDiscord",
         "SkipCrypto",
-        "SkipTandem"
+        "SkipSentinelCore"
     )
     foreach ($switchName in $componentSwitches) {
         if ($PSBoundParameters.ContainsKey($switchName)) {
@@ -164,7 +164,7 @@ function Test-ExplicitComponentSelection {
 function Select-LaunchProfile {
     Write-Host ""
     Write-Host "Choose what to launch:" -ForegroundColor Cyan
-    Write-Host "  1. Core operator stack (Sentinel Edge, Sentinel Pulse, Tandem)" -ForegroundColor Gray
+    Write-Host "  1. Core operator stack (Sentinel Edge, Sentinel Pulse, Sentinel Core)" -ForegroundColor Gray
     Write-Host "  2. Discord Options Bot only" -ForegroundColor Gray
     Write-Host "  3. All components" -ForegroundColor Gray
     Write-Host "  Q. Quit without launching" -ForegroundColor Gray
@@ -201,7 +201,7 @@ function Apply-LaunchProfile {
             $script:SkipPulse = $true
             $script:SkipDarkpool = $true
             $script:SkipCrypto = $true
-            $script:SkipTandem = $true
+            $script:SkipSentinelCore = $true
         }
         "All" {
         }
@@ -211,7 +211,7 @@ function Apply-LaunchProfile {
             $script:SkipDarkpool = $true
             $script:SkipDiscord = $true
             $script:SkipCrypto = $true
-            $script:SkipTandem = $true
+            $script:SkipSentinelCore = $true
         }
     }
 }
@@ -264,9 +264,9 @@ try {
         $args.Add("-FrontendPort"); $args.Add("$DarkpoolFrontendPort")
         Add-OptionalSwitch -Arguments $args -SwitchName "-InstallDeps" -Enabled $InstallDeps
         Add-OptionalSwitch -Arguments $args -SwitchName "-NoBrowser" -Enabled (-not $OpenComponentBrowsers)
-        Start-ComponentLauncher -Name "Darkpool Monitor" -Root $DarkpoolRoot -LauncherName "Launch-Darkpool-Monitor.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $DarkpoolBackendPort
+        Start-ComponentLauncher -Name "Sentinel Flare" -Root $DarkpoolRoot -LauncherName "Launch-Sentinel-Flare.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $DarkpoolBackendPort
     } else {
-        Write-Status "Skipping Darkpool Monitor" "WARN"
+        Write-Status "Skipping Sentinel Flare" "WARN"
     }
 
     if (-not $SkipDiscord) {
@@ -275,7 +275,7 @@ try {
         $args.Add("-FrontendPort"); $args.Add("$DiscordFrontendPort")
         Add-OptionalSwitch -Arguments $args -SwitchName "-InstallDeps" -Enabled $InstallDeps
         Add-OptionalSwitch -Arguments $args -SwitchName "-NoBrowser" -Enabled (-not $OpenComponentBrowsers)
-        Start-ComponentLauncher -Name "Discord Options Bot" -Root $DiscordRoot -LauncherName "Launch-Consolidation-Bot.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $DiscordBackendPort
+        Start-ComponentLauncher -Name "Discord Options Bot" -Root $DiscordRoot -LauncherName "Launch-Sentinel-Echo.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $DiscordBackendPort
     } else {
         Write-Status "Skipping Discord Options Bot" "WARN"
     }
@@ -286,22 +286,22 @@ try {
         $args.Add("-FrontendPort"); $args.Add("$CryptoFrontendPort")
         Add-OptionalSwitch -Arguments $args -SwitchName "-InstallDeps" -Enabled $InstallDeps
         Add-OptionalSwitch -Arguments $args -SwitchName "-NoBrowser" -Enabled (-not $OpenComponentBrowsers)
-        Start-ComponentLauncher -Name "Auto-Crypto" -Root $CryptoRoot -LauncherName "Launch-Auto-Crypto.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $CryptoBackendPort
+        Start-ComponentLauncher -Name "Sentinel-Chain" -Root $CryptoRoot -LauncherName "Launch-Sentinel-Chain.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $CryptoBackendPort
     } else {
-        Write-Status "Skipping Auto-Crypto" "WARN"
+        Write-Status "Skipping Sentinel-Chain" "WARN"
     }
 
-    if (-not $SkipTandem) {
+    if (-not $SkipSentinelCore) {
         $args = New-ArgumentList
-        $args.Add("-BackendPort"); $args.Add("$TandemBackendPort")
-        $args.Add("-FrontendPort"); $args.Add("$TandemFrontendPort")
+        $args.Add("-BackendPort"); $args.Add("$SentinelCoreBackendPort")
+        $args.Add("-FrontendPort"); $args.Add("$SentinelCoreFrontendPort")
         $args.Add("-EdgeApiUrl"); $args.Add("http://127.0.0.1:$EdgeBackendPort")
         $args.Add("-PulseApiUrl"); $args.Add("http://127.0.0.1:$PulseBackendPort")
         Add-OptionalSwitch -Arguments $args -SwitchName "-InstallDeps" -Enabled $InstallDeps
         Add-OptionalSwitch -Arguments $args -SwitchName "-NoBrowser" -Enabled $NoBrowser
-        Start-ComponentLauncher -Name "Sentinel Tandem Suite" -Root $TandemRoot -LauncherName "Launch-Sentinel-Tandem.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $TandemBackendPort
+        Start-ComponentLauncher -Name "Sentinel Core" -Root $SentinelCoreRoot -LauncherName "Launch-Sentinel-Core.ps1" -LauncherArguments $args.ToArray() -ReadinessPort $SentinelCoreBackendPort
     } else {
-        Write-Status "Skipping Sentinel Tandem Suite" "WARN"
+        Write-Status "Skipping Sentinel Core" "WARN"
     }
 
     Write-Host ""
@@ -311,12 +311,12 @@ try {
     Write-Host "Darkpool:   backend http://127.0.0.1:$DarkpoolBackendPort       UI http://127.0.0.1:$DarkpoolFrontendPort" -ForegroundColor Gray
     Write-Host "Discord:    backend http://127.0.0.1:$DiscordBackendPort       UI http://127.0.0.1:$DiscordFrontendPort" -ForegroundColor Gray
     Write-Host "Crypto:     backend http://127.0.0.1:$CryptoBackendPort       UI port reserved $CryptoFrontendPort" -ForegroundColor Gray
-    Write-Host "Tandem:     backend http://127.0.0.1:$TandemBackendPort       UI http://127.0.0.1:$TandemFrontendPort" -ForegroundColor Gray
+    Write-Host "Sentinel Core:     backend http://127.0.0.1:$SentinelCoreBackendPort       UI http://127.0.0.1:$SentinelCoreFrontendPort" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Default behavior opens Tandem as the main operator UI and suppresses component browser windows." -ForegroundColor Gray
+    Write-Host "Default behavior opens Sentinel Core as the main operator UI and suppresses component browser windows." -ForegroundColor Gray
     Write-Host "Use -OpenComponentBrowsers to open Edge, Pulse, Darkpool, Discord, and Crypto windows too." -ForegroundColor Gray
     Write-Host "Use -Profile Core, -Profile Discord, -Profile All, or -All to bypass the desktop launch menu." -ForegroundColor Gray
-    Write-Host "Use -SkipEdge, -SkipPulse, -SkipDarkpool, -SkipDiscord, -SkipCrypto, or -SkipTandem to launch a smaller set." -ForegroundColor Gray
+    Write-Host "Use -SkipEdge, -SkipPulse, -SkipDarkpool, -SkipDiscord, -SkipCrypto, or -SkipSentinelCore to launch a smaller set." -ForegroundColor Gray
     Write-Host "Close each component launcher window to stop that component." -ForegroundColor Gray
     Write-Host ""
 

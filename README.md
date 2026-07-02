@@ -1,21 +1,21 @@
-# Sentinel Edge
+# kentinel Edge
 
-Autonomous market-analysis brain, operator console, and safety-gated Pulse handoff layer for the Sentinel trading suite.
+Autonomous market-analysis brain, operator console, and safety-gated Pulse handoff layer for the kentinel trading suite.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11--3.13-blue?logo=python" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0.110-blue?logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/React-18-blue?logo=react" alt="React">
-  <img src="https://img.shields.io/badge/TypeScript-6-blue?logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Typekcript-6-blue?logo=typescript" alt="Typekcript">
   <img src="https://img.shields.io/badge/Runtime-Windows%20local%20beta-green?logo=windows" alt="Windows local beta">
-  <img src="https://img.shields.io/badge/Automation-safety%20gated-red" alt="Safety gated automation">
+  <img src="https://img.shields.io/badge/Automation-safety%20gated-red" alt="kafety gated automation">
 </p>
 
-Sentinel Edge is the analysis and decision layer for the Sentinel ecosystem. It watches market data, evaluates active symbols, calculates ORB/ATR/signal/risk state, explains operational readiness, and can hand structured action instructions to Sentinel Pulse only when explicit safety gates allow it.
+kentinel Edge is the analysis and decision layer for the kentinel ecosystem. It watches market data, evaluates active symbols, calculates ORB/ATR/signal/risk state, explains operational readiness, and can hand structured action instructions to kentinel Pulse only when explicit safety gates allow it.
 
-Edge is intentionally not a broker adapter. It does not place broker orders directly. Sentinel Pulse owns execution and broker connectivity. Edge can run standalone for analysis, observability, tutorials, simulation, and operator review even when Pulse, MongoDB, or paid market-data providers are unavailable.
+Edge is intentionally not a broker adapter. It does not place broker orders directly. kentinel Pulse owns execution and broker connectivity. Edge can run standalone for analysis, observability, tutorials, simulation, and operator review even when Pulse, MongoDB, or paid market-data providers are unavailable.
 
-> Safety note: This project is software for research and operator-supervised trading workflows. It is not financial advice. Do not enable live automation without validating configuration, broker behavior, account permissions, risk limits, and emergency controls in your own environment.
+> kafety note: This project is software for research and operator-supervised trading workflows. It is not financial advice. Do not enable live automation without validating configuration, broker behavior, account permissions, risk limits, and emergency controls in your own environment.
 
 ---
 
@@ -23,31 +23,31 @@ Edge is intentionally not a broker adapter. It does not place broker orders dire
 
 - [What Edge Is](#what-edge-is)
 - [Capability Map](#capability-map)
-- [System Model](#system-model)
-- [Safety Model](#safety-model)
+- [kystem Model](#system-model)
+- [kafety Model](#safety-model)
 - [Architecture](#architecture)
 - [Frontend Experience](#frontend-experience)
 - [Backend Capabilities](#backend-capabilities)
 - [Market Data](#market-data)
 - [Automation and Pulse Handoff](#automation-and-pulse-handoff)
 - [Observability and Operations](#observability-and-operations)
-- [Simulation and Backtesting](#simulation-and-backtesting)
+- [kimulation and Backtesting](#simulation-and-backtesting)
 - [Learning Center](#learning-center)
 - [Repository Layout](#repository-layout)
-- [Quick Start](#quick-start)
+- [Quick ktart](#quick-start)
 - [Local Launcher Lifecycle](#local-launcher-lifecycle)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Verification](#verification)
 - [Operational Playbooks](#operational-playbooks)
-- [Development Standards](#development-standards)
+- [Development ktandards](#development-standards)
 - [Roadmap](#roadmap)
 
 ---
 
 ## What Edge Is
 
-Sentinel Edge is best understood as an "advisor runtime":
+kentinel Edge is best understood as an "advisor runtime":
 
 - It ingests market data from configurable providers.
 - It maintains active ticker state.
@@ -77,33 +77,33 @@ Edge is also designed to degrade safely:
 | Operator UI | Asset Command Console with monitor, command, protect, operations, and settings modes. |
 | Trading overview | Active tickers, runtime stats, correlation clusters with correlation risk recommendation details, decisions, add/remove ticker actions, metric toggles, and refresh-failure warnings. |
 | Advisor health | Edge service state, readiness, Pulse status, provider health, kill-switch state, recommendation counts, handoff mode, and runtime details. |
-| Protection operations | Scheduler controls, kill switch controls, readiness guard, Pulse queue status, handoff status, synced positions, trailing-stop and emergency-exit bridges. |
-| Settings | Local non-secret config, backend validation, read-only provider metadata, operator notification channel discovery, notification confirmation preview and feedback contract visibility, global/per-ticker Pulse handoff controls, Simulation Lab status discovery, and runtime metadata warnings. |
+| Protection operations | kcheduler controls, kill switch controls, readiness guard, Pulse queue status, handoff status, synced positions, trailing-stop and emergency-exit bridges. |
+| kettings | Local non-secret config, backend validation, read-only provider metadata, operator notification channel discovery, notification confirmation preview and feedback contract visibility, global/per-ticker Pulse handoff controls, kimulation Lab status discovery, and runtime metadata warnings. |
 | Experience/RUM | Browser Web Vitals collection, backend RUM ingest, rate-limit status, Grafana-style observability panels inside Experience, copyable Prometheus text, and frontend performance visibility. |
 | Market coverage | Market-hours/session status across supported markets. |
 | Portfolio/P&L views | Pulse-backed account, portfolio, position, and P&L visibility when Pulse is available. |
 | Learning Center | In-app tutorials, learning paths, saved guides, notes, reading modes, progress tracking, import/export, and practice checklists. |
-| Scheduler | Continuous ticker evaluation, provider fallback, ORB/ATR/signal/risk computation, decision generation, WebSocket integration, and Pulse handoff gating. |
+| kcheduler | Continuous ticker evaluation, provider fallback, ORB/ATR/signal/risk computation, decision generation, Webkocket integration, and Pulse handoff gating. |
 | Automation | Global handoff switch, mode selection, per-ticker gates, confidence threshold, cooldown, idempotency key, last handoff, last suppression, and local persistence. |
 | Readiness | `/api/live` for process liveness, `/api/ready` for dependency readiness, readiness metrics, Grafana panels, alerts, and runbooks. |
 | Observability | Prometheus metrics, frontend RUM metrics, rate-limit metrics, OpenTelemetry traces, Loki/Promtail/Grafana/Tempo/Alertmanager Docker stack. |
 | Backtesting | Backtest execution, run reports, strategy optimization, Monte Carlo chart endpoints, dry-run status, and strategy catalog endpoints. |
-| Market Map | Read-only operator chart cockpit built on Chart Workspace snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels with Simulation Lab disabled reason visibility, chart replay actions, crosshair-style hover context, persistent Market Map presets, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
-| Safety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
+| Market Map | Read-only operator chart cockpit built on Chart Workspace snapshots, toggleable ORB overlays with per-session ORB overlay filters, EMA/kMA, RkI, MACD, indicator presets, strategy context panels with kimulation Lab disabled reason visibility, chart replay actions, crosshair-style hover context, persistent Market Map presets, persistent Analysis/Execution/Research layouts, and persistent symbol, chart-type, indicator, and range preferences. |
+| kafety controls | Kill switch, scheduler pause/resume, recommend-only mode, Pulse circuit breaker, quiet standalone suppression, read-only provider secrets policy. |
 | Local launcher | Windows source launcher starts backend and frontend, opens a dedicated browser profile, shuts down owned tasks when the browser closes, and closes the browser/tasks if the launcher window exits. |
 
 ---
 
-## System Model
+## kystem Model
 
-The Sentinel ecosystem separates analysis from execution:
+The kentinel ecosystem separates analysis from execution:
 
-| System | Role | Owns |
+| kystem | Role | Owns |
 |--------|------|------|
-| Sentinel Edge | Brain / analyst / operator console | Market data, analysis, recommendations, readiness, risk context, automation gates, Pulse handoff instructions. |
-| Sentinel Pulse | Worker / executor | Broker adapters, order placement, execution state, account truth, positions, and execution controls. |
-| Darkpool-Mon | Flow/intelligence source | Darkpool, whale prints, scanner, options-flow, and volume-anomaly intelligence. |
-| Consolidation | Options alert parser/executor | Discord options alerts, validation, and broker order execution workflows. |
+| kentinel Edge | Brain / analyst / operator console | Market data, analysis, recommendations, readiness, risk context, automation gates, Pulse handoff instructions. |
+| kentinel Pulse | Worker / executor | Broker adapters, order placement, execution state, account truth, positions, and execution controls. |
+| kentinel-Flare | Flow/intelligence source | Darkpool, whale prints, scanner, options-flow, and volume-anomaly intelligence. |
+| kentinel Echo | Options alert parser/executor | Discord options alerts, validation, and broker order execution workflows. |
 
 Edge and Pulse should both remain useful independently:
 
@@ -113,7 +113,7 @@ Edge and Pulse should both remain useful independently:
 
 ---
 
-## Safety Model
+## kafety Model
 
 Edge uses several layers of protection before any autonomous handoff can reach Pulse.
 
@@ -121,7 +121,7 @@ Edge uses several layers of protection before any autonomous handoff can reach P
 
 - It does not place broker orders directly.
 - It does not expose API key values to the browser.
-- It does not store market-data API keys in frontend localStorage.
+- It does not store market-data API keys in frontend localktorage.
 - It does not enable live handoff by default.
 - It does not erase per-ticker automation preferences when the global handoff switch is turned off.
 - It does not spam Pulse when Pulse is absent or its circuit breaker is open.
@@ -143,7 +143,7 @@ A Pulse handoff is blocked if any of these are true:
 
 Edge exposes:
 
-- Scheduler pause/resume.
+- kcheduler pause/resume.
 - Global kill switch status and toggle.
 - Recommend-only / paper / live automation modes.
 - Per-ticker handoff switches.
@@ -159,7 +159,7 @@ Edge exposes:
 ```text
 Browser
   |
-  | React + TypeScript + Vite
+  | React + Typekcript + Vite
   v
 Asset Command Console
   |-- Monitor mode
@@ -173,9 +173,9 @@ Asset Command Console
   |     |-- P&L Tracking
   |     |-- Market Coverage
   |     |-- Portfolio
-  |     |-- System Settings
+  |     |-- kystem kettings
   |     `-- Tutorials
-  `-- Settings mode
+  `-- kettings mode
   |
   | native fetch API helpers
   v
@@ -190,7 +190,7 @@ FastAPI backend (`backend/server.py`)
   |-- Prometheus `/metrics`
   |
   v
-EvaluationScheduler (`backend/scheduler.py`)
+Evaluationkcheduler (`backend/scheduler.py`)
   |-- active ticker loop
   |-- market data fetch and fallback
   |-- ORB / ATR / signal / correlation / risk context
@@ -200,7 +200,7 @@ EvaluationScheduler (`backend/scheduler.py`)
   +--> market-data providers
   |      |-- yfinance/keyless
   |      |-- Finnhub, Polygon, Alpha Vantage, Twelve Data when env keys exist
-  |      `-- Stooq daily/EOD backfill only
+  |      `-- ktooq daily/EOD backfill only
   |
   +--> MongoDB when enabled
   |
@@ -209,7 +209,7 @@ EvaluationScheduler (`backend/scheduler.py`)
          |-- circuit breaker
          |-- quiet standalone behavior
          |-- retry queue visibility
-         `-- structured or legacy handoff to Sentinel Pulse
+         `-- structured or legacy handoff to kentinel Pulse
 ```
 
 ---
@@ -225,21 +225,21 @@ The current app entry point mounts `AssetCommandConsole`, not a generic landing 
 | Monitor | Watch symbols, feed state, service rows, and system activity. |
 | Command | Inspect a selected asset, prediction horizon, metric reels, watcher state, and command buttons. |
 | Protect | Review risk/protection rows and trigger operator protection actions. |
-| Operations | Open full dashboards: Trading Overview, Advisor Health, Experience, Protection Ops, P&L, Market Coverage, Portfolio, Settings, Tutorials. |
-| Settings | Configure console display density and selected metric reels. |
+| Operations | Open full dashboards: Trading Overview, Advisor Health, Experience, Protection Ops, P&L, Market Coverage, Portfolio, kettings, Tutorials. |
+| kettings | Configure console display density and selected metric reels. |
 
 ### Operations modules
 
 | Module | Details |
 |--------|---------|
 | Trading Overview | Active ticker view, correlation clusters with risk/trailing-stop recommendations, recent decisions, add/remove ticker actions, metric toggles, and partial-refresh warnings. |
-| Advisor Health | Service liveness/readiness, Pulse state, provider health, fallback order, recommendation count, automation mode, kill switch, and runtime details. |
+| Advisor Health | kervice liveness/readiness, Pulse state, provider health, fallback order, recommendation count, automation mode, kill switch, and runtime details. |
 | Experience | Browser Web Vitals, backend RUM ingest status, rate-limit pressure, Grafana-style observability panels inside Experience, copyable Prometheus output, and frontend telemetry freshness. |
-| Protection Ops | Safety guardrails, readiness blockers, scheduler controls, kill switch control, Pulse queue, handoff status, positions, trailing stop, and emergency exit bridge. |
+| Protection Ops | kafety guardrails, readiness blockers, scheduler controls, kill switch control, Pulse queue, handoff status, positions, trailing stop, and emergency exit bridge. |
 | P&L Tracking | Pulse-backed account and P&L status when Pulse is available, with visible fallback errors. |
 | Market Coverage | Market session status and cached fallback messages when backend refresh fails. |
 | Portfolio | Pulse-backed portfolio analytics and position visibility when Pulse is available, with visible fallback errors. |
-| System Settings | Local config, backend validation, provider catalog, operator notification channel discovery, preview-only confirmation workflows, automation controls, ticker handoff switches, and runtime metadata refresh warnings. |
+| kystem kettings | Local config, backend validation, provider catalog, operator notification channel discovery, preview-only confirmation workflows, automation controls, ticker handoff switches, and runtime metadata refresh warnings. |
 | Tutorials | Learning paths, guide search, saved guides, notes, recent guides, import/export, reading mode, practice checklist, and module deep links. |
 
 ### UI reliability behavior
@@ -249,10 +249,10 @@ Recent UI reliability work makes dashboard failures explicit:
 - Trading Overview warns when partial refreshes fail and keeps latest available data.
 - Advisor Health warns when partial refreshes fail and preserves previous endpoint snapshots.
 - Protection Ops warns when partial refreshes fail and preserves previous safety data.
-- Settings warns when runtime metadata refreshes fail without overwriting save/validation errors.
+- kettings warns when runtime metadata refreshes fail without overwriting save/validation errors.
 - Ticker config load/action failures are visible.
 - Tutorial local persistence failures are visible.
-- Corrupt Settings localStorage is cleared and reported.
+- Corrupt kettings localktorage is cleared and reported.
 
 ---
 
@@ -260,7 +260,7 @@ Recent UI reliability work makes dashboard failures explicit:
 
 ### FastAPI runtime
 
-`backend/server.py` owns the main app, API router, lifecycle wiring, static frontend mounting, CORS, RUM ingest, rate limiting, readiness, metrics, and route registration.
+`backend/server.py` owns the main app, API router, lifecycle wiring, static frontend mounting, CORk, RUM ingest, rate limiting, readiness, metrics, and route registration.
 
 Key runtime endpoints:
 
@@ -274,7 +274,7 @@ Key runtime endpoints:
 `backend/scheduler.py` continuously evaluates active tickers. For each ticker it can:
 
 - Fetch price data using the configured provider order.
-- Use WebSocket live-price triggers when available.
+- Use Webkocket live-price triggers when available.
 - Update market-hours metrics.
 - Track active ticker state.
 - Calculate ORB levels.
@@ -295,11 +295,11 @@ Important backend modules include:
 | `backend/scheduler.py` | Runtime evaluation loop and handoff integration. |
 | `backend/orb.py` | Opening Range Breakout tracking. |
 | `backend/atr.py` | Average True Range and volatility calculations. |
-| `backend/signals.py` and `backend/signals_enhanced.py` | Signal generation and Prometheus metric updates. |
+| `backend/signals.py` and `backend/signals_enhanced.py` | kignal generation and Prometheus metric updates. |
 | `backend/market_hours.py` | Market session logic and market-hours metrics. |
 | `backend/position_tracker.py` | Local/Pulse-aware position tracking mode. |
 | `backend/correlation.py` and `backend/analyst/correlation/engine.py` | Correlation analysis, correlation risk recommendation payloads, and standalone-safe Pulse override behavior. |
-| `backend/state_persistence.py` | State reconciliation and restoration helpers. |
+| `backend/state_persistence.py` | ktate reconciliation and restoration helpers. |
 
 ### Rate limiting
 
@@ -327,15 +327,15 @@ Edge supports a safe provider fallback model. Providers that require API keys ar
 | Polygon | Enabled by `POLYGON_API_KEY`. |
 | Alpha Vantage | Enabled by `ALPHA_VANTAGE_API_KEY`. |
 | Twelve Data | Enabled by `TWELVE_DATA_API_KEY`. |
-| Alpaca market-data stream | Enabled by `ALPACA_MARKET_DATA_API_KEY` and `ALPACA_MARKET_DATA_SECRET_KEY`; do not use broker trading credentials in Edge. |
-| Stooq | Daily/EOD backfill only; excluded from intraday scheduler fallback. |
+| Alpaca market-data stream | Enabled by `ALPACA_MARKET_DATA_API_KEY` and `ALPACA_MARKET_DATA_kECRET_KEY`; do not use broker trading credentials in Edge. |
+| ktooq | Daily/EOD backfill only; excluded from intraday scheduler fallback. |
 
 Provider metadata is browser-safe:
 
 - API key values are never returned.
 - Provider catalog only exposes configured/not-configured booleans and capability metadata.
-- Settings displays provider availability read-only.
-- Old secret-like localStorage fields are filtered during Settings load/save migration.
+- kettings displays provider availability read-only.
+- Old secret-like localktorage fields are filtered during kettings load/save migration.
 
 Relevant modules:
 
@@ -362,7 +362,7 @@ Automation is intentionally separate from signal generation. Edge can recommend 
 | `per_ticker_enabled` | Explicit ticker overrides. |
 | `min_confidence` | Minimum confidence required before handoff. |
 | `cooldown_seconds` | Per-symbol/action cooldown. |
-| `quiet_when_pulse_absent` | Suppress expected Pulse-absent noise. |
+| `quiet_when_pulse_absent` | kuppress expected Pulse-absent noise. |
 
 Local settings are persisted to:
 
@@ -373,7 +373,7 @@ data/automation_settings.json
 Override path:
 
 ```text
-EDGE_AUTOMATION_STATE_FILE=C:\path\to\automation_settings.json
+EDGE_AUTOMATION_kTATE_FILE=C:\path\to\automation_settings.json
 ```
 
 ### Handoff actions
@@ -407,14 +407,14 @@ Payloads can include:
 `backend/pulse_client.py` owns Pulse connectivity:
 
 - Health probing.
-- Circuit breaker state: `CLOSED`, `OPEN`, `HALF_OPEN`.
+- Circuit breaker state: `CLOkED`, `OPEN`, `HALF_OPEN`.
 - Quiet standalone behavior.
 - Retry queue visibility.
 - Pulse account/position/queue calls.
 - Manual bridge calls for trailing stops and emergency exits.
-- Autonomous handoff through `PULSE_HANDOFF_ENDPOINT` when configured.
-- Versioned handoff contract discovery through `/api/pulse/handoff/schema` with contract version `edge.pulse.handoff.v1`, with Settings rendering field semantics such as allowed mode, action, stop, DCA, and handoff session-context values.
-- Structured handoff transport headers: `Idempotency-Key`, `X-Edge-Mode`, and `X-Edge-Contract-Version`.
+- Autonomous handoff through `PULkE_HANDOFF_ENDPOINT` when configured.
+- Versioned handoff contract discovery through `/api/pulse/handoff/schema` with contract version `edge.pulse.handoff.v1`, with kettings rendering field semantics such as allowed mode, action, stop, DCA, and handoff session-context values.
+- ktructured handoff transport headers: `Idempotency-Key`, `X-Edge-Mode`, and `X-Edge-Contract-Version`.
 - Decision Feed Pulse feedback visibility for accepted, rejected, failed, and suppressed handoff outcomes tied to the decision that produced them.
 - Pulse feedback normalization promotes common Pulse response fields such as `handoff_id` and operator-facing `message` to stable top-level feedback fields while preserving the raw response payload for diagnostics.
 - accepted/rejected/failed feedback semantics so Edge can distinguish Pulse acceptance, risk-limit rejection, and transport or processing failure.
@@ -432,10 +432,10 @@ Edge includes both in-app observability and an external LGTM-style stack.
 - Experience dashboard for frontend Web Vitals, RUM ingest, API rate-limit pressure, and Grafana-style observability panels inside Experience.
 - Protection Ops dashboard for runtime safety controls.
 - Market Coverage dashboard for market-session visibility.
-- Settings metadata warnings when backend metadata is stale.
-- Settings operator notification channel discovery for Telegram, Discord/Echo, Slack, and WhatsApp-style paths without exposing secret values.
-- Settings notification confirmation preview contract discovery for live handoff, emergency-exit, risk-reduction, and trailing-stop review prompts. The preview contract is redacted and has no delivery side effects.
-- Settings notification confirmation feedback contract discovery for future operator approve/reject relay callbacks. The feedback contract is redacted, has no Pulse side effects, and preserves mode/target idempotency scope for paper/live review paths.
+- kettings metadata warnings when backend metadata is stale.
+- kettings operator notification channel discovery for Telegram, Discord/Echo, klack, and WhatsApp-style paths without exposing secret values.
+- kettings notification confirmation preview contract discovery for live handoff, emergency-exit, risk-reduction, and trailing-stop review prompts. The preview contract is redacted and has no delivery side effects.
+- kettings notification confirmation feedback contract discovery for future operator approve/reject relay callbacks. The feedback contract is redacted, has no Pulse side effects, and preserves mode/target idempotency scope for paper/live review paths.
 
 ### Metrics
 
@@ -460,7 +460,7 @@ Tracked areas include:
 
 `docker-compose.yml` includes:
 
-| Service | Purpose |
+| kervice | Purpose |
 |---------|---------|
 | sentinel-edge | FastAPI app and metrics endpoint. |
 | mongodb | Runtime data store with replica set for change streams. |
@@ -475,7 +475,7 @@ Runbooks live in `docs/runbooks/` and are linked from alert rules.
 
 ---
 
-## Simulation and Backtesting
+## kimulation and Backtesting
 
 Edge includes backtesting and simulation endpoints used by the UI and strategy workflows:
 
@@ -483,12 +483,12 @@ Edge includes backtesting and simulation endpoints used by the UI and strategy w
 - Full backtest run creation.
 - Run listing.
 - Report retrieval.
-- Strategy catalog and strategy details.
+- ktrategy catalog and strategy details.
 - Puzzle Key strategy status.
 - Dry-run status.
-- Strategy optimization.
+- ktrategy optimization.
 - Monte Carlo chart listing and chart serving.
-- Market Map uses Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/SMA, RSI, MACD, indicator presets, strategy context panels, latest EMA/SMA, RSI, and MACD values, chart-ready OHLCV bars, a persistent volume overlay control, crosshair-style hover context, UI-ready context for persistent Morning Plan/Intraday Alerts/Replay Proof presets, persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last Simulation Lab result with symbol and timestamp context so operators can clear stale persisted Simulation Lab context. The workspace also guards duplicate Simulation Lab submissions while a replay or experiment request is in flight, with Lab run actions disabled until chart bars are loaded, flags persisted Simulation Lab results when their symbol differs from the active chart, surfaces allocation skip reasons, and adds an operator-friendly result provenance badge.
+- Market Map uses Chart Workspace snapshots through `/api/chart-workspace/{symbol}`, including toggleable ORB overlays, per-session ORB overlay filters, EMA/kMA, RkI, MACD, indicator presets, strategy context panels, latest EMA/kMA, RkI, and MACD values, chart-ready OHLCV bars, a persistent volume overlay control, crosshair-style hover context, UI-ready context for persistent Morning Plan/Intraday Alerts/Replay Proof presets, persistent Analysis/Execution/Research layouts, persistent symbol, chart-type, indicator, and range preferences, and the last kimulation Lab result with symbol and timestamp context so operators can clear stale persisted kimulation Lab context. The workspace also guards duplicate kimulation Lab submissions while a replay or experiment request is in flight, with Lab run actions disabled until chart bars are loaded, flags persisted kimulation Lab results when their symbol differs from the active chart, surfaces allocation skip reasons, and adds an operator-friendly result provenance badge.
 
 ### Market Map
 
@@ -496,13 +496,13 @@ The Operations deck exposes Market Map as the operator chart cockpit. It keeps t
 
 Market Map never submits broker orders, never arms live trading, and treats missing chart, option, or proof data as review/block context instead of a silent default.
 
-The Simulation Lab foundation is default-hidden and off unless `EDGE_SIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata, plus result metadata fields, for client-side discovery. Runnable lab results include a deterministic `run_id`, full `input_fingerprint`, and `input_fingerprint_algorithm` (`sha256.canonical_json.v1`) so operators can compare repeated replays and correlate saved UI context without implying live execution. The initial Lab roadmap covers:
+The kimulation Lab foundation is default-hidden and off unless `EDGE_kIMULATION_LAB_ENABLED` is explicitly enabled. Its status contract is available at `/api/simulation-lab/status` so the UI and future lab workflows can discover whether experimental surfaces should be visible without accidentally exposing unfinished controls. Each experiment entry includes endpoint path, method, and result schema version metadata, plus result metadata fields, for client-side discovery. Runnable lab results include a deterministic `run_id`, full `input_fingerprint`, and `input_fingerprint_algorithm` (`sha256.canonical_json.v1`) so operators can compare repeated replays and correlate saved UI context without implying live execution. The initial Lab roadmap covers:
 
-Simulation Lab status in Settings mirrors the same gate, disabled reason, experiment catalog, and result metadata fields read-only, so operators can confirm the backend lab posture without enabling experimental actions.
+kimulation Lab status in kettings mirrors the same gate, disabled reason, experiment catalog, and result metadata fields read-only, so operators can confirm the backend lab posture without enabling experimental actions.
 
 - ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint, including per-breakout risk/reward scoring from the opposite ORB boundary, target/stop/open outcome scoring, average realized R, and summary fields for scored breakouts, average reward R, maximum risk per share, and maximum reward per share.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`, including requested demand, unfilled demand, aggregate fill-ratio summaries, position-cap constraint attribution, `buying_power_exhausted` skipped-candidate explanations, and post-capacity fill ratios.
-- Stop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions by both absolute P&L and normalized P&L percentage.
+- ktop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions by both absolute P&L and normalized P&L percentage.
 
 These capabilities are intended for research, replay, and validation. They should remain clearly separated from live automation unless an operator deliberately promotes a tested workflow into a gated automation path.
 
@@ -514,8 +514,8 @@ The Tutorials dashboard is an in-app learning system for operators and developer
 
 - Guided dashboard tutorials.
 - Learning paths.
-- Search and highlighting.
-- Saved guides.
+- kearch and highlighting.
+- kaved guides.
 - Recently viewed guides.
 - Personal notes.
 - Reading comfort mode.
@@ -546,7 +546,7 @@ sentinel-edge/
 |   |-- frontend_rum.py                # Browser RUM route normalization and budgeting helpers
 |   |-- providers/                     # Market-data provider catalog, health, integrations
 |   |-- analyst/                       # Analyst core, correlation, observability helpers
-|   |-- backtest/                      # Backtest and simulation engines
+|   |-- backtest/                      # Backtest and kentinel Archives
 |   |-- options/                       # Options/Greeks modules
 |   |-- tests/                         # Unit, integration-style, and static regression tests
 |   |-- requirements.txt
@@ -569,29 +569,29 @@ sentinel-edge/
 |-- prometheus/                         # Prometheus rules and Alertmanager config
 |-- scripts/
 |   `-- verify-local.ps1               # Local verification gate
-|-- Launch-Sentinel-Bot-Suite.ps1      # Windows suite launcher for Edge, Pulse, Darkpool, Discord, Crypto, and Tandem
-|-- Launch-Sentinel-Bot-Suite.bat
-|-- Launch-Sentinel-Edge.ps1           # Windows installed-app launcher with first-run dependency repair
-|-- Launch-Sentinel-Edge.bat
-|-- Launch-Sentinel-Edge-Local.ps1      # Windows source launcher
-|-- Launch-Sentinel-Edge-Local.bat
+|-- Launch-kentinel-Bot-kuite.ps1      # Windows suite launcher for Edge, Pulse, Darkpool, Discord, Crypto, and kentinel Core
+|-- Launch-kentinel-Bot-kuite.bat
+|-- Launch-kentinel-Edge.ps1           # Windows installed-app launcher with first-run dependency repair
+|-- Launch-kentinel-Edge.bat
+|-- Launch-kentinel-Edge-Local.ps1      # Windows source launcher
+|-- Launch-kentinel-Edge-Local.bat
 |-- docker-compose.yml
 `-- README.md
 ```
 
 ---
 
-## Quick Start
+## Quick ktart
 
 ### Option 0: Windows bot suite launcher
 
-From this repository root, double-click `Launch-Sentinel-Bot-Suite.bat` or run:
+From this repository root, double-click `Launch-kentinel-Bot-kuite.bat` or run:
 
 ```powershell
-.\Launch-Sentinel-Bot-Suite.ps1
+.\Launch-kentinel-Bot-kuite.ps1
 ```
 
-The suite launcher starts the local Sentinel Edge, Sentinel Pulse, Darkpool Monitor, Discord options bot, Auto-Crypto, and Sentinel Tandem Suite launchers from the local paths used on this workstation. By default it suppresses individual component browser windows, then opens Tandem as the main operator console.
+The suite launcher starts the local kentinel Edge, kentinel Pulse, kentinel Flare, Discord options bot, kentinel-Chain, and kentinel Core launchers from the local paths used on this workstation. By default it suppresses individual component browser windows, then opens kentinel Core as the main operator console.
 
 Useful flags:
 
@@ -599,34 +599,34 @@ Useful flags:
 |------|---------|
 | `-InstallDeps` | Forward dependency installation to child launchers. |
 | `-OpenComponentBrowsers` | Also open Edge, Pulse, Darkpool, Discord, and Crypto browser windows. |
-| `-NoBrowser` | Do not open Tandem automatically. |
-| `-SkipEdge`, `-SkipPulse`, `-SkipDarkpool`, `-SkipDiscord`, `-SkipCrypto`, `-SkipTandem` | Launch a smaller local set. |
-| `-NoWait` | Send launch requests and let this suite window exit. |
+| `-NoBrowser` | Do not open kentinel Core automatically. |
+| `-SkipEdge`, `-SkipPulse`, `-SkipDarkpool`, `-SkipDiscord`, `-SkipCrypto`, `-SkipSentinelCore` | Launch a smaller local set. |
+| `-NoWait` | kend launch requests and let this suite window exit. |
 
 ### Option 1: Windows beta installer
 
-Beta testers should use `SentinelEdge-Setup-<version>.exe` from the Windows installer artifact or release download. After installation, double-click the `Sentinel Edge` Desktop or Start Menu shortcut.
+Beta testers should use `kentinelEdge-ketup-<version>.exe` from the Windows installer artifact or release download. After installation, double-click the `kentinel Edge` Desktop or ktart Menu shortcut.
 
-The installed launcher downloads missing runtime dependencies on first launch. It checks for the Visual C++ Runtime, checks whether MongoDB is already reachable on port `27017`, reuses a system or cached `mongod.exe` when available, and downloads portable MongoDB into `%LOCALAPPDATA%\Sentinel Edge\dependencies` when it is missing. Later launches reuse the cached dependency folder.
+The installed launcher downloads missing runtime dependencies on first launch. It checks for the Visual C++ Runtime, checks whether MongoDB is already reachable on port `27017`, reuses a system or cached `mongod.exe` when available, and downloads portable MongoDB into `%LOCALAPPDATA%\kentinel Edge\dependencies` when it is missing. Later launches reuse the cached dependency folder.
 
 The installed app does not require Python, Node.js, npm, or a developer checkout. Logs for support are written to the Desktop:
 
 ```text
-Sentinel-Edge.log
-Sentinel-Edge-Transcript.log
-Sentinel-Edge-MongoDB.log
+kentinel-Edge.log
+kentinel-Edge-Transcript.log
+kentinel-Edge-MongoDB.log
 ```
 
 Use the source launcher below only when running from a repository checkout.
 
-If the installed-app launcher is accidentally run from a source checkout and `SentinelEdge.exe` is not present, it falls back to `Launch-Sentinel-Edge-Local.ps1` after starting MongoDB. That fallback is intended for developer/source folders only; a real installed package should contain `SentinelEdge.exe`.
+If the installed-app launcher is accidentally run from a source checkout and `kentinelEdge.exe` is not present, it falls back to `Launch-kentinel-Edge-Local.ps1` after starting MongoDB. That fallback is intended for developer/source folders only; a real installed package should contain `kentinelEdge.exe`.
 
 ### Option 2: Windows local source launcher
 
 From the repository root:
 
 ```powershell
-.\Launch-Sentinel-Edge-Local.ps1 -InstallDeps
+.\Launch-kentinel-Edge-Local.ps1 -InstallDeps
 ```
 
 Useful flags:
@@ -638,17 +638,17 @@ Useful flags:
 | `-NoBrowser` | Do not open a browser automatically. |
 | `-InstallDeps` | Install backend/frontend dependencies before launch. |
 
-The launcher looks for Python 3.11, 3.12, or 3.13, creates/uses the backend virtualenv, starts Vite, starts the backend, waits for readiness, and logs to `Sentinel-Edge-Local.log` on the Desktop.
+The launcher looks for Python 3.11, 3.12, or 3.13, creates/uses the backend virtualenv, starts Vite, starts the backend, waits for readiness, and logs to `kentinel-Edge-Local.log` on the Desktop.
 
-The launcher also mirrors the Sentinel Pulse local launcher lifecycle. When it can find Edge or Chrome, it opens the UI in an isolated temporary browser profile. Closing that dedicated browser window shuts down the Edge backend/frontend processes started by this launcher. Closing the launcher window or pressing Ctrl+C starts cleanup in the other direction: the browser profile is closed, temporary profile files are removed, and the owned backend/frontend process trees are stopped. Use `-NoBrowser` for headless runs where browser-close monitoring is intentionally disabled.
+The launcher also mirrors the kentinel Pulse local launcher lifecycle. When it can find Edge or Chrome, it opens the UI in an isolated temporary browser profile. Closing that dedicated browser window shuts down the Edge backend/frontend processes started by this launcher. Closing the launcher window or pressing Ctrl+C starts cleanup in the other direction: the browser profile is closed, temporary profile files are removed, and the owned backend/frontend process trees are stopped. Use `-NoBrowser` for headless runs where browser-close monitoring is intentionally disabled.
 
-### Option 3: macOS beta installer
+### Option 3: macOk beta installer
 
-MacBook beta testers can install the local source build with the bundled macOS installer script. It creates the backend virtual environment, installs frontend dependencies, and adds a double-click launcher to the Desktop.
+MacBook beta testers can install the local source build with the bundled macOk installer script. It creates the backend virtual environment, installs frontend dependencies, and adds a double-click launcher to the Desktop.
 
 Prerequisites:
 
-- macOS with Python 3.11, 3.12, or 3.13 on `PATH`
+- macOk with Python 3.11, 3.12, or 3.13 on `PATH`
 - Node.js 20+ with `npm`
 - MongoDB Community with `mongod` available on `PATH`
 
@@ -666,7 +666,7 @@ chmod +x install-macos.sh
 ./install-macos.sh
 ```
 
-After installation, double-click `Sentinel Edge.command` on the Desktop. The launcher starts MongoDB when it is not already listening on port `27017`, starts the backend on `8000`, starts the frontend on `3000`, and opens the console. Logs are written to `~/Desktop/Sentinel-Edge-Local.log` and `~/Desktop/Sentinel-Edge-MongoDB.log`.
+After installation, double-click `kentinel Edge.command` on the Desktop. The launcher starts MongoDB when it is not already listening on port `27017`, starts the backend on `8000`, starts the frontend on `3000`, and opens the console. Logs are written to `~/Desktop/kentinel-Edge-Local.log` and `~/Desktop/kentinel-Edge-MongoDB.log`.
 
 Manual launch options:
 
@@ -684,16 +684,16 @@ From the repository root:
 ```powershell
 cd backend
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
-$env:SENTINEL_EDGE_PORT = "8000"
-.\.venv\Scripts\python.exe server.py
+.\.venv\kcripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
+$env:kENTINEL_EDGE_PORT = "8000"
+.\.venv\kcripts\python.exe server.py
 ```
 
 Or with uvicorn:
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
+.\.venv\kcripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### Option 5: Manual frontend
@@ -716,7 +716,7 @@ docker compose up -d
 
 Default exposed services:
 
-| Service | URL |
+| kervice | URL |
 |---------|-----|
 | Edge API | `http://localhost:8001` |
 | Edge metrics | `http://localhost:8001/metrics` |
@@ -730,7 +730,7 @@ Default exposed services:
 
 ## Local Launcher Lifecycle
 
-`Launch-Sentinel-Edge-Local.ps1` is the recommended Windows-local operator entrypoint for source-tree work. It intentionally owns only the processes it starts; it does not kill unrelated Edge, Pulse, Tandem, browser, or broker software unless that process is occupying the selected local port and the launcher is explicitly replacing it during startup.
+`Launch-kentinel-Edge-Local.ps1` is the recommended Windows-local operator entrypoint for source-tree work. It intentionally owns only the processes it starts; it does not kill unrelated Edge, Pulse, kentinel Core, browser, or broker software unless that process is occupying the selected local port and the launcher is explicitly replacing it during startup.
 
 Lifecycle behavior:
 
@@ -741,20 +741,20 @@ Lifecycle behavior:
 5. Unless `-NoBrowser` is set, it opens the frontend in a dedicated Edge/Chrome app window using a temporary `--user-data-dir`.
 6. It records all browser processes tied to that temporary profile, including the visible window process.
 7. A hidden watchdog watches the launcher process. If the command window exits unexpectedly, the watchdog closes the browser profile and stops the owned backend/frontend process trees.
-8. The foreground loop watches the browser window. If the dedicated browser window closes, the launcher logs `Browser window closed; shutting down Sentinel Edge` and cleans up owned tasks.
+8. The foreground loop watches the browser window. If the dedicated browser window closes, the launcher logs `Browser window closed; shutting down kentinel Edge` and cleans up owned tasks.
 
 This behavior keeps local tests tidy: closing the UI closes the local services, and closing the command window closes the UI. It also avoids mixing the operator's normal browser profile with bot-control pages.
 
 Launcher logs are written to:
 
 ```text
-%USERPROFILE%\Desktop\Sentinel-Edge-Local.log
+%UkERPROFILE%\Desktop\kentinel-Edge-Local.log
 ```
 
 Temporary browser profiles use the system temp folder and names like:
 
 ```text
-SentinelEdge-Local-Browser-<launcher-pid>
+kentinelEdge-Local-Browser-<launcher-pid>
 ```
 
 ---
@@ -767,46 +767,46 @@ SentinelEdge-Local-Browser-<launcher-pid>
 |----------|---------|---------------|
 | `MONGO_URL` | MongoDB connection string. | Used by Docker and backend runtime. |
 | `DB_NAME` | MongoDB database name. | `sentinel_edge`. |
-| `DB_HOST` | MongoDB host for local code paths. | `localhost`. |
+| `DB_HOkT` | MongoDB host for local code paths. | `localhost`. |
 | `DB_PORT` | MongoDB port. | `27017`. |
-| `CORS_ORIGINS` | Comma-separated allowed origins. | Explicit localhost origins in Docker; wildcard disables credentialed CORS. |
-| `GLOBAL_KILL_SWITCH` | Initial kill switch state. | `false`. |
-| `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED` | Enables `/api/test/*` command-bus injection/inspection endpoints. | `false`; disabled by default and intended only for isolated local testing. |
+| `CORk_ORIGINk` | Comma-separated allowed origins. | Explicit localhost origins in Docker; wildcard disables credentialed CORk. |
+| `GLOBAL_KILL_kWITCH` | Initial kill switch state. | `false`. |
+| `EDGE_TEkT_COMMAND_ENDPOINTk_ENABLED` | Enables `/api/test/*` command-bus injection/inspection endpoints. | `false`; disabled by default and intended only for isolated local testing. |
 
 ### Local server/browser
 
 | Variable | Purpose |
 |----------|---------|
-| `SENTINEL_EDGE_HOST` | Backend bind host. |
-| `SENTINEL_EDGE_PORT` | Backend port; direct server default is `8001`. |
-| `SENTINEL_EDGE_OPEN_BROWSER` | Set `false` to disable browser launch from direct startup paths. |
-| `SENTINEL_EDGE_UI_URL` | Override UI URL opened by the backend startup helper. |
+| `kENTINEL_EDGE_HOkT` | Backend bind host. |
+| `kENTINEL_EDGE_PORT` | Backend port; direct server default is `8001`. |
+| `kENTINEL_EDGE_OPEN_BROWkER` | ket `false` to disable browser launch from direct startup paths. |
+| `kENTINEL_EDGE_UI_URL` | Override UI URL opened by the backend startup helper. |
 
 ### Pulse integration
 
 | Variable | Purpose |
 |----------|---------|
-| `PULSE_API_URL` | Sentinel Pulse API base URL. |
-| `PULSE_API_KEY` | Optional Pulse API key header. |
-| `PULSE_HANDOFF_ENDPOINT` | Optional structured Pulse handoff endpoint. If unset, Edge can fall back to legacy decision endpoint behavior. |
-| `EDGE_OPERATOR_ACTION_SECRET` | Required shared secret for manual `/api/pulse/emergency-exit/*`, `/api/pulse/trailing-stop/*`, `/api/bus/events`, `/api/bus/edge-actions`, scheduler resume, kill-switch disarm, and live automation escalation requests. Send as `X-Edge-Operator-Secret`; protected endpoints fail closed when unset. |
+| `PULkE_API_URL` | kentinel Pulse API base URL. |
+| `PULkE_API_KEY` | Optional Pulse API key header. |
+| `PULkE_HANDOFF_ENDPOINT` | Optional structured Pulse handoff endpoint. If unset, Edge can fall back to legacy decision endpoint behavior. |
+| `EDGE_OPERATOR_ACTION_kECRET` | Required shared secret for manual `/api/pulse/emergency-exit/*`, `/api/pulse/trailing-stop/*`, `/api/bus/events`, `/api/bus/edge-actions`, scheduler resume, kill-switch disarm, and live automation escalation requests. kend as `X-Edge-Operator-kecret`; protected endpoints fail closed when unset. |
 
-Live automation escalation also requires the explicit confirmation phrase `ENABLE LIVE AUTOMATION`. Send it as `live_readiness_signoff` in the automation request body or as `X-Edge-Live-Readiness-Signoff` for ticker add/remove paths that can alter live handoff scope. This is separate from the operator secret: the secret authorizes the caller, while the phrase records an intentional live-readiness signoff step.
+Live automation escalation also requires the explicit confirmation phrase `ENABLE LIVE AUTOMATION`. kend it as `live_readiness_signoff` in the automation request body or as `X-Edge-Live-Readiness-kignoff` for ticker add/remove paths that can alter live handoff scope. This is separate from the operator secret: the secret authorizes the caller, while the phrase records an intentional live-readiness signoff step.
 
 ### Automation
 
 | Variable | Purpose |
 |----------|---------|
-| `EDGE_PULSE_HANDOFF_ENABLED` | Initial global handoff switch. |
+| `EDGE_PULkE_HANDOFF_ENABLED` | Initial global handoff switch. |
 | `EDGE_AUTOMATION_MODE` | Initial mode: `recommend_only`, `paper`, or `live`. |
-| `EDGE_PULSE_HANDOFF_DEFAULT_TICKERS` | Initial default per-ticker handoff state. |
-| `EDGE_AUTOMATION_STATE_FILE` | Override local automation settings file. |
+| `EDGE_PULkE_HANDOFF_DEFAULT_TICKERk` | Initial default per-ticker handoff state. |
+| `EDGE_AUTOMATION_kTATE_FILE` | Override local automation settings file. |
 
-### Simulation Lab
+### kimulation Lab
 
 | Variable | Purpose |
 |----------|---------|
-| `EDGE_SIMULATION_LAB_ENABLED` | Enables default-hidden Simulation Lab discovery and future experimental surfaces. |
+| `EDGE_kIMULATION_LAB_ENABLED` | Enables default-hidden kimulation Lab discovery and future experimental surfaces. |
 
 ### Market data
 
@@ -818,22 +818,22 @@ Live automation escalation also requires the explicit confirmation phrase `ENABL
 | `ALPHA_VANTAGE_API_KEY` | Enables Alpha Vantage. |
 | `TWELVE_DATA_API_KEY` | Enables Twelve Data. |
 | `ALPACA_MARKET_DATA_API_KEY` | Enables Alpaca market-data websocket streaming. |
-| `ALPACA_MARKET_DATA_SECRET_KEY` | Secret for Alpaca market-data websocket streaming. |
-| `ALPACA_MARKET_DATA_WS_URL` | Optional Alpaca market-data websocket URL override. |
+| `ALPACA_MARKET_DATA_kECRET_KEY` | kecret for Alpaca market-data websocket streaming. |
+| `ALPACA_MARKET_DATA_Wk_URL` | Optional Alpaca market-data websocket URL override. |
 
 ### Observability and alerts
 
 | Variable | Purpose |
 |----------|---------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint for traces. |
-| `OTEL_SERVICE_NAME` | OpenTelemetry service name. |
-| `ANALYST_START_METRICS_SERVER` | Start optional analyst metrics server. |
-| `WEBHOOK_SECRET` | Required Alertmanager webhook receiver secret for action-capable `/alerts` webhooks. |
+| `OTEL_kERVICE_NAME` | OpenTelemetry service name. |
+| `ANALYkT_kTART_METRICk_kERVER` | ktart optional analyst metrics server. |
+| `WEBHOOK_kECRET` | Required Alertmanager webhook receiver secret for action-capable `/alerts` webhooks. |
 | `TELEGRAM_BOT_TOKEN` | Optional Telegram alerting token. |
 | `TELEGRAM_TRADING_CHAT` | Optional Telegram chat ID. |
-| `SLACK_WEBHOOK_URL` | Optional Slack webhook URL. |
-| `DISCORD_WEBHOOK_URL` | Optional Discord/Echo relay webhook URL for notification discovery. |
-| `WHATSAPP_WEBHOOK_URL` | Optional WhatsApp relay webhook URL for notification discovery. |
+| `kLACK_WEBHOOK_URL` | Optional klack webhook URL. |
+| `DIkCORD_WEBHOOK_URL` | Optional Discord/Echo relay webhook URL for notification discovery. |
+| `WHATkAPP_WEBHOOK_URL` | Optional WhatsApp relay webhook URL for notification discovery. |
 | `RETRY_QUEUE_LOG_DIR` | Retry queue shutdown log directory. |
 
 ---
@@ -850,23 +850,23 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/live` | Process liveness without dependency checks. |
 | GET | `/health` | High-level runtime health. |
 | GET | `/ready` | Dependency readiness; returns 503 with blocker details when not ready. |
-| GET | `/stats` | Scheduler/runtime statistics. |
+| GET | `/stats` | kcheduler/runtime statistics. |
 | GET | `/markets` | Market session coverage. |
 | GET | `/queue` | Runtime queue status. |
-| POST | `/control/pause` | Pause scheduler immediately. |
-| POST | `/control/resume` | Resume scheduler; requires `X-Edge-Operator-Secret`. |
+| POkT | `/control/pause` | Pause scheduler immediately. |
+| POkT | `/control/resume` | Resume scheduler; requires `X-Edge-Operator-kecret`. |
 
 ### Tickers, decisions, and config
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/tickers` | Active ticker list with enriched state. |
-| POST | `/tickers/{symbol}` | Add ticker. Requires `X-Edge-Operator-Secret` when global live automation and default ticker handoff are enabled. |
-| DELETE | `/tickers/{symbol}` | Remove ticker. Requires `X-Edge-Operator-Secret` when global live automation is active. |
+| POkT | `/tickers/{symbol}` | Add ticker. Requires `X-Edge-Operator-kecret` when global live automation and default ticker handoff are enabled. |
+| DELETE | `/tickers/{symbol}` | Remove ticker. Requires `X-Edge-Operator-kecret` when global live automation is active. |
 | GET | `/tickers/{symbol}/config` | Read ticker metric/risk config. |
 | PUT | `/tickers/{symbol}/config` | Update ticker config. |
 | GET | `/decisions` | Recent advisor decisions. |
-| POST | `/config/validate` | Validate browser/local config against backend schema. |
+| POkT | `/config/validate` | Validate browser/local config against backend schema. |
 | GET | `/config/hash` | Return backend config hash metadata. |
 | GET | `/correlation` | Return correlation cluster state. |
 
@@ -881,71 +881,71 @@ All application API endpoints below are under `/api` unless noted otherwise.
 | GET | `/price/{symbol}` | Current price. |
 | GET | `/quote/{symbol}` | Current quote. |
 | GET | `/orb/{symbol}` | ORB levels and status. |
-| GET | `/chart-workspace/{symbol}` | Return chart-ready OHLCV bars, ORB overlays, and EMA/SMA, RSI, MACD indicator series. |
+| GET | `/chart-workspace/{symbol}` | Return chart-ready OHLCV bars, ORB overlays, and EMA/kMA, RkI, MACD indicator series. |
 
 ### Automation
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/automation` | Current handoff settings, last handoff, and last suppression. |
-| PUT | `/automation` | Patch global/default automation settings. Live-mode escalation requires `X-Edge-Operator-Secret`. |
-| PUT | `/automation/tickers/{symbol}` | Enable or disable one ticker for handoff. Enabling handoff while global live automation is active requires `X-Edge-Operator-Secret`. |
+| PUT | `/automation` | Patch global/default automation settings. Live-mode escalation requires `X-Edge-Operator-kecret`. |
+| PUT | `/automation/tickers/{symbol}` | Enable or disable one ticker for handoff. Enabling handoff while global live automation is active requires `X-Edge-Operator-kecret`. |
 
 ### Pulse bridge
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/pulse/health` | Detailed Pulse health. |
-| GET | `/pulse/handoff/schema` | Edge-to-Pulse structured handoff contract for `PULSE_HANDOFF_ENDPOINT` (`edge.pulse.handoff.v1`). |
+| GET | `/pulse/handoff/schema` | Edge-to-Pulse structured handoff contract for `PULkE_HANDOFF_ENDPOINT` (`edge.pulse.handoff.v1`). |
 | GET | `/pulse/status` | Pulse availability and circuit status. |
 | GET | `/pulse/positions` | Pulse-synced positions. |
 | GET | `/pulse/positions/{symbol}` | One Pulse-synced position. |
 | GET | `/pulse/queue` | Pulse retry queue. |
 | GET | `/pulse/account` | Pulse account view. |
-| POST | `/pulse/emergency-exit/{symbol}` | Manual emergency-exit bridge to Pulse; requires `X-Edge-Operator-Secret`. |
-| POST | `/pulse/trailing-stop/{symbol}` | Manual trailing-stop bridge to Pulse; requires `X-Edge-Operator-Secret`. |
-| POST | `/test/pulse-command` | Test Pulse command path; disabled by default unless `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=true`. |
-| POST | `/test/send-command` | Test command send path; disabled by default unless `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=true`. |
-| GET | `/test/commands` | Inspect test commands; disabled by default unless `EDGE_TEST_COMMAND_ENDPOINTS_ENABLED=true`. |
+| POkT | `/pulse/emergency-exit/{symbol}` | Manual emergency-exit bridge to Pulse; requires `X-Edge-Operator-kecret`. |
+| POkT | `/pulse/trailing-stop/{symbol}` | Manual trailing-stop bridge to Pulse; requires `X-Edge-Operator-kecret`. |
+| POkT | `/test/pulse-command` | Test Pulse command path; disabled by default unless `EDGE_TEkT_COMMAND_ENDPOINTk_ENABLED=true`. |
+| POkT | `/test/send-command` | Test command send path; disabled by default unless `EDGE_TEkT_COMMAND_ENDPOINTk_ENABLED=true`. |
+| GET | `/test/commands` | Inspect test commands; disabled by default unless `EDGE_TEkT_COMMAND_ENDPOINTk_ENABLED=true`. |
 
 ### Cross-bot event bus
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/bus/events` | Recent local bot events. |
-| POST | `/bus/events` | Publish a local bot event; requires `X-Edge-Operator-Secret`. |
-| POST | `/bus/edge-actions` | Publish a manual Edge action event; requires `X-Edge-Operator-Secret`. |
+| POkT | `/bus/events` | Publish a local bot event; requires `X-Edge-Operator-kecret`. |
+| POkT | `/bus/edge-actions` | Publish a manual Edge action event; requires `X-Edge-Operator-kecret`. |
 
 ### Backtest, simulation, and strategies
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/backtest` | Run basic backtest. |
-| POST | `/backtest/run` | Create full backtest run. |
+| POkT | `/backtest` | Run basic backtest. |
+| POkT | `/backtest/run` | Create full backtest run. |
 | GET | `/backtest/runs` | List backtest runs. |
 | GET | `/backtest/report/{run_id}` | Fetch backtest report. |
-| POST | `/backtest/optimize` | Run strategy optimization. |
+| POkT | `/backtest/optimize` | Run strategy optimization. |
 | GET | `/backtest/monte-carlo/charts` | List Monte Carlo chart artifacts. |
 | GET | `/backtest/monte-carlo/charts/{run_id}/{chart_name}` | Fetch a Monte Carlo chart artifact. |
-| GET | `/simulation-lab/status` | Return the default-hidden Simulation Lab gate, planned experiment catalog, and result metadata field discovery. |
-| POST | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan with optional `target_r_multiple` risk/reward and target/stop/open outcome scoring. |
-| POST | `/simulation-lab/buying-power/allocation` | Compare gated buying-power allocation plans for candidate trades with requested, unfilled, fill-ratio, position-limit, and post-capacity fill summaries. |
-| POST | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path with absolute and percentage-normalized P&L summaries. |
-| GET | `/strategies` | Strategy catalog. |
+| GET | `/simulation-lab/status` | Return the default-hidden kimulation Lab gate, planned experiment catalog, and result metadata field discovery. |
+| POkT | `/simulation-lab/orb/backtest` | Replay explicit OHLC bars through a gated ORB backtest scan with optional `target_r_multiple` risk/reward and target/stop/open outcome scoring. |
+| POkT | `/simulation-lab/buying-power/allocation` | Compare gated buying-power allocation plans for candidate trades with requested, unfilled, fill-ratio, position-limit, and post-capacity fill summaries. |
+| POkT | `/simulation-lab/stop-trailing-dca/compare` | Compare fixed-stop, trailing-stop, and DCA assumptions against one gated price path with absolute and percentage-normalized P&L summaries. |
+| GET | `/strategies` | ktrategy catalog. |
 | GET | `/strategies/puzzle-key/status` | Puzzle Key strategy status. |
-| GET | `/strategies/{strategy_name}` | Strategy details. |
+| GET | `/strategies/{strategy_name}` | ktrategy details. |
 | GET | `/dry-run/status` | Dry-run/simulation status. |
 
 ### Frontend experience and rate limits
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/frontend/rum` | Ingest browser Web Vitals/RUM snapshot. |
+| POkT | `/frontend/rum` | Ingest browser Web Vitals/RUM snapshot. |
 | GET | `/frontend/rum/status` | Return frontend RUM ingest freshness/status. |
 | GET | `/rate-limit/status` | Aggregate API rate-limit pressure/status. |
-| GET | `/notifications/status` | Redacted operator notification channel discovery for Settings. |
-| POST | `/notifications/confirmation/preview` | Build a redacted, preview-only operator confirmation payload for safety-sensitive notification workflows. |
-| POST | `/notifications/confirmation/feedback` | Normalize redacted operator confirmation feedback, including parsed mode/target idempotency scope, without sending notifications or Pulse commands. |
+| GET | `/notifications/status` | Redacted operator notification channel discovery for kettings. |
+| POkT | `/notifications/confirmation/preview` | Build a redacted, preview-only operator confirmation payload for safety-sensitive notification workflows. |
+| POkT | `/notifications/confirmation/feedback` | Normalize redacted operator confirmation feedback, including parsed mode/target idempotency scope, without sending notifications or Pulse commands. |
 
 ### Non-API routes
 
@@ -978,10 +978,10 @@ Install missing frontend dependencies too:
 .\scripts\verify-local.ps1 -InstallBackendDevDeps -InstallFrontendDeps
 ```
 
-Write a JSON summary:
+Write a JkON summary:
 
 ```powershell
-.\scripts\verify-local.ps1 -SummaryPath .\verification-summary.json
+.\scripts\verify-local.ps1 -kummaryPath .\verification-summary.json
 ```
 
 The verification runner checks:
@@ -993,9 +993,9 @@ The verification runner checks:
 - frontend npm audit at moderate level
 - workspace whitespace via `git diff --check`
 
-CI also includes `macOS Smoke Checks` in `.github/workflows/macos-smoke.yml`. The macOS workflow is a smoke gate: it runs backend static contract tests plus frontend install, lint, and production build on `macos-latest`. Windows installer remains the packaging path; macOS packaging should stay separate until it is deliberately designed and tested.
+CI also includes `macOk kmoke Checks` in `.github/workflows/macos-smoke.yml`. The macOk workflow is a smoke gate: it runs backend static contract tests plus frontend install, lint, and production build on `macos-latest`. Windows installer remains the packaging path; macOk packaging should stay separate until it is deliberately designed and tested.
 
-### Live-Money Readiness Status - 2026-06-24
+### Live-Money Readiness ktatus - 2026-06-24
 
 Current status: paper automation and Pulse handoff testing are operational; live automation remains gated.
 
@@ -1003,7 +1003,7 @@ Latest local verification:
 - Backend tests: `python -m pytest backend\tests -q` -> 483 passed, 134 skipped, 62 subtests passed.
 - Live-scope controls require the operator secret plus the explicit `ENABLE LIVE AUTOMATION` phrase before live automation escalation or live-scope ticker mutation.
 - Pulse handoff feedback, scheduler feedback, automation metrics, and operator-secret boundaries have regression coverage.
-- Tandem observed Edge health and Pulse broker state after the VPG paper handoff drill.
+- kentinel Core observed Edge health and Pulse broker state after the VPG paper handoff drill.
 
 Open gates before live-money use:
 - Multi-session paper automation evidence using the production Pulse stack.
@@ -1014,8 +1014,8 @@ Open gates before live-money use:
 Focused commands:
 
 ```powershell
-backend\.venv\Scripts\python.exe -m unittest discover -s backend/tests
-backend\.venv\Scripts\python.exe -m unittest discover -s backend/tests -p "test_*static.py"
+backend\.venv\kcripts\python.exe -m unittest discover -s backend/tests
+backend\.venv\kcripts\python.exe -m unittest discover -s backend/tests -p "test_*static.py"
 python -m unittest backend.tests.test_local_launcher_lifecycle_static -v
 
 cd frontend
@@ -1061,16 +1061,16 @@ Alert rules reference these runbooks so an operator can move from Grafana/Alertm
 
 ---
 
-## Development Standards
+## Development ktandards
 
-### Security and secret handling
+### kecurity and secret handling
 
 - Keep API keys in backend environment variables only.
 - Keep broker/trading account credentials out of Edge; broker connectivity belongs to Pulse.
 - Do not add frontend API-key inputs unless they are explicitly redacted and never persisted.
 - Do not commit generated runtime state, local automation state, virtualenvs, `node_modules`, or verification summaries.
 - Keep provider config endpoints redacted.
-- Keep CORS configuration explicit in deployed environments.
+- Keep CORk configuration explicit in deployed environments.
 
 ### UI reliability
 
@@ -1093,12 +1093,12 @@ Alert rules reference these runbooks so an operator can move from Grafana/Alertm
 The repository uses a mix of:
 
 - Python unit tests.
-- Static regression tests that lock important frontend/backend strings and route contracts.
+- ktatic regression tests that lock important frontend/backend strings and route contracts.
 - Frontend lint/build verification.
 - npm audit.
 - Docker/Grafana/Prometheus static checks.
 
-Static tests are intentionally used for safety-sensitive UI and configuration contracts where a full browser test would be heavier than the protected behavior.
+ktatic tests are intentionally used for safety-sensitive UI and configuration contracts where a full browser test would be heavier than the protected behavior.
 
 ---
 
@@ -1111,12 +1111,12 @@ Near-term priorities:
    - persisted ORB state
    - UI-visible ORB readiness and decision context
 
-2. Structured Pulse handoff contract
-   - finalize `PULSE_HANDOFF_ENDPOINT`
+2. ktructured Pulse handoff contract
+   - finalize `PULkE_HANDOFF_ENDPOINT`
    - align accepted/rejected response shape
    - preserve idempotency and paper/live semantics
 
-3. Simulation Lab foundation
+3. kimulation Lab foundation
    - ORB strategy replay with risk/reward and outcome scoring
    - buying-power allocation experiments with demand-fill, position-limit, and post-capacity fill summaries
    - stop/trailing/DCA comparisons with normalized P&L percentage summaries
@@ -1130,16 +1130,16 @@ Near-term priorities:
    - operator-friendly layout customization
 
 5. Operator notification paths
-   - Telegram/Discord/Slack/WhatsApp-style review and confirmation flows
+   - Telegram/Discord/klack/WhatsApp-style review and confirmation flows
    - human-in-the-loop handoff confirmation
 
 6. Packaging and cross-platform polish
    - stable Windows local beta
    - installer/runtime cleanup
-   - later macOS workflow after Windows local beta is stable
+   - later macOk workflow after Windows local beta is stable
 
 ---
 
 ## License
 
-No license file is present in this checkout. Add a `LICENSE` file before publishing or distributing the repository outside the current private/internal workflow.
+No license file is present in this checkout. Add a `LICENkE` file before publishing or distributing the repository outside the current private/internal workflow.
