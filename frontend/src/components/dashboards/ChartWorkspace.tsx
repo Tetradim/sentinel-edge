@@ -137,6 +137,38 @@ const marketMapTiles = [
   { label: 'Liquidity pocket', value: '605.35', tone: 'gold' },
 ];
 
+type SimulationLabResultMetricMode = 'ratio' | 'percent';
+type SimulationLabResultMetricDefinition = {
+  label: string;
+  mode?: SimulationLabResultMetricMode;
+};
+
+const simulationLabResultMetricDefinitions: SimulationLabResultMetricDefinition[] = [
+  { label: 'schema_version' },
+  { label: 'run_id' },
+  { label: 'input_fp' },
+  { label: 'breakouts' },
+  { label: 'scored_breakouts' },
+  { label: 'avg_reward_r' },
+  { label: 'target_hits' },
+  { label: 'stop_hits' },
+  { label: 'avg_realized_r' },
+  { label: 'allocated_notional' },
+  { label: 'fill_ratio', mode: 'ratio' },
+  { label: 'unfilled_requested' },
+  { label: 'position_limited' },
+  { label: 'post_cap_fill', mode: 'ratio' },
+  { label: 'best_plan' },
+  { label: 'best_pnl_pct', mode: 'percent' },
+  { label: 'worst_pnl_pct', mode: 'percent' },
+] as const;
+
+const simulationLabResultMetricLabels = new Set<string>(
+  simulationLabResultMetricDefinitions.map((definition) => definition.label),
+);
+
+const formatSimulationLabResultMetric = (value: string | number) => value;
+
 export const ChartWorkspace: React.FC<{ workspaceMode?: ChartWorkspaceMode }> = ({ workspaceMode = 'market-map' }) => {
   const [workspacePreferences, setWorkspacePreferences] =
     useState<ChartWorkspacePreferencesState>(readChartWorkspacePreferences);
@@ -835,9 +867,19 @@ export const ChartWorkspace: React.FC<{ workspaceMode?: ChartWorkspaceMode }> = 
                 </div>
               )}
               <div className="mt-2 grid grid-cols-2 gap-2">
-                {buildSimulationLabResultMetrics(simulationLabResult).map((metric) => (
-                  <Metric key={metric.label} label={metric.label} value={metric.value} />
-                ))}
+                {buildSimulationLabResultMetrics(simulationLabResult)
+                  .filter((metric) => simulationLabResultMetricLabels.has(metric.label))
+                  .map((metric) => {
+                    const mode = getSimulationLabResultMetricMode(metric.label);
+                    return (
+                      <Metric
+                        key={metric.label}
+                        label={metric.label}
+                        value={formatSimulationLabResultMetric(metric.value)}
+                        title={mode ? `summary ${metric.label} ${mode}` : `summary ${metric.label}`}
+                      />
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -1222,6 +1264,10 @@ function getSidePanelClass(layoutMode: ChartWorkspaceLayoutMode) {
   if (layoutMode === 'research') return 'grid grid-cols-1 gap-3 2xl:grid-cols-2';
   if (layoutMode === 'execution') return 'space-y-3 2xl:order-first 2xl:max-h-[760px] 2xl:overflow-y-auto 2xl:pr-1';
   return 'space-y-3 2xl:max-h-[760px] 2xl:overflow-y-auto 2xl:pr-1';
+}
+
+function getSimulationLabResultMetricMode(label: string) {
+  return simulationLabResultMetricDefinitions.find((definition) => definition.label === label)?.mode;
 }
 
 export default ChartWorkspace;

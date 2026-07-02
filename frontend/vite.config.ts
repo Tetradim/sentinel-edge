@@ -4,6 +4,7 @@ import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const backendUrl = env.VITE_BACKEND_URL || env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000';
 
   return {
     plugins: [react()],
@@ -13,7 +14,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(env.REACT_APP_BACKEND_URL || ''),
+      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(env.REACT_APP_BACKEND_URL || env.VITE_BACKEND_URL || ''),
     },
     server: {
       port: 3000,
@@ -28,6 +29,12 @@ export default defineConfig(({ mode }) => {
         '.preview.emergentcf.cloud',
         '.preview.emergentagent.com',
       ],
+      proxy: {
+        '/api': {
+          target: backendUrl,
+          changeOrigin: true,
+        },
+      },
     },
     optimizeDeps: {
       include: ['zustand', 'framer-motion', 'lucide-react'],

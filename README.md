@@ -500,6 +500,8 @@ The kimulation Lab foundation is default-hidden and off unless `EDGE_kIMULATION_
 
 kimulation Lab status in kettings mirrors the same gate, disabled reason, experiment catalog, and result metadata fields read-only, so operators can confirm the backend lab posture without enabling experimental actions.
 
+Simulation Lab status in Settings mirrors the same `/api/simulation-lab/status` gate, disabled reason, `EDGE_SIMULATION_LAB_ENABLED` env flag, default-hidden posture, experiment catalog, and endpoint path, method, and result schema version metadata read-only, so operators can confirm the backend lab posture without enabling experimental actions.
+
 - ORB backtesting through the gated `/api/simulation-lab/orb/backtest` replay endpoint, including per-breakout risk/reward scoring from the opposite ORB boundary, target/stop/open outcome scoring, average realized R, and summary fields for scored breakouts, average reward R, maximum risk per share, and maximum reward per share.
 - Buying-power allocation experiments through `/api/simulation-lab/buying-power/allocation`, including requested demand, unfilled demand, aggregate fill-ratio summaries, position-cap constraint attribution, `buying_power_exhausted` skipped-candidate explanations, and post-capacity fill ratios.
 - ktop, trailing-stop, and DCA comparisons (`stop vs trailing-stop vs DCA comparisons`) through `/api/simulation-lab/stop-trailing-dca/compare`, ranking the same long trade path against fixed-stop, trailing-stop, and averaging assumptions by both absolute P&L and normalized P&L percentage.

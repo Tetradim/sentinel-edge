@@ -14,17 +14,17 @@ interface MetricToggles {
 interface TickerCardProps {
   symbol: string;
   enabled: boolean;
-  currentPrice?: number;
-  signalStrength?: number;
+  currentPrice?: number | null;
+  signalStrength?: number | null;
   trend?: string;
-  orbHigh?: number;
-  orbLow?: number;
+  orbHigh?: number | null;
+  orbLow?: number | null;
   orbSessionLabel?: string;
   orbSessionStatus?: string;
   orbSessionReadiness?: string;
-  atr?: number;
-  volumeRatio?: number;
-  priceHistory?: Array<{ value: number }>;
+  atr?: number | null;
+  volumeRatio?: number | null;
+  priceHistory?: Array<{ value: number | null }>;
   metricToggles?: MetricToggles;
   onToggle?: () => void;
   onConfigure?: () => void;
@@ -56,6 +56,10 @@ function buildSparkline(history: Array<{ value: number }>, width: number, height
     .join(' ');
 }
 
+function isFiniteMetric(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 export const TickerCard: React.FC<TickerCardProps> = ({
   symbol,
   enabled,
@@ -76,6 +80,8 @@ export const TickerCard: React.FC<TickerCardProps> = ({
   onRemove,
 }) => {
   const [showConfig, setShowConfig] = useState(false);
+  const safeSignalStrength = isFiniteMetric(signalStrength) ? signalStrength : 0;
+  const safePriceHistory = priceHistory.filter((point): point is { value: number } => isFiniteMetric(point.value));
 
   const getTrendColor = () => {
     if (trend === 'bullish') return 'text-green-400';
@@ -90,8 +96,8 @@ export const TickerCard: React.FC<TickerCardProps> = ({
   };
 
   const getSignalColor = () => {
-    if (signalStrength >= 5) return 'from-green-500/30 to-green-600/10 border-green-500/50';
-    if (signalStrength <= -5) return 'from-red-500/30 to-red-600/10 border-red-500/50';
+    if (safeSignalStrength >= 5) return 'from-green-500/30 to-green-600/10 border-green-500/50';
+    if (safeSignalStrength <= -5) return 'from-red-500/30 to-red-600/10 border-red-500/50';
     return 'from-gray-700/30 to-gray-800/10 border-gray-600/50';
   };
 
@@ -224,14 +230,14 @@ export const TickerCard: React.FC<TickerCardProps> = ({
 
       {/* Price & Sparkline */}
       <div className="p-4">
-        {metricToggles.price && currentPrice !== undefined && (
+        {metricToggles.price && isFiniteMetric(currentPrice) && (
           <div className="flex items-baseline gap-2 mb-3">
             <DollarSign className="w-5 h-5 text-gray-400" />
             <span className="text-3xl font-bold text-white">{currentPrice.toFixed(2)}</span>
           </div>
         )}
 
-        {metricToggles.price && priceHistory.length >= 2 && (
+        {metricToggles.price && safePriceHistory.length >= 2 && (
           <div className="h-16 mb-4">
             <svg
               viewBox="0 0 200 60"
@@ -239,7 +245,7 @@ export const TickerCard: React.FC<TickerCardProps> = ({
               className="w-full h-full"
             >
               <path
-                d={buildSparkline(priceHistory, 200, 60)}
+                d={buildSparkline(safePriceHistory, 200, 60)}
                 fill="none"
                 stroke={sparkColor}
                 strokeWidth="2"
@@ -251,7 +257,7 @@ export const TickerCard: React.FC<TickerCardProps> = ({
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-2 gap-3">
-          {metricToggles.orb && orbHigh !== undefined && orbLow !== undefined && (
+          {metricToggles.orb && isFiniteMetric(orbHigh) && isFiniteMetric(orbLow) && (
             <div className="bg-black/20 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Target className="w-4 h-4 text-blue-400" />
@@ -270,7 +276,7 @@ export const TickerCard: React.FC<TickerCardProps> = ({
             </div>
           )}
 
-          {metricToggles.atr && atr !== undefined && (
+          {metricToggles.atr && isFiniteMetric(atr) && (
             <div className="bg-black/20 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Activity className="w-4 h-4 text-purple-400" />
@@ -288,15 +294,15 @@ export const TickerCard: React.FC<TickerCardProps> = ({
               </div>
               <p
                 className={`text-sm font-semibold ${
-                  signalStrength >= 0 ? 'text-green-400' : 'text-red-400'
+                  safeSignalStrength >= 0 ? 'text-green-400' : 'text-red-400'
                 }`}
               >
-                {signalStrength.toFixed(1)}
+                {safeSignalStrength.toFixed(1)}
               </p>
             </div>
           )}
 
-          {metricToggles.volume && volumeRatio !== undefined && (
+          {metricToggles.volume && isFiniteMetric(volumeRatio) && (
             <div className="bg-black/20 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Activity className="w-4 h-4 text-cyan-400" />

@@ -9,6 +9,8 @@
     "build": "tsc && vite build",
     "test:layout": "node --test tests/asset-command-monitor-layout.test.mjs",
     "test:bundle": "node --test tests/bundle-budget.test.mjs",
+    "test:unified-api-smoke": "node tests/sentinel-edge-unified-api-smoke.mjs",
+    "test:unified-ui-live": "node tests/sentinel-edge-unified-live-probe.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
@@ -35,6 +37,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "playwright-core": "^1.61.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.0",
     "typescript": "^6.0.2",

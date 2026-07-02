@@ -207,7 +207,10 @@ function formatSimulationLabResultTimestamp(value: string) {
   });
 }
 
-export function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulationLabResult) {
+export function buildSimulationLabResultMetrics(
+  result: ChartWorkspaceSimulationLabResult,
+  formatMetric = formatSimulationLabResultMetric,
+) {
   const summary = result.result.summary ?? {};
   const metrics = [
     {
@@ -226,35 +229,35 @@ export function buildSimulationLabResultMetrics(result: ChartWorkspaceSimulation
 
   if (result.kind === 'orb_backtest') {
     metrics.push(
-      { label: 'breakouts', value: formatSimulationLabResultMetric(summary.breakouts) },
-      { label: 'sessions', value: formatSimulationLabResultMetric(summary.sessions) },
-      { label: 'scored_breakouts', value: formatSimulationLabResultMetric(summary.scored_breakouts) },
-      { label: 'avg_reward_r', value: formatSimulationLabResultMetric(summary.avg_reward_r_multiple) },
-      { label: 'target_hits', value: formatSimulationLabResultMetric(summary.target_hits) },
-      { label: 'stop_hits', value: formatSimulationLabResultMetric(summary.stop_hits) },
-      { label: 'avg_realized_r', value: formatSimulationLabResultMetric(summary.avg_realized_r_multiple) },
+      { label: 'breakouts', value: formatMetric(summary.breakouts) },
+      { label: 'sessions', value: formatMetric(summary.sessions) },
+      { label: 'scored_breakouts', value: formatMetric(summary.scored_breakouts) },
+      { label: 'avg_reward_r', value: formatMetric(summary.avg_reward_r_multiple) },
+      { label: 'target_hits', value: formatMetric(summary.target_hits) },
+      { label: 'stop_hits', value: formatMetric(summary.stop_hits) },
+      { label: 'avg_realized_r', value: formatMetric(summary.avg_realized_r_multiple) },
     );
   }
 
   if (result.kind === 'buying_power_allocation') {
     metrics.push(
-      { label: 'allocated_notional', value: formatSimulationLabResultMetric(summary.allocated_notional, 'currency') },
-      { label: 'allocated_count', value: formatSimulationLabResultMetric(summary.allocated_count) },
-      { label: 'skipped_count', value: formatSimulationLabResultMetric(summary.skipped_count) },
-      { label: 'fill_ratio', value: formatSimulationLabResultMetric(summary.fill_ratio, 'ratio') },
-      { label: 'unfilled_requested', value: formatSimulationLabResultMetric(summary.unfilled_requested_notional, 'currency') },
+      { label: 'allocated_notional', value: formatMetric(summary.allocated_notional, 'currency') },
+      { label: 'allocated_count', value: formatMetric(summary.allocated_count) },
+      { label: 'skipped_count', value: formatMetric(summary.skipped_count) },
+      { label: 'fill_ratio', value: formatMetric(summary.fill_ratio, 'ratio') },
+      { label: 'unfilled_requested', value: formatMetric(summary.unfilled_requested_notional, 'currency') },
       { label: 'skipped_reason', value: formatSimulationLabAllocationSkipReason(result.result.skipped) },
-      { label: 'position_limited', value: formatSimulationLabResultMetric(summary.position_limited_count) },
-      { label: 'post_cap_fill', value: formatSimulationLabResultMetric(summary.post_cap_fill_ratio, 'ratio') },
+      { label: 'position_limited', value: formatMetric(summary.position_limited_count) },
+      { label: 'post_cap_fill', value: formatMetric(summary.post_cap_fill_ratio, 'ratio') },
     );
   }
 
   if (result.kind === 'stop_trailing_dca') {
     metrics.push(
-      { label: 'best_plan', value: formatSimulationLabResultMetric(summary.best_plan) },
-      { label: 'best_pnl', value: formatSimulationLabResultMetric(summary.best_pnl, 'currency') },
-      { label: 'best_pnl_pct', value: formatSimulationLabResultMetric(summary.best_pnl_pct, 'percent') },
-      { label: 'worst_pnl_pct', value: formatSimulationLabResultMetric(summary.worst_pnl_pct, 'percent') },
+      { label: 'best_plan', value: formatMetric(summary.best_plan) },
+      { label: 'best_pnl', value: formatMetric(summary.best_pnl, 'currency') },
+      { label: 'best_pnl_pct', value: formatMetric(summary.best_pnl_pct, 'percent') },
+      { label: 'worst_pnl_pct', value: formatMetric(summary.worst_pnl_pct, 'percent') },
     );
   }
 

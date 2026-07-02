@@ -103,7 +103,17 @@ function Test-FrontendIdentity {
     param([string]$Url)
     try {
         $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
-        return ($response.Content -match "Sentinel Edge")
+        if ($response.Content -notmatch "Sentinel Edge") {
+            return $false
+        }
+
+        $baseUrl = $Url.TrimEnd("/")
+        $appResponse = Invoke-WebRequest -Uri "$baseUrl/src/App.tsx" -UseBasicParsing -TimeoutSec 3
+        $shellResponse = Invoke-WebRequest -Uri "$baseUrl/src/components/sentinel-edge/SentinelEdgeUnifiedShell.tsx" -UseBasicParsing -TimeoutSec 3
+        return (
+            ($appResponse.Content -match "SentinelEdgeUnifiedShell") -and
+            ($shellResponse.Content -match "Risk Control Brain")
+        )
     } catch {
         return $false
     }
@@ -312,7 +322,8 @@ function Start-OwnedProcess {
         [string]$FilePath,
         [string[]]$ArgumentList,
         [string]$WorkingDirectory,
-        [switch]$Visible
+        [switch]$Visible,
+        [switch]$NoTrack
     )
     $startParams = @{
         FilePath = $FilePath
@@ -326,7 +337,9 @@ function Start-OwnedProcess {
         $startParams.WindowStyle = "Hidden"
     }
     $process = Start-Process @startParams
-    $OwnedProcesses.Add($process)
+    if (-not $NoTrack) {
+        $OwnedProcesses.Add($process)
+    }
     return $process
 }
 
@@ -600,7 +613,11 @@ try {
     if (-not $npm) { throw "npm was not found. Install Node.js." }
     if ($InstallDeps -or -not (Test-Path (Join-Path $Frontend "node_modules"))) {
         Write-Status "Installing frontend dependencies"
-        Start-OwnedProcess -FilePath $npm -ArgumentList @("install") -WorkingDirectory $Frontend -Visible | Wait-Process
+        $frontendInstallProcess = Start-OwnedProcess -FilePath $npm -ArgumentList @("install") -WorkingDirectory $Frontend -Visible -NoTrack
+        $frontendInstallProcess | Wait-Process
+        if ($frontendInstallProcess.ExitCode -ne 0) {
+            throw "Frontend dependency install failed with exit code $($frontendInstallProcess.ExitCode)."
+        }
     }
 
     $backendUrl = "http://127.0.0.1:$BackendPort"
@@ -611,6 +628,15 @@ try {
     $env:SENTINEL_EDGE_OPEN_BROWSER = "false"
     $env:SENTINEL_EDGE_UI_URL = $frontendUrl
     $env:PULSE_API_URL = $PulseApiUrl
+    if (-not $env:PULSE_API_KEY) {
+        $userPulseApiKey = [Environment]::GetEnvironmentVariable("PULSE_API_KEY", "User")
+        if ($userPulseApiKey) {
+            $env:PULSE_API_KEY = $userPulseApiKey
+        }
+    }
+    if (-not $env:PULSE_API_KEY) {
+        Write-Status "PULSE_API_KEY is not set; protected Pulse routes will be unavailable" "WARN"
+    }
     $env:REACT_APP_BACKEND_URL = $backendUrl
     $backendReadyUrl = "$backendUrl/api/ready"
 

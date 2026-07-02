@@ -1,5 +1,5 @@
-import AssetCommandConsole from './components/asset-command/AssetCommandConsole';
+import SentinelEdgeUnifiedShell from './components/sentinel-edge/SentinelEdgeUnifiedShell';
 
 export default function App() {
-  return <AssetCommandConsole />;
+  return <SentinelEdgeUnifiedShell />;
 }

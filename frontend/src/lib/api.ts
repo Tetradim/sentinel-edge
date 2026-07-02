@@ -8,7 +8,8 @@ import type {
   ScannerWorkbenchWatchIntentValidation,
 } from '@/types';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+const VITE_BACKEND_URL = (import.meta as any).env?.VITE_BACKEND_URL || '';
+const BACKEND_URL = VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || '';
 const FRONTEND_RUM_PATH = '/api/frontend/rum';
 const FRONTEND_RUM_BEACON_MAX_BYTES = 60 * 1024;
 const FRONTEND_RUM_BEACON_LIST_LIMIT = 5;
@@ -199,26 +200,26 @@ class ApiClient {
   }
 
   async addTicker(symbol: string) {
-    return fetchJSON(`/api/tickers/${symbol}`, { method: 'POST' });
+    return fetchJSON(`/api/tickers/${encodeURIComponent(symbol)}`, { method: 'POST' });
   }
 
   async removeTicker(symbol: string) {
-    return fetchJSON(`/api/tickers/${symbol}`, { method: 'DELETE' });
+    return fetchJSON(`/api/tickers/${encodeURIComponent(symbol)}`, { method: 'DELETE' });
   }
 
   async updateTickerConfig(symbol: string, config: any) {
-    return fetchJSON(`/api/tickers/${symbol}/config`, {
+    return fetchJSON(`/api/tickers/${encodeURIComponent(symbol)}/config`, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
   }
 
   async getTickerConfig(symbol: string) {
-    return fetchJSON(`/api/tickers/${symbol}/config`);
+    return fetchJSON(`/api/tickers/${encodeURIComponent(symbol)}/config`);
   }
 
   async getOrbLevels(symbol: string) {
-    return fetchJSON(`/api/orb/${symbol}`);
+    return fetchJSON(`/api/orb/${encodeURIComponent(symbol)}`);
   }
 
   async getChartWorkspace(symbol: string, options: { indicators?: ChartWorkspaceIndicatorId[]; limit?: number } = {}) {
@@ -332,6 +333,13 @@ class ApiClient {
     });
   }
 
+  async evaluateSupportResistance(payload: any) {
+    return fetchJSON('/api/support-resistance/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async pauseScheduler() {
     return fetchJSON('/api/control/pause', { method: 'POST' });
   }
@@ -360,7 +368,7 @@ class ApiClient {
   }
 
   async updateTickerAutomation(symbol: string, enabled: boolean) {
-    return fetchJSON(`/api/automation/tickers/${symbol}`, {
+    return fetchJSON(`/api/automation/tickers/${encodeURIComponent(symbol)}`, {
       method: 'PUT',
       body: JSON.stringify({ enabled }),
     });
