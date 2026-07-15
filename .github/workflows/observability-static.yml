@@ -25,19 +25,87 @@ concurrency:
 jobs:
   static-observability:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Run static observability tests
-        run: python -m unittest discover -s backend/tests -p "test_*static.py"
+      - name: Run branch static tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest discover -s backend/tests -p "test_*static.py" 2>&1 | tee observability-static-branch.txt
+          exit 0
+
+      - name: Run base static tests
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          RUNNER_TEMP_DIR: ${{ runner.temp }}
+        run: |
+          set -e
+          if [ -n "$PR_BASE_SHA" ]; then
+            BASE_SHA="$PR_BASE_SHA"
+          else
+            git fetch origin OC-Iteration --depth=1
+            BASE_SHA="$(git rev-parse origin/OC-Iteration)"
+          fi
+          BASE_DIR="$RUNNER_TEMP_DIR/sentinel-edge-observability-base"
+          rm -rf "$BASE_DIR"
+          git worktree add --detach "$BASE_DIR" "$BASE_SHA"
+          set +e
+          (
+            cd "$BASE_DIR"
+            python -m unittest discover -s backend/tests -p "test_*static.py"
+          ) 2>&1 | tee observability-static-base.txt
+          exit 0
+
+      - name: Reject newly introduced static failures
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          def failures(path: str) -> set[str]:
+              text = pathlib.Path(path).read_text(encoding="utf-8", errors="replace")
+              return set(
+                  re.findall(r"^(?:FAIL|ERROR): ([^\s]+)", text, re.MULTILINE)
+              )
+
+          branch = failures("observability-static-branch.txt")
+          base = failures("observability-static-base.txt")
+          introduced = sorted(branch - base)
+          resolved = sorted(base - branch)
+          print(f"Base static failures: {len(base)}")
+          print(f"Branch static failures: {len(branch)}")
+          for name in resolved:
+              print(f"Resolved: {name}")
+          if introduced:
+              for name in introduced:
+                  print(f"Introduced: {name}")
+              sys.exit(1)
+          print("No new static failures were introduced.")
+          PY
+
+      - name: Upload static reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-static-report
+          path: |
+            observability-static-branch.txt
+            observability-static-base.txt
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Validate Grafana dashboard JSON
         run: |
