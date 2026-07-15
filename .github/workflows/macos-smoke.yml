@@ -40,7 +40,26 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Run backend static contract tests
-        run: python -m unittest discover -s backend/tests -p "test_*static.py"
+        id: static_tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest discover -s backend/tests -p "test_*static.py" 2>&1 | tee macos-static-tests.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload static test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-static-test-report
+          path: macos-static-tests.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail when static tests failed
+        if: steps.static_tests.outputs.status != '0'
+        run: exit 1
 
       - name: Set up Node
         uses: actions/setup-node@v4
