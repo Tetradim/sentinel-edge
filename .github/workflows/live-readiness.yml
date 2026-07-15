@@ -1,0 +1,37 @@
+name: Edge Fill Authority
+
+on:
+  pull_request:
+    branches: [OC-Iteration]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/live-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r backend/requirements-dev.txt
+      - name: Run command and handoff tests
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m pytest \
+            backend/tests/test_fill_authoritative_automation.py \
+            backend/tests/test_scheduler_handoff_feedback.py \
+            backend/tests/test_automation_handoff_metrics.py \
+            -q --tb=short
