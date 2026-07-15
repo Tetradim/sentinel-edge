@@ -35,6 +35,7 @@ jobs:
           set +e
           python -m pytest \
             backend/tests/test_fill_authoritative_automation.py \
+            backend/tests/test_live_runtime_wiring.py \
             backend/tests/test_scheduler_handoff_feedback.py \
             backend/tests/test_automation_handoff_metrics.py \
             -q --tb=short 2>&1 | tee edge-fill-authority-tests.txt
