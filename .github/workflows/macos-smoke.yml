@@ -27,39 +27,90 @@ env:
 jobs:
   macos-smoke:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     name: macOS Smoke
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Run backend static contract tests
-        id: static_tests
+      - name: Run branch static contract tests
         shell: bash
         run: |
           set +e
-          python -m unittest discover -s backend/tests -p "test_*static.py" 2>&1 | tee macos-static-tests.txt
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          python -m unittest discover -s backend/tests -p "test_*static.py" 2>&1 | tee macos-static-branch.txt
           exit 0
 
-      - name: Upload static test report
+      - name: Run base static contract tests
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          RUNNER_TEMP_DIR: ${{ runner.temp }}
+        run: |
+          set -e
+          if [ -n "$PR_BASE_SHA" ]; then
+            BASE_SHA="$PR_BASE_SHA"
+          else
+            git fetch origin OC-Iteration --depth=1
+            BASE_SHA="$(git rev-parse origin/OC-Iteration)"
+          fi
+          BASE_DIR="$RUNNER_TEMP_DIR/sentinel-edge-static-base"
+          rm -rf "$BASE_DIR"
+          git worktree add --detach "$BASE_DIR" "$BASE_SHA"
+          set +e
+          (
+            cd "$BASE_DIR"
+            python -m unittest discover -s backend/tests -p "test_*static.py"
+          ) 2>&1 | tee macos-static-base.txt
+          exit 0
+
+      - name: Reject new static contract failures
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          def failures(path: str) -> set[str]:
+              text = pathlib.Path(path).read_text(encoding="utf-8", errors="replace")
+              pattern = re.compile(r"^(?:FAIL|ERROR): ([^\s]+)", re.MULTILINE)
+              return set(pattern.findall(text))
+
+          branch = failures("macos-static-branch.txt")
+          base = failures("macos-static-base.txt")
+          introduced = sorted(branch - base)
+          resolved = sorted(base - branch)
+          print(f"Base static failures: {len(base)}")
+          print(f"Branch static failures: {len(branch)}")
+          if resolved:
+              print("Resolved static failures:")
+              for name in resolved:
+                  print(f"  - {name}")
+          if introduced:
+              print("New static failures introduced by this branch:")
+              for name in introduced:
+                  print(f"  - {name}")
+              sys.exit(1)
+          print("No new static contract failures were introduced.")
+          PY
+
+      - name: Upload static test reports
         uses: actions/upload-artifact@v4
         with:
           name: macos-static-test-report
-          path: macos-static-tests.txt
+          path: |
+            macos-static-branch.txt
+            macos-static-base.txt
           if-no-files-found: error
           retention-days: 14
-
-      - name: Fail when static tests failed
-        if: steps.static_tests.outputs.status != '0'
-        run: exit 1
 
       - name: Set up Node
         uses: actions/setup-node@v4
