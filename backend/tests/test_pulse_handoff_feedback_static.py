@@ -33,12 +33,14 @@ class PulseHandoffFeedbackStaticTests(unittest.TestCase):
         self.assertIn("self.automation.record_sent(command, handoff_result)", text)
         self.assertIn('handoff_result.get("sent", False)', text)
 
-    def test_automation_status_preserves_pulse_feedback(self):
+    def test_automation_status_preserves_pulse_feedback_and_acceptance_state(self):
         text = AUTOMATION.read_text(encoding="utf-8")
 
-        self.assertIn("pulse_feedback", text)
-        self.assertIn("handoff_status", text)
-        self.assertIn('metric_result = "sent" if status == "accepted" else status', text)
+        self.assertIn('"pulse_feedback": sent', text)
+        self.assertIn('"handoff_status": status', text)
+        self.assertIn('"sent" if status == "accepted" else status', text)
+        self.assertIn('if accepted:', text)
+        self.assertIn('self._last_action_at[command.symbol] = time.time()', text)
 
 
 if __name__ == "__main__":
