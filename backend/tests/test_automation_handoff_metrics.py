@@ -33,9 +33,7 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
 
     def test_suppressed_handoff_records_bounded_reason_metric(self):
         controller = self._controller()
-
         controller.record_suppressed(self._command(), "market_closed:after_close")
-
         metrics = generate_latest().decode("utf-8")
         self.assertIn(
             'edge_automation_handoffs_total{action="buy",mode="paper",reason="market_closed_after_close",result="suppressed"}',
@@ -44,10 +42,8 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
 
     def test_sent_and_failed_handoffs_record_result_metrics(self):
         controller = self._controller()
-
         controller.record_sent(self._command(), True)
         controller.record_sent(self._command(AutomationAction.STOP_BUYING), False)
-
         metrics = generate_latest().decode("utf-8")
         self.assertIn(
             'edge_automation_handoffs_total{action="buy",mode="paper",reason="pulse_accepted",result="sent"}',
@@ -60,7 +56,6 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
 
     def test_rejected_handoff_preserves_pulse_feedback(self):
         controller = self._controller()
-
         controller.record_sent(
             self._command(),
             {
@@ -72,11 +67,9 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
                 "response": {"accepted": False, "reason": "risk_limit"},
             },
         )
-
         self.assertFalse(controller.last_handoff["sent"])
         self.assertEqual(controller.last_handoff["handoff_status"], "rejected")
         self.assertEqual(controller.last_handoff["pulse_feedback"]["reason"], "risk_limit")
-
         metrics = generate_latest().decode("utf-8")
         self.assertIn(
             'edge_automation_handoffs_total{action="buy",mode="paper",reason="risk_limit",result="rejected"}',
@@ -94,13 +87,12 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
             trailing_percent=0.75,
             metadata={"price": 123.45},
         )
-
         payload = command.payload()
         intent = payload["metadata"]["execution_intent"]
 
         self.assertEqual("edge.pulse.handoff.v1", payload["contract_version"])
         self.assertNotIn("target_bot", payload)
-        self.assertEqual("edge.execution_intent.v1", intent["contract_version"])
+        self.assertEqual("edge.execution_intent.v2", intent["contract_version"])
         self.assertEqual(command.idempotency_key, intent["intent_id"])
         self.assertEqual("sentinel-edge", intent["source_bot"])
         self.assertEqual("sentinel-pulse", intent["target_bot"])
@@ -109,10 +101,16 @@ class AutomationHandoffMetricsTests(unittest.TestCase):
         self.assertEqual("paper", intent["mode"])
         self.assertEqual("bullish continuation with protected exit", intent["reason"])
         self.assertEqual(command.idempotency_key, intent["idempotency_key"])
-        self.assertEqual({"type": "edge_runtime_policy"}, intent["quantity_policy"])
-        self.assertEqual({"type": "trailing", "trailing_percent": 0.75}, intent["trailing_policy"])
+        self.assertEqual(
+            {"type": "pulse_strategy_capital", "target_notional": None},
+            intent["quantity_policy"],
+        )
+        self.assertEqual(
+            {"type": "trailing", "trailing_percent": 0.75},
+            intent["trailing_policy"],
+        )
         self.assertIsNone(intent["max_notional"])
-        self.assertIsNone(intent["expires_at"])
+        self.assertGreater(intent["expires_at"], command.created_at)
         self.assertEqual(123.45, payload["metadata"]["price"])
 
 
