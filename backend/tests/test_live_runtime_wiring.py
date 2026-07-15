@@ -15,6 +15,7 @@ from automation import (
     HandoffCommand,
 )
 from pulse_client import PulseClient
+from shared.handoff import PulseHandoffRequest
 import runtime_mode  # noqa: F401  installs production live behavior
 
 
@@ -44,6 +45,11 @@ def test_runtime_installs_pending_command_and_safe_delivery_methods():
     assert AutomationController.plan.__name__ == "_plan_with_pending"
     assert AutomationController.record_sent.__name__ == "_record_sent_with_pending"
     assert PulseClient.send_handoff_command.__name__ == "_send_handoff_without_ambiguous_legacy_fallback"
+
+    command = _command()
+    assert len(command.idempotency_key.split(":")) == 6
+    validated = PulseHandoffRequest.from_edge_payload(command.payload())
+    assert validated.idempotency_key == command.idempotency_key
 
 
 def test_ambiguous_delivery_never_calls_legacy_execution(monkeypatch):
