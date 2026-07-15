@@ -19,14 +19,16 @@ class AutomationHandoffMetricsStaticTests(unittest.TestCase):
         self.assertIn('["action", "mode", "result", "reason"]', metric_block)
         self.assertNotIn('"symbol"', metric_block)
 
-    def test_automation_records_sent_failed_and_suppressed_results(self):
+    def test_automation_records_sent_failed_rejected_and_suppressed_results(self):
         text = AUTOMATION.read_text(encoding="utf-8")
 
         self.assertIn("edge_automation_handoffs_total", text)
-        self.assertIn('_record_handoff_metric(command, "sent", "pulse_accepted")', text)
-        self.assertIn('_record_handoff_metric(command, "failed", "pulse_send_failed")', text)
+        self.assertIn('"sent" if accepted else "failed"', text)
+        self.assertIn('"sent" if status == "accepted" else status', text)
         self.assertIn('_record_handoff_metric(command, "suppressed", reason)', text)
-        self.assertIn('reason.replace(":", "_")', text)
+        self.assertIn('.replace(":", "_")', text)
+        self.assertIn('sent.get("reason")', text)
+        self.assertIn('sent.get("rejection_reason")', text)
 
     def test_handoff_outcomes_have_recording_rule(self):
         text = RULES.read_text(encoding="utf-8")
