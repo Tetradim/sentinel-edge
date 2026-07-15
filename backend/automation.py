@@ -1,16 +1,15 @@
-"""Automation controls for Sentinel Edge -> Sentinel Pulse handoff.
+"""Automation controls for Edge-to-Pulse handoff.
 
-The controls are deliberately separate from signal generation. Edge may score
-opportunities continuously, but live Pulse commands are allowed only when the
-global handoff switch, the selected mode, and the per-ticker switch all permit
-it. Turning the global switch off never erases per-ticker preferences.
+Command acceptance and broker execution are separate states. Edge persists
+command identity/cooldown state, while positions remain authoritative only when
+reported back by Pulse.
 """
 from __future__ import annotations
 
-import os
+import hashlib
 import json
+import os
 import time
-import uuid
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -48,20 +47,36 @@ class AutomationSettings:
     min_confidence: float = 0.6
     cooldown_seconds: int = 60
     quiet_when_pulse_absent: bool = True
+    command_ttl_seconds: int = 30
 
     @classmethod
     def from_env(cls) -> "AutomationSettings":
-        enabled = os.getenv("EDGE_PULSE_HANDOFF_ENABLED", "false").lower() in ("1", "true", "yes", "on")
-        mode_raw = os.getenv("EDGE_AUTOMATION_MODE", AutomationMode.RECOMMEND_ONLY.value).lower()
+        enabled = os.getenv("EDGE_PULSE_HANDOFF_ENABLED", "false").lower() in (
+            "1", "true", "yes", "on"
+        )
+        mode_raw = os.getenv(
+            "EDGE_AUTOMATION_MODE", AutomationMode.RECOMMEND_ONLY.value
+        ).lower()
         try:
             mode = AutomationMode(mode_raw)
         except ValueError:
             mode = AutomationMode.RECOMMEND_ONLY
-        default_ticker = os.getenv("EDGE_PULSE_HANDOFF_DEFAULT_TICKERS", "false").lower() in ("1", "true", "yes", "on")
-        return cls(global_enabled=enabled, mode=mode, default_ticker_enabled=default_ticker)
+        default_ticker = os.getenv(
+            "EDGE_PULSE_HANDOFF_DEFAULT_TICKERS", "false"
+        ).lower() in ("1", "true", "yes", "on")
+        return cls(
+            global_enabled=enabled,
+            mode=mode,
+            default_ticker_enabled=default_ticker,
+            command_ttl_seconds=max(
+                5, int(os.getenv("EDGE_HANDOFF_TTL_SECONDS", "30"))
+            ),
+        )
 
     def is_ticker_enabled(self, symbol: str) -> bool:
-        return self.per_ticker_enabled.get(symbol.upper(), self.default_ticker_enabled)
+        return self.per_ticker_enabled.get(
+            symbol.upper(), self.default_ticker_enabled
+        )
 
     def can_handoff(self, symbol: str, confidence: float) -> tuple[bool, str]:
         if not self.global_enabled:
@@ -98,35 +113,95 @@ class HandoffCommand:
     def __post_init__(self) -> None:
         self.symbol = self.symbol.upper()
         if not self.idempotency_key:
-            bucket = int(self.created_at // 60)
-            self.idempotency_key = f"edge:{self.symbol}:{self.action.value}:{self.orb_session}:{bucket}:{uuid.uuid4().hex[:8]}"
+            self.idempotency_key = self._deterministic_key()
+
+    def _deterministic_key(self) -> str:
+        explicit = str(
+            self.metadata.get("decision_id")
+            or self.metadata.get("event_id")
+            or ""
+        ).strip()
+        if explicit:
+            seed = explicit
+        else:
+            bucket_seconds = max(
+                5,
+                int(self.metadata.get("idempotency_window_seconds") or 60),
+            )
+            stable_metadata = {
+                key: self.metadata.get(key)
+                for key in (
+                    "signal_strength",
+                    "trend",
+                    "price",
+                    "strategy",
+                    "cycle_id",
+                )
+                if key in self.metadata
+            }
+            seed = json.dumps(
+                {
+                    "symbol": self.symbol,
+                    "action": self.action.value,
+                    "mode": self.mode.value,
+                    "orb_session": self.orb_session,
+                    "bucket": int(self.created_at // bucket_seconds),
+                    "reason": self.reason,
+                    "metadata": stable_metadata,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            )
+        digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:24]
+        return f"edge:{self.symbol}:{self.action.value}:{digest}"
 
     def execution_intent(self) -> Dict[str, Any]:
         trailing_policy = None
-        if self.trailing_percent is not None or self.stop_type in {"trailing", "tighten_trailing"}:
+        if self.trailing_percent is not None or self.stop_type in {
+            "trailing",
+            "tighten_trailing",
+        }:
             trailing_policy = {
                 "type": self.stop_type or "trailing",
                 "trailing_percent": self.trailing_percent,
             }
-
         stop_policy = None
-        if self.stop_type and self.stop_type not in {"trailing", "tighten_trailing"}:
+        if self.stop_type and self.stop_type not in {
+            "trailing",
+            "tighten_trailing",
+        }:
             stop_policy = {"type": self.stop_type}
 
+        target_notional = self.metadata.get("target_notional")
+        ttl = max(
+            5,
+            int(
+                self.metadata.get("command_ttl_seconds")
+                or os.getenv("EDGE_HANDOFF_TTL_SECONDS", "30")
+            ),
+        )
         return {
-            "contract_version": "edge.execution_intent.v1",
+            "contract_version": "edge.execution_intent.v2",
             "intent_id": self.idempotency_key,
             "source_bot": "sentinel-edge",
             "target_bot": "sentinel-pulse",
             "symbol": self.symbol,
             "action": self.action.value,
             "mode": self.mode.value,
-            "quantity_policy": {"type": "edge_runtime_policy"},
-            "max_notional": None,
+            "quantity_policy": {
+                "type": (
+                    "target_notional"
+                    if target_notional is not None
+                    else "pulse_strategy_capital"
+                ),
+                "target_notional": target_notional,
+            },
+            "max_notional": self.metadata.get("max_notional"),
             "stop_policy": stop_policy,
             "trailing_policy": trailing_policy,
             "reason": self.reason,
-            "expires_at": None,
+            "expires_at": self.created_at + ttl,
             "idempotency_key": self.idempotency_key,
         }
 
@@ -152,11 +227,14 @@ class HandoffCommand:
 
 
 def _metric_reason(reason: str) -> str:
-    reason = str(reason or "unknown").lower()
-    return reason.replace(":", "_")
+    return str(reason or "unknown").lower().replace(":", "_")
 
 
-def _record_handoff_metric(command: HandoffCommand, result: str, reason: str) -> None:
+def _record_handoff_metric(
+    command: HandoffCommand,
+    result: str,
+    reason: str,
+) -> None:
     edge_automation_handoffs_total.labels(
         action=command.action.value,
         mode=command.mode.value,
@@ -166,123 +244,227 @@ def _record_handoff_metric(command: HandoffCommand, result: str, reason: str) ->
 
 
 class AutomationController:
-    """Runtime state and cooldowns for Pulse handoff."""
+    """Persistent command state and acceptance-based cooldowns."""
 
-    def __init__(self, settings: Optional[AutomationSettings] = None, state_path: Optional[Path] = None):
+    def __init__(
+        self,
+        settings: Optional[AutomationSettings] = None,
+        state_path: Optional[Path] = None,
+    ):
         self.state_path = state_path or Path(
-            os.getenv("EDGE_AUTOMATION_STATE_FILE", "data/automation_settings.json")
+            os.getenv(
+                "EDGE_AUTOMATION_STATE_FILE",
+                "data/automation_settings.json",
+            )
         )
-        self.settings = settings or self._load_settings() or AutomationSettings.from_env()
-        self.last_handoff: Optional[Dict[str, Any]] = None
-        self.last_suppressed: Optional[Dict[str, Any]] = None
-        self._last_action_at: Dict[str, float] = {}
+        loaded = self._load_state()
+        self.settings = (
+            settings
+            or loaded.get("settings")
+            or AutomationSettings.from_env()
+        )
+        self.last_handoff: Optional[Dict[str, Any]] = loaded.get(
+            "last_handoff"
+        )
+        self.last_suppressed: Optional[Dict[str, Any]] = loaded.get(
+            "last_suppressed"
+        )
+        self._last_action_at: Dict[str, float] = loaded.get(
+            "last_action_at", {}
+        )
 
-    def _load_settings(self) -> Optional[AutomationSettings]:
+    def _load_state(self) -> Dict[str, Any]:
         try:
             if not self.state_path.exists():
-                return None
+                return {}
             data = json.loads(self.state_path.read_text(encoding="utf-8"))
+            settings_data = (
+                data.get("settings")
+                if isinstance(data.get("settings"), dict)
+                else data
+            )
             settings = AutomationSettings.from_env()
-            if isinstance(data, dict):
-                if "global_enabled" in data:
-                    settings.global_enabled = bool(data["global_enabled"])
-                if "mode" in data:
-                    settings.mode = AutomationMode(str(data["mode"]))
-                if "default_ticker_enabled" in data:
-                    settings.default_ticker_enabled = bool(data["default_ticker_enabled"])
-                if "per_ticker_enabled" in data and isinstance(data["per_ticker_enabled"], dict):
+            if isinstance(settings_data, dict):
+                if "global_enabled" in settings_data:
+                    settings.global_enabled = bool(
+                        settings_data["global_enabled"]
+                    )
+                if "mode" in settings_data:
+                    settings.mode = AutomationMode(str(settings_data["mode"]))
+                if "default_ticker_enabled" in settings_data:
+                    settings.default_ticker_enabled = bool(
+                        settings_data["default_ticker_enabled"]
+                    )
+                if isinstance(
+                    settings_data.get("per_ticker_enabled"), dict
+                ):
                     settings.per_ticker_enabled = {
-                        str(symbol).upper(): bool(enabled)
-                        for symbol, enabled in data["per_ticker_enabled"].items()
+                        str(key).upper(): bool(value)
+                        for key, value in settings_data[
+                            "per_ticker_enabled"
+                        ].items()
                     }
-                if "min_confidence" in data:
-                    settings.min_confidence = max(0.0, min(1.0, float(data["min_confidence"])))
-                if "cooldown_seconds" in data:
-                    settings.cooldown_seconds = max(0, int(data["cooldown_seconds"]))
-                if "quiet_when_pulse_absent" in data:
-                    settings.quiet_when_pulse_absent = bool(data["quiet_when_pulse_absent"])
-            return settings
+                if "min_confidence" in settings_data:
+                    settings.min_confidence = max(
+                        0.0,
+                        min(1.0, float(settings_data["min_confidence"])),
+                    )
+                if "cooldown_seconds" in settings_data:
+                    settings.cooldown_seconds = max(
+                        0, int(settings_data["cooldown_seconds"])
+                    )
+                if "quiet_when_pulse_absent" in settings_data:
+                    settings.quiet_when_pulse_absent = bool(
+                        settings_data["quiet_when_pulse_absent"]
+                    )
+                if "command_ttl_seconds" in settings_data:
+                    settings.command_ttl_seconds = max(
+                        5, int(settings_data["command_ttl_seconds"])
+                    )
+            return {
+                "settings": settings,
+                "last_handoff": data.get("last_handoff"),
+                "last_suppressed": data.get("last_suppressed"),
+                "last_action_at": {
+                    str(key): float(value)
+                    for key, value in (
+                        data.get("last_action_at") or {}
+                    ).items()
+                },
+            }
         except Exception:
-            return None
+            return {}
 
     def save_settings(self) -> None:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         self.state_path.write_text(
-            json.dumps(self.settings.public_dict(), indent=2, sort_keys=True),
+            json.dumps(
+                {
+                    "settings": self.settings.public_dict(),
+                    "last_handoff": self.last_handoff,
+                    "last_suppressed": self.last_suppressed,
+                    "last_action_at": self._last_action_at,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
             encoding="utf-8",
         )
 
     def update_settings(self, patch: Dict[str, Any]) -> AutomationSettings:
-        if "global_enabled" in patch:
-            self.settings.global_enabled = bool(patch["global_enabled"])
+        for field_name in (
+            "global_enabled",
+            "default_ticker_enabled",
+            "quiet_when_pulse_absent",
+        ):
+            if field_name in patch:
+                setattr(self.settings, field_name, bool(patch[field_name]))
         if "mode" in patch:
             self.settings.mode = AutomationMode(str(patch["mode"]))
-        if "default_ticker_enabled" in patch:
-            self.settings.default_ticker_enabled = bool(patch["default_ticker_enabled"])
         if "min_confidence" in patch:
-            self.settings.min_confidence = max(0.0, min(1.0, float(patch["min_confidence"])))
+            self.settings.min_confidence = max(
+                0.0,
+                min(1.0, float(patch["min_confidence"])),
+            )
         if "cooldown_seconds" in patch:
-            self.settings.cooldown_seconds = max(0, int(patch["cooldown_seconds"]))
-        if "quiet_when_pulse_absent" in patch:
-            self.settings.quiet_when_pulse_absent = bool(patch["quiet_when_pulse_absent"])
-        if "per_ticker_enabled" in patch and isinstance(patch["per_ticker_enabled"], dict):
+            self.settings.cooldown_seconds = max(
+                0, int(patch["cooldown_seconds"])
+            )
+        if "command_ttl_seconds" in patch:
+            self.settings.command_ttl_seconds = max(
+                5, int(patch["command_ttl_seconds"])
+            )
+        if isinstance(patch.get("per_ticker_enabled"), dict):
             self.settings.per_ticker_enabled = {
-                str(symbol).upper(): bool(enabled)
-                for symbol, enabled in patch["per_ticker_enabled"].items()
+                str(key).upper(): bool(value)
+                for key, value in patch["per_ticker_enabled"].items()
             }
         self.save_settings()
         return self.settings
 
-    def set_ticker(self, symbol: str, enabled: bool) -> AutomationSettings:
+    def set_ticker(
+        self,
+        symbol: str,
+        enabled: bool,
+    ) -> AutomationSettings:
         self.settings.per_ticker_enabled[symbol.upper()] = bool(enabled)
         self.save_settings()
         return self.settings
 
     def plan(self, command: HandoffCommand) -> tuple[bool, str]:
-        allowed, reason = self.settings.can_handoff(command.symbol, command.confidence)
+        command.metadata.setdefault(
+            "command_ttl_seconds", self.settings.command_ttl_seconds
+        )
+        allowed, reason = self.settings.can_handoff(
+            command.symbol, command.confidence
+        )
         if not allowed:
             self.record_suppressed(command, reason)
             return False, reason
 
-        key = f"{command.symbol}:{command.action.value}"
-        now = time.time()
-        last_at = self._last_action_at.get(key, 0.0)
-        if self.settings.cooldown_seconds and now - last_at < self.settings.cooldown_seconds:
+        last_at = self._last_action_at.get(command.symbol, 0.0)
+        if (
+            self.settings.cooldown_seconds
+            and time.time() - last_at < self.settings.cooldown_seconds
+        ):
             self.record_suppressed(command, "cooldown")
             return False, "cooldown"
-
-        self._last_action_at[key] = now
         return True, "allowed"
 
     def record_sent(self, command: HandoffCommand, sent: Any) -> None:
         if isinstance(sent, dict):
-            feedback = sent
-            accepted = bool(feedback.get("sent", False))
-            status = str(feedback.get("status") or ("accepted" if accepted else "failed"))
-            reason = str(
-                feedback.get("reason")
-                or feedback.get("rejection_reason")
-                or ("pulse_accepted" if accepted else "pulse_send_failed")
+            accepted = bool(sent.get("sent", False))
+            status = str(
+                sent.get("status")
+                or ("accepted" if accepted else "failed")
             )
-            metric_result = "sent" if status == "accepted" else status
+            reason = str(
+                sent.get("reason")
+                or sent.get("rejection_reason")
+                or (
+                    "pulse_accepted"
+                    if accepted
+                    else "pulse_send_failed"
+                )
+            )
             self.last_handoff = {
                 **command.payload(),
                 "sent": accepted,
                 "handoff_status": status,
-                "pulse_feedback": feedback,
+                "pulse_feedback": sent,
             }
-            _record_handoff_metric(command, metric_result, reason)
+            if accepted:
+                self._last_action_at[command.symbol] = time.time()
+            _record_handoff_metric(
+                command,
+                "sent" if status == "accepted" else status,
+                reason,
+            )
+            self.save_settings()
             return
 
-        self.last_handoff = {**command.payload(), "sent": sent}
-        if sent:
-            _record_handoff_metric(command, "sent", "pulse_accepted")
-        else:
-            _record_handoff_metric(command, "failed", "pulse_send_failed")
+        accepted = bool(sent)
+        self.last_handoff = {**command.payload(), "sent": accepted}
+        if accepted:
+            self._last_action_at[command.symbol] = time.time()
+        _record_handoff_metric(
+            command,
+            "sent" if accepted else "failed",
+            "pulse_accepted" if accepted else "pulse_send_failed",
+        )
+        self.save_settings()
 
-    def record_suppressed(self, command: HandoffCommand, reason: str) -> None:
-        self.last_suppressed = {**command.payload(), "suppressed_reason": reason}
+    def record_suppressed(
+        self,
+        command: HandoffCommand,
+        reason: str,
+    ) -> None:
+        self.last_suppressed = {
+            **command.payload(),
+            "suppressed_reason": reason,
+        }
         _record_handoff_metric(command, "suppressed", reason)
+        self.save_settings()
 
     def status(self) -> Dict[str, Any]:
         return {
@@ -290,3 +472,143 @@ class AutomationController:
             "last_handoff": self.last_handoff,
             "last_suppressed": self.last_suppressed,
         }
+
+
+# Scheduler imports automation before constructing its PositionTracker. Patch
+# the existing classes once so accepted commands never masquerade as fills and
+# command-bus POSITION_UPDATE messages maintain the fallback position snapshot.
+try:
+    from engine import DecisionEngine
+    from position_tracker import PositionTracker, _empty_pos
+
+    _original_get = PositionTracker.get
+    _original_position_update = DecisionEngine.update_position_state
+
+    def _update_position_from_pulse(
+        self,
+        symbol: str,
+        position_size: float,
+        entry_price: Optional[float] = None,
+        pnl_pct: float = 0.0,
+        pnl_dollar: float = 0.0,
+    ) -> None:
+        symbol = symbol.upper()
+        size = float(position_size or 0.0)
+        if size <= 0:
+            self.positions.pop(symbol, None)
+            self.position_pnl[symbol] = float(pnl_dollar or 0.0)
+            return
+        previous = dict(self.positions.get(symbol, {}) or {})
+        previous.update(
+            {
+                "size": size,
+                "quantity": size,
+                "entry_price": (
+                    entry_price
+                    if entry_price is not None
+                    else previous.get("entry_price")
+                ),
+                "current_pnl_pct": float(pnl_pct or 0.0),
+                "current_pnl_dollar": float(pnl_dollar or 0.0),
+                "has_position": True,
+                "active": True,
+                "updated_at": time.time(),
+            }
+        )
+        self.positions[symbol] = previous
+        self.position_pnl[symbol] = float(pnl_dollar or 0.0)
+
+    def _authoritative_get(
+        self,
+        symbol: str,
+    ) -> Dict[str, Any]:
+        state = _original_get(self, symbol)
+        if state.get("source") == "change_stream":
+            return state
+
+        position = None
+        if self.decision_engine and hasattr(
+            self.decision_engine, "get_position"
+        ):
+            position = self.decision_engine.get_position(symbol)
+        if isinstance(position, dict) and position:
+            quantity = float(
+                position.get(
+                    "quantity",
+                    position.get("qty", position.get("size", 0)),
+                )
+                or 0
+            )
+            pnl = float(
+                position.get(
+                    "current_pnl_dollar",
+                    position.get(
+                        "pnl",
+                        getattr(
+                            self.decision_engine,
+                            "position_pnl",
+                            {},
+                        ).get(symbol.upper(), 0.0),
+                    ),
+                )
+                or 0
+            )
+            pnl_pct = float(
+                position.get(
+                    "current_pnl_pct",
+                    position.get("pnl_pct", 0),
+                )
+                or 0
+            )
+            explicit_active = bool(
+                position.get(
+                    "has_position",
+                    position.get("active", False),
+                )
+            )
+            return {
+                "has_position": quantity > 0 or explicit_active,
+                "pnl": pnl,
+                "pnl_pct": pnl_pct,
+                "trailing_enabled": bool(
+                    position.get(
+                        "trailing_enabled",
+                        position.get(
+                            "trailing_stop_enabled", False
+                        ),
+                    )
+                ),
+                "trailing_percent": position.get("trailing_percent"),
+                "peak_pnl_pct": float(
+                    position.get("peak_pnl_pct", pnl_pct) or 0
+                ),
+                "drawdown_pct": float(
+                    position.get("drawdown_pct", 0) or 0
+                ),
+                "entry_price": position.get(
+                    "entry_price", position.get("avg_entry")
+                ),
+                "entry_time": position.get("entry_time"),
+                "source": "pulse_decision_engine",
+            }
+        if state.get("source") == "optimistic":
+            return _empty_pos()
+        return state
+
+    def _record_command_only(
+        self,
+        symbol: str,
+        decision: Any,
+        entry_price: Optional[float] = None,
+    ) -> None:
+        state = self._state.setdefault(symbol, _empty_pos())
+        state["last_command"] = getattr(
+            decision, "value", str(decision)
+        )
+        state["last_command_at"] = time.time()
+
+    DecisionEngine.update_position_state = _update_position_from_pulse
+    PositionTracker.get = _authoritative_get
+    PositionTracker.on_decision = _record_command_only
+except Exception:
+    pass
