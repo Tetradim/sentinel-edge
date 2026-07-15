@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -15,7 +14,7 @@ from automation import (
     AutomationSettings,
     HandoffCommand,
 )
-from engine import Decision
+from engine import Decision, DecisionEngine
 from position_tracker import PositionTracker
 
 
@@ -61,6 +60,18 @@ def test_execution_intent_has_notional_and_expiry():
     assert intent["quantity_policy"]["target_notional"] == 100.0
     assert intent["max_notional"] == 100.0
     assert intent["expires_at"] > command.created_at
+
+
+def test_controller_ttl_is_applied_to_planned_command(tmp_path):
+    settings = _settings()
+    settings.command_ttl_seconds = 75
+    controller = AutomationController(
+        settings=settings,
+        state_path=tmp_path / "automation.json",
+    )
+    command = _command()
+    assert controller.plan(command)[0]
+    assert command.execution_intent()["expires_at"] == command.created_at + 75
 
 
 def test_failed_submission_does_not_start_cooldown(tmp_path):
@@ -129,6 +140,11 @@ def test_handoff_acceptance_does_not_create_optimistic_position():
     assert state["last_command"] == Decision.BUY.value
 
 
+def test_empty_decision_position_is_not_treated_as_open():
+    tracker = PositionTracker(decision_engine=_DecisionPositions({}))
+    assert tracker.get("ASTS")["has_position"] is False
+
+
 def test_tracker_reads_pulse_decision_engine_position():
     tracker = PositionTracker(
         decision_engine=_DecisionPositions(
@@ -148,3 +164,32 @@ def test_tracker_reads_pulse_decision_engine_position():
     assert state["pnl_pct"] == 11.11
     assert state["trailing_enabled"] is True
     assert state["source"] == "pulse_decision_engine"
+
+
+def test_command_bus_position_update_refreshes_decision_snapshot():
+    engine = DecisionEngine()
+    engine.update_position_state(
+        symbol="ASTS",
+        position_size=3.5,
+        entry_price=91.25,
+        pnl_pct=4.2,
+        pnl_dollar=13.44,
+    )
+    position = engine.get_position("ASTS")
+    assert position["quantity"] == 3.5
+    assert position["entry_price"] == 91.25
+    assert position["current_pnl_pct"] == 4.2
+    assert position["current_pnl_dollar"] == 13.44
+
+    tracker = PositionTracker(decision_engine=engine)
+    state = tracker.get("ASTS")
+    assert state["has_position"] is True
+    assert state["pnl"] == 13.44
+    assert state["pnl_pct"] == 4.2
+
+
+def test_zero_position_update_closes_decision_snapshot():
+    engine = DecisionEngine()
+    engine.update_position_state("ASTS", 2.0, 90.0, 1.0, 2.0)
+    engine.update_position_state("ASTS", 0.0, 90.0, 0.0, 0.0)
+    assert engine.get_position("ASTS") is None
