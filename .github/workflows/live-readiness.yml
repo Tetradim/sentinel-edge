@@ -5,6 +5,7 @@ on:
     branches: [OC-Iteration]
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/live-readiness.yml'
   workflow_dispatch:
 
@@ -35,8 +36,12 @@ jobs:
           set +e
           python -m pytest \
             backend/tests/test_fill_authoritative_automation.py \
+            backend/tests/test_live_runtime_wiring.py \
+            backend/tests/test_live_scheduler_execution.py \
+            backend/tests/test_live_scheduler_arbitration.py \
             backend/tests/test_scheduler_handoff_feedback.py \
             backend/tests/test_automation_handoff_metrics.py \
+            backend/tests/test_frontend_live_operations_wiring.py \
             -q --tb=short 2>&1 | tee edge-fill-authority-tests.txt
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
