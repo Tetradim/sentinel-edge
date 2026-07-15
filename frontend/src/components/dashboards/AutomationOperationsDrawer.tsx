@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Radio, RefreshCw } from 'lucide-react';
 
 interface PendingCommand {
@@ -213,7 +214,7 @@ function StatusCard({ label, value, tone }: { label: string; value: string | num
   return <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3"><div className={`text-xl font-bold ${toneClass}`}>{value}</div><div className="mt-1 text-xs text-gray-500">{label}</div></div>;
 }
 
-function DetailPanel({ title, icon, value }: { title: string; icon: JSX.Element; value: unknown }) {
+function DetailPanel({ title, icon, value }: { title: string; icon: ReactNode; value: unknown }) {
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
       <h4 className="flex items-center gap-2 text-sm font-medium text-white">{icon}{title}</h4>
