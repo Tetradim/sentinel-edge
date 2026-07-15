@@ -14,6 +14,11 @@ import aiohttp
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+# server.py imports EvaluationScheduler before importing this module, making this
+# a safe production hook for scheduler behavior that must not participate in the
+# scheduler/runtime_mode circular import.
+import live_scheduler_patch as _live_scheduler_patch  # noqa: F401,E402
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
