@@ -24,6 +24,7 @@ aiohttp==3.11.11           # Async HTTP client (ws_manager dependency)
 yfinance==1.2.1
 pandas==3.0.2              # OHLCV DataFrame manipulation (yfinance dep)
 numpy==2.4.4               # Numerical arrays (pandas dep)
+scipy==1.17.1              # Peak/trough detection for complex chart patterns
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 prometheus_client==0.24.1  # Counter, Gauge, Histogram, /metrics endpoint
