@@ -393,6 +393,22 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  async getGeneralApiSettings() {
+    return fetchJSON('/api/general-api');
+  }
+
+  async updateGeneralApiSettings(settings: any) {
+    return fetchJSON('/api/general-api', { method: 'PUT', body: JSON.stringify(settings) });
+  }
+
+  async testGeneralApi() {
+    return fetchJSON('/api/general-api/test', { method: 'POST' });
+  }
+
+  async registerGeneralApi() {
+    return fetchJSON('/api/general-api/register', { method: 'POST' });
+  }
 }
 
 function toFrontendRumBeaconBody(snapshot: any) {

@@ -91,6 +91,7 @@ from audit import AuditTrail
 from config_audit import ConfigValidator, ConfigHasher
 from drift_detection import DriftDetector
 from export_api import router as export_router
+from archive_general_api import GeneralApiConfigStore, GeneralApiDefaults, create_fastapi_router
 
 # Sentinel Edge analyst package
 from analyst.core import SentinelEdge
@@ -2427,7 +2428,18 @@ async def metrics():
 # Router registration
 # ─────────────────────────────────────────────────────────────────────────────
 
+general_api_store = GeneralApiConfigStore(
+    Path(__file__).parent / "data" / "general_api.json",
+    GeneralApiDefaults(
+        bot_id="sentinel-edge",
+        display_name="Sentinel Edge",
+        roles=("observer", "risk_controller"),
+    ),
+)
+general_api_router = create_fastapi_router(general_api_store)
+
 app.include_router(api_router)
+app.include_router(general_api_router, prefix="/api")
 app.include_router(bot_event_bus_router, prefix="/api")
 app.include_router(chrome_bridge_router, prefix="/api")
 

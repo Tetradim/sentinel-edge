@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Settings, Save, RefreshCw, Database, Zap, Shield, Globe, AlertCircle, TrendingUp, ShieldAlert, BarChart3, CheckCircle, XCircle, FlaskConical, Bell } from 'lucide-react';
 import { api } from '@/lib/api';
+import { GeneralApiSettings } from './GeneralApiSettings';
 
 interface ConfigSection {
   name: string;
@@ -504,6 +505,8 @@ export function SettingsDashboard() {
           {runtimeSettingsError}
         </div>
       )}
+
+      <GeneralApiSettings />
 
       {/* Advisory Pulse Bridge */}
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">

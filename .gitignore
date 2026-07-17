@@ -42,3 +42,4 @@ verification-summary.json
 *.njsproj
 *.sln
 *.sw?
+backend/data/general_api.json
