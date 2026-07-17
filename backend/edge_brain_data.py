@@ -184,7 +184,7 @@ async def load_longer_timeframes(symbol: str) -> Dict[str, pd.DataFrame]:
     return frames
 
 
-def _frame_trend(frame: Optional[pd.DataFrame]) -> tuple[float, Dict[str, float]]:
+def frame_trend(frame: Optional[pd.DataFrame]) -> tuple[float, Dict[str, float]]:
     frame = normalize_ohlcv(frame)
     if frame is None or len(frame) < 30:
         return 0.0, {}
