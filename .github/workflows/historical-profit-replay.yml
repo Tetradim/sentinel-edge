@@ -72,7 +72,7 @@ jobs:
         run: |
           set +e
           read -r -a symbols <<< "$REPLAY_SYMBOLS"
-          python backend/integration/historical_profit_replay.py \
+          python backend/integration/historical_profit_replay_bootstrap.py \
             --pulse-backend pulse-repo/backend \
             --output historical-profit-report.json \
             --symbols "${symbols[@]}" \
