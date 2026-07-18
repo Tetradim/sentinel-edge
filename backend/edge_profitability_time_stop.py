@@ -160,7 +160,7 @@ class ProfitabilityTimeStopMixin:
         symbol = symbol.upper()
         position_payload = dict(position or {})
         card = self.active_card(symbol)
-        metrics: Dict[str, Any] = {}
+        metrics: Dict[str, Any] = dict((card.metadata.get("time_stop") if card else {}) or {})
         if card is not None and _quantity(position_payload) > 0:
             metrics = self._update_time_stop_metrics(card, position_payload, current_price=current_price)
         super().observe_position(symbol, position_payload, current_price=current_price)
