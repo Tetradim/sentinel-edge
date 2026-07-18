@@ -13,6 +13,10 @@ from signals_enhanced import TechnicalIndicators
 TechnicalIndicators.compute_rsi = staticmethod(safe_compute_rsi)
 install_brain()
 
+# Flare is intelligence-only. Its expiring dark-pool observations are blended
+# into the authoritative signal with a strict bounded adjustment.
+import flare_intelligence_runtime  # noqa: F401,E402
+
 # Install concrete supervision above the enhanced decision wrapper.
 import edge_supervision_runtime as supervision_runtime  # noqa: E402
 
