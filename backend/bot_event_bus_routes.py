@@ -9,6 +9,10 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from shared.bot_event_bus import EDGE_ACTION_TARGET_BOTS, BotEvent, event_bus, publish_event
 
+# server.py imports scheduler and alert_handler first, so the freshness/exactly-once
+# wrappers are already installed before Edge's strategist brain wraps the pipeline.
+import edge_brain_patch as _edge_brain_patch  # noqa: F401,E402
+
 
 router = APIRouter(prefix="/bus", tags=["Cross Bot Event Bus"])
 _OPERATOR_ACTION_SECRET_ENV = "EDGE_OPERATOR_ACTION_SECRET"
