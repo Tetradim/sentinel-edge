@@ -14,6 +14,12 @@ from signals_enhanced import TechnicalIndicators
 TechnicalIndicators.compute_rsi = staticmethod(safe_compute_rsi)
 install_brain()
 
+# Any existing ShortInterestEngine analysis now publishes a validated, expiring
+# squeeze snapshot. The explicit bus endpoint remains available for other feeds.
+import edge_short_interest_runtime as short_interest_runtime  # noqa: E402
+
+short_interest_runtime.install()
+
 # Fuse session-specific ORB state and validated short-interest pressure into the
 # same authoritative AnalysisResult used by patterns, MTF trend and profitability.
 import edge_orb_squeeze_runtime as market_event_runtime  # noqa: E402
