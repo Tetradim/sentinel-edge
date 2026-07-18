@@ -13,6 +13,7 @@ from shared.bot_event_bus import EDGE_ACTION_TARGET_BOTS, BotEvent, event_bus, p
 # wrappers are already installed before Edge's strategist brain wraps the pipeline.
 import edge_brain_patch as _edge_brain_patch  # noqa: F401,E402
 from edge_profitability import coordinator
+from flare_intelligence import flare_intelligence_store
 
 
 router = APIRouter(prefix="/bus", tags=["Cross Bot Event Bus"])
@@ -43,6 +44,30 @@ async def publish_edge_action(request: Request, payload: dict):
         target_bots=EDGE_ACTION_TARGET_BOTS,
     )
     return {"status": "accepted", "event": action_event.model_dump(mode="json")}
+
+
+@router.post("/intelligence/flare")
+async def record_flare_intelligence(request: Request, payload: dict):
+    """Accept expiring dark-pool intelligence; never an execution command."""
+    _require_operator_action_secret(request)
+    try:
+        intelligence = flare_intelligence_store.record({"source_bot": "sentinel-flare", **payload})
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    event = publish_event(
+        "flare.intelligence.recorded",
+        payload=intelligence,
+        correlation_id=intelligence["symbol"],
+        dedupe_key=intelligence["intelligence_id"],
+        target_bots=["sentinel-edge"],
+        trace={"source_bot": "sentinel-flare"},
+    )
+    return {"status": "recorded", "intelligence": intelligence, "event": event.model_dump(mode="json")}
+
+
+@router.get("/intelligence/flare/status")
+async def flare_intelligence_status():
+    return flare_intelligence_store.status()
 
 
 @router.post("/profitability/opportunities")
@@ -160,6 +185,7 @@ async def automation_operations():
         },
         "execution_data": execution_data,
         "profitability": coordinator.portfolio_status(include_cards=False),
+        "flare_intelligence": flare_intelligence_store.status(),
         "summary": {
             "symbols": len(execution_data),
             "executable_symbols": sum(1 for value in execution_data.values() if value.get("executable")),
