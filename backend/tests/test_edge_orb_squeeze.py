@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
+
 from edge_orb_squeeze import ShortSqueezeStore, calculate_squeeze_pressure, fuse_orb_and_squeeze
 from edge_execution_thesis import build_trade_thesis
+import edge_short_interest_runtime
+from options.short_interest import ShortInterestEngine
 from signals_enhanced import AnalysisResult, ConfidenceScore, TrendDirection
 
 
@@ -111,3 +115,30 @@ def test_orb_volume_and_squeeze_pressure_create_one_fused_trigger(tmp_path, monk
     assert thesis["execution_style_preference"] == "breakout_stop_limit"
     assert thesis["execution_style_policy"]["stop_trigger_price"] == 100.0
     assert thesis["short_squeeze"]["trigger_confirmed"] is True
+
+
+@pytest.mark.asyncio
+async def test_existing_short_interest_engine_publishes_squeeze_snapshot(tmp_path, monkeypatch):
+    store = ShortSqueezeStore(tmp_path / "short-interest-bridge.json")
+    monkeypatch.setattr(edge_short_interest_runtime, "short_squeeze_store", store)
+    edge_short_interest_runtime.install()
+
+    engine = ShortInterestEngine()
+    await engine.analyze(
+        "GME",
+        short_interest=28_000_000,
+        short_interest_pct=28.0,
+        avg_daily_volume=3_500_000,
+        spot_price=101.0,
+        borrow_rate=0.80,
+        shortable_shares=1_000_000,
+        gex=25_000_000,
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    snapshot = store.active("GME")
+    assert snapshot is not None
+    assert snapshot["source"] == "edge-short-interest-engine"
+    assert snapshot["days_to_cover"] == 8.0
+    assert snapshot["borrow_rate_pct"] == 80.0
+    assert snapshot["pressure_score"] >= 60.0
