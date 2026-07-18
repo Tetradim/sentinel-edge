@@ -163,12 +163,18 @@ class ProfitabilityCycleMixin:
         self._save()
         return assessment, opportunity
 
-    def _active_correlation_conflicts(self, symbol: str, target_bot: str) -> list[str]:
+    def _active_correlation_conflicts(
+        self,
+        symbol: str,
+        target_bot: str,
+        *,
+        cards: Optional[Iterable[TradeCard]] = None,
+    ) -> list[str]:
         groups = self.correlation_groups(symbol, target_bot)
         if not groups:
             return []
         conflicts: list[str] = []
-        for card in self._active_cards():
+        for card in list(cards) if cards is not None else self._active_cards():
             if card.symbol == symbol.upper():
                 continue
             if groups.intersection(self.correlation_groups(card.symbol, card.target_bot)):
@@ -192,12 +198,17 @@ class ProfitabilityCycleMixin:
         selected: list[Dict[str, Any]] = []
         selection_groups: set[str] = set()
         eligible_before_selection = 0
+        preexisting_active_cards = list(self._active_cards())
 
         for rank, candidate in enumerate(ordered, start=1):
             opportunity: OpportunityScore = candidate["opportunity"]
             opportunity.rank = rank
             reasons = [reason for reason in opportunity.reasons if reason not in _TRANSIENT_RANK_REASONS]
-            conflicts = self._active_correlation_conflicts(candidate["symbol"], candidate["target_bot"])
+            conflicts = self._active_correlation_conflicts(
+                candidate["symbol"],
+                candidate["target_bot"],
+                cards=preexisting_active_cards,
+            )
             if conflicts:
                 reasons.append("correlated_active_exposure:" + ",".join(conflicts))
             reasons = _unique(reasons)
