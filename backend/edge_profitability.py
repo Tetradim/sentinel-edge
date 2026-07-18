@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from edge_profitability_counterfactual import ProfitabilityCounterfactualMixin
+from edge_profitability_entry_timing_persistence import ProfitabilityEntryTimingPersistenceMixin
 from edge_profitability_entry_timing import ProfitabilityEntryTimingMixin
 from edge_profitability_cycle import ProfitabilityCycleMixin
 from edge_profitability_lifecycle import ProfitabilityLifecycleMixin
@@ -15,6 +16,7 @@ from edge_profitability_state import ProfitabilityStateMixin
 
 class EdgeProfitabilityCoordinator(
     ProfitabilityCounterfactualMixin,
+    ProfitabilityEntryTimingPersistenceMixin,
     ProfitabilityEntryTimingMixin,
     ProfitabilityCycleMixin,
     ProfitabilityLifecycleMixin,
