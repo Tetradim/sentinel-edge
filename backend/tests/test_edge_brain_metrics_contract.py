@@ -1,3 +1,5 @@
+import numpy as np
+
 import metrics as edge_metrics
 
 
@@ -30,3 +32,15 @@ def test_production_hook_installs_edge_brain_runtime():
 
     assert EvaluationScheduler._edge_brain_patch_installed is True
     assert TechnicalIndicators.compute_atr.__name__ == "safe_compute_atr"
+    assert TechnicalIndicators.compute_rsi.__name__ == "safe_compute_rsi"
+
+
+def test_rsi_fallback_preserves_input_length():
+    from edge_brain_indicators import safe_compute_rsi
+
+    prices = np.linspace(100.0, 112.0, 32)
+    rsi = safe_compute_rsi(prices, period=14)
+
+    assert len(rsi) == len(prices)
+    assert np.isfinite(rsi[-1])
+    assert 0.0 <= rsi[-1] <= 100.0
