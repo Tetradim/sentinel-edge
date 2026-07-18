@@ -20,6 +20,12 @@ import edge_orb_squeeze_runtime as market_event_runtime  # noqa: E402
 
 market_event_runtime.install()
 
+# Convert fused evidence into explicit squeeze/breakout theses and a bounded
+# execution-style policy for Pulse without creating a second execution path.
+import edge_execution_thesis as execution_thesis  # noqa: E402
+
+execution_thesis.install()
+
 # Flare is intelligence-only. Its expiring dark-pool observations are blended
 # into the authoritative signal with a strict bounded adjustment.
 import flare_intelligence_runtime  # noqa: F401,E402
