@@ -1,17 +1,21 @@
 """Trade-thesis enrichment for ORB, squeeze and Pulse execution style."""
 from __future__ import annotations
 
+from dataclasses import replace
 import os
 from typing import Any, Dict
 
 import edge_brain_analysis
 import edge_brain_runtime as brain_runtime
 from edge_profitability_entry_timing import ProfitabilityEntryTimingMixin
-from edge_profitability_models import finite, iso_now
+from edge_profitability_models import MarketRegime, finite, iso_now
+from edge_profitability_scoring import ProfitabilityScoringMixin
 
 
 _ORIGINAL_BUILD_TRADE_THESIS = edge_brain_analysis.build_trade_thesis
 _ORIGINAL_ASSESS_ENTRY_TIMING = ProfitabilityEntryTimingMixin.assess_entry_timing
+_ORIGINAL_CLASSIFY_REGIME = ProfitabilityScoringMixin.classify_regime
+_ORIGINAL_CREATE_TRADE_CARD = ProfitabilityScoringMixin.create_trade_card
 _INSTALLED = False
 
 
@@ -89,8 +93,8 @@ def assess_entry_timing(
     price = finite(getattr(analysis, "price", thesis.get("entry")))
     trigger = finite(thesis.get("entry_trigger"), price)
     stop = finite(thesis.get("stop"))
-    analysis_metadata = metadata.get("indicators") if isinstance(metadata.get("indicators"), dict) else {}
-    atr = finite(analysis_metadata.get("atr_current")) or max(price * 0.005, 0.01)
+    indicators = metadata.get("indicators") if isinstance(metadata.get("indicators"), dict) else {}
+    atr = finite(indicators.get("atr_current")) or max(price * 0.005, 0.01)
     risk = max(price - stop, atr) if 0 < stop < price else atr
     maximum = price + risk * max(0.0, finite(os.getenv("EDGE_MAX_ENTRY_SLIPPAGE_R"), 0.15))
     return {
@@ -115,6 +119,52 @@ def assess_entry_timing(
     }
 
 
+def classify_regime(self: ProfitabilityScoringMixin, analysis: Any):
+    assessment = _ORIGINAL_CLASSIFY_REGIME(self, analysis)
+    metadata = dict(getattr(analysis, "metadata", None) or {})
+    squeeze = metadata.get("short_squeeze") if isinstance(metadata.get("short_squeeze"), dict) else {}
+    orb = metadata.get("orb_evidence") if isinstance(metadata.get("orb_evidence"), dict) else {}
+    if (
+        squeeze.get("trigger_confirmed")
+        and orb.get("direction") == "bullish"
+        and assessment.regime != MarketRegime.PANIC
+    ):
+        return replace(
+            assessment,
+            regime=MarketRegime.BREAKOUT_UP,
+            trade_allowed=True,
+            reason="confirmed_orb_short_squeeze_breakout",
+            strength=max(assessment.strength, finite(squeeze.get("pressure_probability"), 0.0)),
+            metadata={
+                **dict(assessment.metadata or {}),
+                "orb_short_squeeze_confirmed": True,
+                "squeeze_pressure_score": squeeze.get("pressure_score"),
+            },
+        )
+    return assessment
+
+
+def create_trade_card(
+    self: ProfitabilityScoringMixin,
+    analysis: Any,
+    thesis: Dict[str, Any],
+    opportunity: Any,
+):
+    card = _ORIGINAL_CREATE_TRADE_CARD(self, analysis, thesis, opportunity)
+    card.metadata.update(
+        {
+            "execution_style_preference": thesis.get("execution_style_preference"),
+            "execution_style_policy": thesis.get("execution_style_policy"),
+            "orb_evidence": thesis.get("orb_evidence"),
+            "short_squeeze": thesis.get("short_squeeze"),
+        }
+    )
+    card.updated_at = iso_now()
+    self.cards[card.card_id] = card
+    self._save()
+    return card
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
@@ -122,4 +172,6 @@ def install() -> None:
     edge_brain_analysis.build_trade_thesis = build_trade_thesis
     brain_runtime.build_trade_thesis = build_trade_thesis
     ProfitabilityEntryTimingMixin.assess_entry_timing = assess_entry_timing
+    ProfitabilityScoringMixin.classify_regime = classify_regime
+    ProfitabilityScoringMixin.create_trade_card = create_trade_card
     _INSTALLED = True
