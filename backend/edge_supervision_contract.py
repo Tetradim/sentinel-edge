@@ -1,6 +1,7 @@
 """Typed supervisory directives inside the compatible Pulse handoff envelope."""
 from __future__ import annotations
 
+import math
 from typing import Any, Dict
 
 from automation import HandoffCommand
@@ -15,7 +16,15 @@ def _positive(value: Any) -> float | None:
         number = float(value)
     except (TypeError, ValueError):
         return None
-    return number if number > 0 else None
+    return number if math.isfinite(number) and number > 0 else None
+
+
+def _nonnegative(value: Any, default: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) and number >= 0 else default
 
 
 def _execution_intent_v3(self: HandoffCommand) -> Dict[str, Any]:
@@ -32,8 +41,8 @@ def _execution_intent_v3(self: HandoffCommand) -> Dict[str, Any]:
     if expected_quantity is not None:
         intent["position_guard"] = {
             "expected_quantity": expected_quantity,
-            "max_quantity_drift_percent": float(
-                self.metadata.get("max_quantity_drift_percent", 2.0)
+            "max_quantity_drift_percent": _nonnegative(
+                self.metadata.get("max_quantity_drift_percent"), 2.0
             ),
         }
 
