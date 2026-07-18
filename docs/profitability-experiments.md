@@ -36,17 +36,10 @@ The historical replay showed that Edge could buy several symbols near the beginn
 - Maximum drawdown and portfolio heat.
 - Percentage of cycles with zero, one, or multiple eligible candidates.
 
-### Risks
+### Risks and guardrails
 
-- Over-concentration in one erroneous signal.
-- Candidate scores may not be well calibrated yet.
-- A full sweep can increase data-provider load.
-- Fast WebSocket moves can change ranking immediately after the sweep.
-
-### Guardrails
-
-- Existing per-trade and portfolio risk budgets remain active.
-- The winning trade still requires regime approval, confidence, reward/risk, and expected-value approval.
+- One erroneous signal can create concentration, so per-trade and portfolio risk budgets remain active.
+- Candidate scores may not be calibrated yet, so selected and rejected opportunities are marked forward.
 - Emergency exits and supervisory actions are never deferred by the portfolio cycle.
 
 ## EXP-002 — Minimum net expected value after costs
@@ -107,71 +100,113 @@ Compare raw ticker count with correlation-adjusted position count, factor concen
 
 ## EXP-005 — Maximum acceptable entry price
 
-**Status:** Edge preflight implemented; Pulse enforcement still required.
+**Status:** Implemented in Edge and Pulse on `OC-Iteration`.
 
 ### Edge changes
 
-- Trade cards already calculate `maximum_entry_price` from entry risk distance.
-- The portfolio runtime now rechecks price immediately before releasing the winner.
+- Trade cards calculate `maximum_entry_price` from the entry risk distance.
+- Edge rechecks the selected price immediately before releasing the winner.
+- BUY execution intents now carry `edge.entry_policy.v1`, including reference price, maximum price, expected value, baseline cost, cost allowance, minimum remaining edge, position ID, card ID, and trigger state.
 - Chased entries are invalidated with `maximum_entry_price_exceeded` so the next cycle can select again.
 
-### Pulse changes requested
+### Pulse changes
 
-- Reject or defer a fill when current executable price exceeds `maximum_entry_price`.
-- Return `THESIS_APPROVED_PRICE_TOO_EXTENDED` rather than treating it as a strategy rejection.
-- Record decision price, arrival price, fill price, and slippage.
+- Pulse validates the policy before changing ticker capital or submitting an order.
+- Pulse validates it again against each broker's fresh executable ask immediately before live placement.
+- A price above the ceiling returns `ENTRY_REJECTED_MAXIMUM_ENTRY_PRICE`.
+- The audit record retains preflight and fresh-quote execution measurements.
 
 ### Why it may improve profitability
 
 Correct direction does not guarantee a profitable entry. Preventing price chasing preserves the intended reward/risk ratio and separates forecast quality from execution quality.
 
-## EXP-006 — Setup trigger and pullback entry
+### Success measures
 
-**Status:** Planned.
+- P&L of prevented chased entries.
+- Reward/risk at decision price versus executable price.
+- Frequency of stale or extended authorizations.
+- Counterfactual return after a rejected entry.
 
-### Proposed Edge changes
+## EXP-006 — Forecast, setup, and trigger entry
 
-- Separate forecast, setup, and trigger state in the trade card.
-- Add `entry_zone_low`, `entry_zone_high`, `trigger_type`, and `trigger_deadline`.
-- Do not create an executable BUY solely because trend is bullish.
+**Status:** Edge state machine implemented; advanced Pulse order styles remain planned.
 
-### Proposed Pulse changes
+### Edge changes
 
-- Support passive limit, breakout stop-limit, and pullback-entry policies.
-- Report `ENTRY_DEFERRED_TRIGGER_NOT_MET` without closing the thesis.
+- Add the durable `edge.entry_timing.v1` state machine with `forecast`, `setup`, `triggered`, `expired`, and `invalidated` states.
+- Confirmed resistance breakouts can trigger in one cycle because structure already supplies the setup and trigger.
+- Trend and continuation forecasts must approach support or EMA within `EDGE_ENTRY_SETUP_PROXIMITY_ATR`, then reclaim by `EDGE_ENTRY_TRIGGER_RECLAIM_ATR` with improving signal and sufficient confidence.
+- Persist setup observations across complete portfolio cycles.
+- Store ideal entry, trigger price, maximum price, timing reason, and trigger state in the trade card and Pulse entry policy.
+
+### Pulse next extension
+
+- Support passive limit, breakout stop-limit, and pullback-entry order policies.
+- Report `ENTRY_DEFERRED_TRIGGER_NOT_MET` without closing a still-valid thesis.
 
 ### Why it may improve profitability
 
-The historical replay entered near the first eligible bar. Triggered entries should reduce late or extended purchases and false breakouts.
+The earlier replay entered near the first eligible bar. Requiring location plus confirmation should reduce extended purchases and false breakouts while preserving immediate execution for genuinely confirmed structure breaks.
+
+### Success measures
+
+- Entry slippage in R compared with immediate-entry counterfactuals.
+- False-breakout loss rate.
+- Missed winners caused by the trigger requirement.
+- Net expectancy by `confirmed_resistance_breakout` versus `pullback_reclaim_confirmed`.
 
 ## EXP-007 — Time stop and capital recycling
 
-**Status:** Planned after EXP-001 has enough paper observations.
+**Status:** Measurement and optional enforcement implemented; default mode is `shadow`.
 
-### Proposed changes
+### Code changes
 
-- Store maximum favorable excursion, maximum adverse excursion, bars held, and time-to-0.5R.
-- Exit or reduce when a setup fails to reach 0.5R inside its strategy-specific time window.
-- Re-rank the capital against current candidates before exiting.
+- Record confirmed-open time, observation count, current R, maximum favorable excursion, maximum adverse excursion, and observations/time required to reach +0.5R.
+- Use strategy-specific default windows: 30 minutes for breakouts, 45 minutes for continuation/reversal patterns, and 60 minutes for broader trend trades.
+- Generate a time-stop recommendation when the trade has not reached the configured progress target and current R remains weak after enough observations.
+- Recommend `reduce_position` for stagnation and `sell` for severe negative stagnation.
+- Preserve the measurements on the terminal outcome for later attribution.
+- Expose modes through `EDGE_TIME_STOP_MODE=off|shadow|reduce|exit`; `shadow` is the default.
+- Enforcement reuses the existing position-scoped, quantity-guarded supervision path and never overrides emergency or bearish invalidation actions.
 
 ### Why it may improve profitability
 
-Stagnant positions consume scarce risk budget and can become losses without ever validating the original thesis. Time stops recycle capital into stronger opportunities.
+Stagnant positions consume scarce risk budget and can become losses without validating the original thesis. Measuring progress in R allows capital to be recycled based on thesis behavior rather than arbitrary clock time.
+
+### Promotion evidence
+
+- Compare shadow exit/reduction prices with actual later exits.
+- Require positive net improvement after costs across multiple strategies and regimes.
+- Confirm that time stops do not materially truncate trades that later exceed +1R or +2R.
+- Tune windows from observed time-to-0.5R distributions rather than enabling enforcement from defaults alone.
 
 ## EXP-008 — Pulse execution-cost veto
 
-**Status:** Planned in `Sentinel-Pulse`.
+**Status:** Initial typed veto implemented in `Sentinel-Pulse` on `OC-Iteration`.
 
-### Proposed changes
+### Code changes
 
-- Calculate spread, estimated slippage, and fill probability before order submission.
-- Compare execution cost with the Edge-provided cost allowance.
-- Defer or cancel when expected cost erases the remaining expected value.
-- Return structured reasons such as `ENTRY_DEFERRED_POOR_LIQUIDITY` and `ENTRY_REJECTED_SLIPPAGE_LIMIT`.
+- Add `edge.entry_policy.v1` to the existing `edge.execution_intent.v2` BUY contract without changing the public `edge.pulse.handoff.v1` envelope.
+- Estimate spread, adverse movement from the Edge reference, configured fees, and a slippage buffer.
+- Compare fresh executable cost with Edge's maximum cost allowance and minimum remaining expected value.
+- Validate once before Pulse mutates strategy state and again against broker-native bid/ask immediately before live placement.
+- Return structured outcomes:
+  - `ENTRY_DEFERRED_POOR_LIQUIDITY`
+  - `ENTRY_REJECTED_SLIPPAGE_LIMIT`
+  - `ENTRY_REJECTED_EXPECTED_VALUE_ERODED`
+  - `ENTRY_REJECTED_MAXIMUM_ENTRY_PRICE`
+- Persist preflight, broker checks, and rejection detail in `edge_entry_policy_audit`.
 
 ### Why it may improve profitability
 
-Edge can identify a good thesis that is temporarily untradeable. Pulse should preserve the strategy edge instead of converting it into an expensive fill.
+Edge can identify a good thesis that is temporarily untradeable. Pulse should preserve the strategy edge instead of converting it into an expensive fill. Rechecking at the broker quote closes the gap between Edge's decision price and Pulse's actual executable market.
+
+### Evaluation
+
+- Measure gross signal expectancy, executable expectancy, and realized expectancy separately.
+- Track defer/reject frequency by symbol, session, spread, and broker.
+- Compare rejected-order counterfactual returns with accepted fills.
+- Tune fee and slippage buffers from observed fill data.
 
 ## EXP-009 — Selected-versus-rejected counterfactual ledger
 
@@ -187,8 +222,8 @@ Edge can identify a good thesis that is temporarily untradeable. Pulse should pr
 
 ### Next extension
 
-- Close records at the selected trade’s actual exit horizon in addition to the fixed cycle horizon.
-- Attribute selection, entry timing, execution, sizing, and exit management separately.
+- Close records at the selected trade's actual exit horizon in addition to the fixed cycle horizon.
+- Attribute selection, entry timing, execution, sizing, time-stop management, and final exit separately.
 
 ### Why it may improve profitability
 
@@ -203,4 +238,4 @@ An experiment is eligible for promotion only when it has:
 - Results across more than one market regime.
 - Sufficient trade count for the decision being made.
 - No position lifecycle, stop ownership, idempotency, or reconciliation failures.
-- Separate attribution for Edge selection and Pulse execution.
+- Separate attribution for Edge selection, entry timing, Pulse execution, time-stop management, and final exit.
