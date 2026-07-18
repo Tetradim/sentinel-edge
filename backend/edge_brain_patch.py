@@ -1,6 +1,7 @@
 """Production install hook for Edge's strategist, supervisor, and portfolio brain."""
 import edge_brain_metrics  # noqa: F401 - complete enhanced metric contract first
 import edge_supervision_contract  # noqa: F401 - execution-intent v3 + lifecycle metadata
+import edge_entry_policy_contract  # noqa: F401 - BUY price/cost policy for Pulse
 
 import edge_brain_runtime as brain_runtime
 from edge_brain_indicators import safe_compute_rsi
