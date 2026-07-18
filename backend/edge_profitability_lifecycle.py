@@ -73,8 +73,11 @@ class ProfitabilityLifecycleMixin:
         if card is None:
             return
         payload = dict(feedback) if isinstance(feedback, dict) else {"sent": bool(feedback)}
-        accepted = bool(payload.get("accepted") or payload.get("sent"))
-        status = str(payload.get("status") or ("accepted" if accepted else "failed")).lower()
+        status = str(payload.get("status") or "").lower()
+        negative_status = status in {"rejected", "failed", "cancelled", "canceled", "expired"}
+        accepted = bool(payload.get("accepted") or (payload.get("sent") and not negative_status))
+        if not status:
+            status = "accepted" if accepted else "failed"
         now = iso_now()
         record = {
             "recorded_at": now,
@@ -138,8 +141,10 @@ class ProfitabilityLifecycleMixin:
             self.cards[card.card_id] = card
 
         if card is not None and quantity <= 0 and previous_qty > 0:
-            realized = pnl if pnl != 0.0 else finite(previous.get("pnl"))
-            realized_pct = pnl_pct if pnl_pct != 0.0 else finite(previous.get("pnl_pct"))
+            feedback_pnl = card.last_feedback.get("realized_pnl", card.last_feedback.get("pnl"))
+            feedback_return = card.last_feedback.get("realized_return_pct", card.last_feedback.get("pnl_pct"))
+            realized = finite(feedback_pnl) if feedback_pnl is not None else (pnl if pnl != 0.0 else finite(previous.get("pnl")))
+            realized_pct = finite(feedback_return) if feedback_return is not None else (pnl_pct if pnl_pct != 0.0 else finite(previous.get("pnl_pct")))
             card.state = TradeCardState.COMPLETED
             card.position_quantity = 0.0
             card.realized_pnl = realized
