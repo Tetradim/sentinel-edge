@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
+from dataclasses import replace
 from datetime import datetime
 import logging
 from typing import Any, Dict, Optional
@@ -81,6 +82,20 @@ def _decision_trend(trend: EnhancedTrend) -> DecisionTrend:
     return DecisionTrend[trend.name]
 
 
+def _non_edge_observation_adjustment(engine: DecisionEngine, symbol: str) -> float:
+    """Preserve fresh Pulse/external feedback without double-counting Edge patterns."""
+    impacts = []
+    now = datetime.utcnow()
+    for observation in engine.observations.get(symbol.upper(), []):
+        source = str(getattr(getattr(observation, "source", None), "value", ""))
+        if source == "EDGE":
+            continue
+        impacts.append(engine.observation_scorer.calculate_impact(observation, now))
+    if not impacts:
+        return 0.0
+    return clamp((sum(impacts) / len(impacts)) * 1.5, -1.5, 1.5)
+
+
 def _decide(self: DecisionEngine, *args, **kwargs) -> Decision:
     context = _BRAIN_CONTEXT.get()
     analysis: Optional[AnalysisResult] = context.get("analysis") if context else None
@@ -88,9 +103,18 @@ def _decide(self: DecisionEngine, *args, **kwargs) -> Decision:
         return _ORIGINAL_DECIDE(self, *args, **kwargs)
     kwargs = dict(kwargs)
     kwargs["trend"] = _decision_trend(analysis.trend)
-    kwargs["signal_strength"] = float(analysis.signal_strength)
     kwargs["confidence"] = float(analysis.confidence.overall)
     symbol = str(kwargs.get("symbol") or analysis.symbol).upper()
+    observation_adjustment = _non_edge_observation_adjustment(self, symbol)
+    authoritative_signal = clamp(analysis.signal_strength + observation_adjustment, -10.0, 10.0)
+    analysis = replace(analysis, signal_strength=authoritative_signal)
+    context["analysis"] = analysis
+    scheduler = context.get("scheduler")
+    if scheduler is not None:
+        scheduler._edge_brain_state[symbol] = analysis
+    kwargs["signal_strength"] = authoritative_signal
+    context["authoritative_signal"] = authoritative_signal
+    context["non_edge_observation_adjustment"] = observation_adjustment
     max_losses = int(kwargs.get("max_consecutive_losses") or self.MAX_CONSECUTIVE_LOSSES)
     max_drawdown = float(kwargs.get("max_drawdown_pct") or self.MAX_DRAWDOWN_PCT)
     emergency = (
@@ -98,17 +122,20 @@ def _decide(self: DecisionEngine, *args, **kwargs) -> Decision:
         or self.consecutive_losses.get(symbol, 0) >= max_losses
         or float(kwargs.get("current_drawdown") or 0.0) > max_drawdown
     )
+    if emergency:
+        edge_decision_total.labels(symbol=symbol, decision=Decision.EMERGENCY_EXIT.value).inc()
+        return Decision.EMERGENCY_EXIT
     confirmed_bearish = (
         bool(kwargs.get("has_position"))
         and analysis.trend == EnhancedTrend.BEARISH
-        and analysis.signal_strength <= -abs(env_float("EDGE_BRAIN_SELL_SIGNAL_THRESHOLD", 3.5, minimum=0.5))
+        and authoritative_signal <= -abs(env_float("EDGE_BRAIN_SELL_SIGNAL_THRESHOLD", 3.5, minimum=0.5))
         and analysis.confidence.overall >= env_float("EDGE_BRAIN_SELL_MIN_CONFIDENCE", 0.65, minimum=0.0)
     )
-    if confirmed_bearish and not emergency:
+    if confirmed_bearish:
         context["supervisory_action"] = "sell"
         context["supervisory_reason"] = (
             "Enhanced bearish thesis invalidated the position "
-            f"(signal={analysis.signal_strength:.2f}, confidence={analysis.confidence.overall:.2f})"
+            f"(signal={authoritative_signal:.2f}, confidence={analysis.confidence.overall:.2f})"
         )
         edge_decision_total.labels(symbol=symbol, decision=Decision.SELL.value).inc()
         return Decision.HOLD
@@ -132,7 +159,14 @@ async def _handoff(
     if analysis is not None:
         action_value = str(getattr(action, "value", action)).lower()
         thesis = build_trade_thesis(symbol, analysis, action_value)
-        confidence = float(analysis.confidence.overall)
+        if action_value in {
+            AutomationAction.BUY.value,
+            AutomationAction.SELL.value,
+            AutomationAction.STOP_BUYING.value,
+        }:
+            confidence = float(analysis.confidence.overall)
+        elif action_value == AutomationAction.EMERGENCY_EXIT.value:
+            confidence = max(confidence, float(analysis.confidence.overall))
         if action_value in {AutomationAction.BUY.value, AutomationAction.SELL.value}:
             reason = f"Edge {thesis['strategy']} thesis: " + "; ".join(thesis["rationale"][:3])
         metadata.update(
@@ -201,7 +235,7 @@ async def _emit_supervisory_sell(
     )
     sent = bool(feedback.get("sent") or feedback.get("accepted")) if isinstance(feedback, dict) else False
     if sent:
-        scheduler.position_tracker.on_decision(symbol, Decision.SELL, entry_price=analysis.price)
+        scheduler.position_tracker.on_decision(symbol, Decision.EMERGENCY_EXIT, entry_price=analysis.price)
     if hasattr(scheduler, "correlation"):
         try:
             await scheduler.correlation.record_signal(symbol, "SELL", confidence)
@@ -247,6 +281,9 @@ async def _evaluate(self: EvaluationScheduler, symbol: str, *args, **kwargs):
     }
     token = _BRAIN_CONTEXT.set(context)
     try:
+        state = getattr(self, "_edge_brain_state", None)
+        if state is not None:
+            state.pop(symbol.upper(), None)
         context["multi_frames"] = await load_longer_timeframes(symbol)
         result = await _ORIGINAL_EVALUATE(self, symbol, *args, **kwargs)
         analysis: Optional[AnalysisResult] = context.get("analysis")
