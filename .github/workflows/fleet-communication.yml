@@ -1,0 +1,166 @@
+name: Sentinel Fleet Communication
+
+on:
+  push:
+    branches: [OC-Iteration]
+    paths:
+      - 'backend/integration/fleet_communication_contract.py'
+      - 'backend/flare_intelligence*.py'
+      - 'backend/edge_profitability*.py'
+      - '.github/workflows/fleet-communication.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: sentinel-fleet-communication-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fleet-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Mark fleet replay pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl --fail-with-body -sS -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -d "{\"state\":\"pending\",\"context\":\"Sentinel Fleet Communication\",\"description\":\"Cross-repository strategy contract replay is running\",\"target_url\":\"${target_url}\"}"
+
+      - name: Checkout Edge
+        uses: actions/checkout@v4
+        with:
+          path: edge
+
+      - name: Checkout Flare main
+        uses: actions/checkout@v4
+        with:
+          repository: Tetradim/Sentinel-Flare
+          ref: main
+          path: flare
+
+      - name: Checkout Chain main
+        uses: actions/checkout@v4
+        with:
+          repository: Tetradim/Sentinel-Chain
+          ref: main
+          path: chain
+
+      - name: Checkout Iron main
+        uses: actions/checkout@v4
+        with:
+          repository: Tetradim/Sentinel-Iron
+          ref: main
+          path: iron
+
+      - name: Checkout Pulse Beta-Maximum
+        uses: actions/checkout@v4
+        with:
+          repository: Tetradim/Sentinel-Pulse
+          ref: Beta-Maximum
+          path: pulse
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            edge/backend/requirements-dev.txt
+            flare/requirements.txt
+            chain/pyproject.toml
+            iron/pyproject.toml
+            pulse/backend/requirements.txt
+
+      - name: Install fleet dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r edge/backend/requirements-dev.txt
+          pip install -r flare/requirements.txt
+          pip install -e 'chain[dev]'
+          pip install -e 'iron[dev]'
+          pip install -r pulse/backend/requirements.txt
+
+      - name: Compile fleet communication modules
+        run: |
+          python -m py_compile \
+            edge/backend/integration/fleet_communication_contract.py \
+            edge/backend/flare_intelligence.py \
+            flare/edge_intelligence.py \
+            chain/src/sentinel_chain/edge_strategy.py \
+            iron/src/sentinel_iron/edge_strategy.py \
+            pulse/backend/trading/edge_strategy_contract_patch.py \
+            pulse/backend/trading/edge_handoff_contract_patch.py
+
+      - name: Run cross-repository contract replay
+        id: replay
+        shell: bash
+        env:
+          PYTHONPATH: edge/backend
+        run: |
+          set +e
+          python edge/backend/integration/fleet_communication_contract.py \
+            2>&1 | tee sentinel-fleet-contract-report.json
+          replay_status=${PIPESTATUS[0]}
+          echo "status=$replay_status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify Pulse execution consumer
+        id: pulse
+        shell: bash
+        env:
+          PYTHONPATH: pulse/backend
+        run: |
+          set +e
+          python -m pytest -q --tb=short \
+            pulse/backend/tests/test_edge_strategy_contract.py \
+            pulse/backend/tests/test_edge_supervision_intent_v3.py \
+            2>&1 | tee sentinel-pulse-contract-tests.log
+          pulse_status=${PIPESTATUS[0]}
+          echo "status=$pulse_status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload fleet replay diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinel-fleet-communication-report
+          path: |
+            sentinel-fleet-contract-report.json
+            sentinel-pulse-contract-tests.log
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish fleet replay status
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_STATUS: ${{ steps.replay.outputs.status }}
+          PULSE_STATUS: ${{ steps.pulse.outputs.status }}
+        shell: bash
+        run: |
+          target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [[ "$REPLAY_STATUS" == "0" && "$PULSE_STATUS" == "0" ]]; then
+            state=success
+            description="Flare, Edge, Chain, Iron, and Pulse contracts passed"
+          else
+            state=failure
+            description="One or more fleet communication contracts failed"
+          fi
+          curl --fail-with-body -sS -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -d "{\"state\":\"${state}\",\"context\":\"Sentinel Fleet Communication\",\"description\":\"${description}\",\"target_url\":\"${target_url}\"}"
+
+      - name: Fail when fleet replay failed
+        if: ${{ always() && (steps.replay.outputs.status != '0' || steps.pulse.outputs.status != '0') }}
+        run: exit 1
