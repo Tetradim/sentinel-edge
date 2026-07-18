@@ -14,13 +14,10 @@ from pydantic import BaseModel, Field
 
 EVENT_SCHEMA_VERSION = "bot-event.v1"
 DEFAULT_EVENT_DIR = Path(__file__).resolve().parents[1] / "data" / "event-bus"
-_DEFAULT_EDGE_TARGET_BOTS = [
-    "sentinel-pulse",
-    "sentinel-iron",
-    "sentinel-chain",
-    "sentinel-echo",
-    "sentinel-flare",
-]
+# The legacy edge.action stream remains execution-only. Iron, Chain, Flare and
+# future specialists receive explicit edge.strategy.authorization events from
+# the profitability routes rather than every Pulse handoff.
+_DEFAULT_EDGE_TARGET_BOTS = ["sentinel-pulse", "sentinel-echo"]
 EDGE_ACTION_TARGET_BOTS = [
     value.strip()
     for value in os.getenv("EDGE_ACTION_TARGET_BOTS", ",".join(_DEFAULT_EDGE_TARGET_BOTS)).split(",")
