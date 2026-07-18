@@ -14,6 +14,12 @@ from signals_enhanced import TechnicalIndicators
 TechnicalIndicators.compute_rsi = staticmethod(safe_compute_rsi)
 install_brain()
 
+# Fuse session-specific ORB state and validated short-interest pressure into the
+# same authoritative AnalysisResult used by patterns, MTF trend and profitability.
+import edge_orb_squeeze_runtime as market_event_runtime  # noqa: E402
+
+market_event_runtime.install()
+
 # Flare is intelligence-only. Its expiring dark-pool observations are blended
 # into the authoritative signal with a strict bounded adjustment.
 import flare_intelligence_runtime  # noqa: F401,E402
