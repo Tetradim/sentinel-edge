@@ -7,10 +7,12 @@ on:
       - 'backend/edge_profitability*.py'
       - 'backend/edge_supervision*.py'
       - 'backend/edge_brain_patch.py'
+      - 'backend/flare_intelligence*.py'
       - 'backend/bot_event_bus_routes.py'
       - 'backend/shared/bot_event_bus.py'
       - 'backend/tests/test_edge_profitability.py'
       - 'backend/tests/test_edge_supervision_v3.py'
+      - 'backend/tests/test_flare_intelligence.py'
       - '.github/workflows/profitability-authority.yml'
   workflow_dispatch:
 
@@ -63,6 +65,8 @@ jobs:
             backend/edge_supervision_contract.py \
             backend/edge_supervision_runtime.py \
             backend/edge_brain_patch.py \
+            backend/flare_intelligence.py \
+            backend/flare_intelligence_runtime.py \
             backend/bot_event_bus_routes.py \
             backend/shared/bot_event_bus.py \
             2>&1 | tee profitability-compile.log
@@ -74,6 +78,7 @@ jobs:
         env:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-existing-state.json
+          EDGE_FLARE_INTELLIGENCE_STATE_FILE: ${{ runner.temp }}/edge-flare-existing-state.json
         shell: bash
         run: |
           set +e
@@ -91,17 +96,19 @@ jobs:
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
-      - name: Run portfolio and supervision regressions
+      - name: Run portfolio and communication regressions
         id: portfolio
         env:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-state.json
+          EDGE_FLARE_INTELLIGENCE_STATE_FILE: ${{ runner.temp }}/edge-flare-state.json
         shell: bash
         run: |
           set +e
           pytest -q --tb=short \
             backend/tests/test_edge_profitability.py \
             backend/tests/test_edge_supervision_v3.py \
+            backend/tests/test_flare_intelligence.py \
             2>&1 | tee portfolio-authority-tests.log
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
@@ -148,10 +155,10 @@ jobs:
           }
           publish_status "Edge Profitability Compile" "$COMPILE_STATUS" "Profitability runtime compiled" "Profitability runtime compile failed"
           publish_status "Edge Existing Authority" "$EXISTING_STATUS" "Existing Edge authority regressions passed" "Existing Edge authority regressions failed"
-          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio and supervision regressions passed" "Portfolio or supervision regressions failed"
+          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio, Flare, and supervision regressions passed" "Portfolio, Flare, or supervision regressions failed"
           if [[ "$COMPILE_STATUS" == "0" && "$EXISTING_STATUS" == "0" && "$PORTFOLIO_STATUS" == "0" ]]; then
             overall_state=success
-            overall_description="Existing and portfolio regressions passed"
+            overall_description="Existing and fleet communication regressions passed"
           else
             overall_state=failure
             overall_description="One or more strategy regression stages failed"
