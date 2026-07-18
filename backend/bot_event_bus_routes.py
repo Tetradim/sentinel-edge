@@ -78,6 +78,13 @@ async def record_specialist_execution_feedback(request: Request, payload: dict):
     feedback = payload.get("feedback") if isinstance(payload.get("feedback"), dict) else payload
     metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
     coordinator.record_feedback(card, action=action, feedback=feedback, metadata=metadata)
+    position = payload.get("position") if isinstance(payload.get("position"), dict) else None
+    if position is not None:
+        coordinator.observe_position(
+            card.symbol,
+            position,
+            current_price=float(payload.get("current_price") or position.get("current_price") or 0.0),
+        )
     event = publish_event(
         "edge.strategy.feedback.recorded",
         payload={
