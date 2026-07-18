@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/edge_profitability*.py'
       - 'backend/edge_entry_policy_contract.py'
+      - 'backend/edge_time_stop_runtime.py'
       - 'backend/edge_supervision*.py'
       - 'backend/edge_brain_patch.py'
       - 'backend/flare_intelligence*.py'
@@ -16,6 +17,7 @@ on:
       - 'backend/tests/test_edge_top_ranked_cycle.py'
       - 'backend/tests/test_edge_entry_timing.py'
       - 'backend/tests/test_edge_entry_policy_contract.py'
+      - 'backend/tests/test_edge_time_stop.py'
       - 'backend/tests/test_edge_supervision_v3.py'
       - 'backend/tests/test_flare_intelligence.py'
       - 'docs/profitability-experiments.md'
@@ -70,10 +72,12 @@ jobs:
             backend/edge_profitability_cycle.py \
             backend/edge_profitability_entry_timing.py \
             backend/edge_profitability_entry_timing_persistence.py \
+            backend/edge_profitability_time_stop.py \
             backend/edge_profitability.py \
             backend/edge_profitability_runtime.py \
             backend/edge_profitability_cycle_runtime.py \
             backend/edge_entry_policy_contract.py \
+            backend/edge_time_stop_runtime.py \
             backend/edge_supervision_contract.py \
             backend/edge_supervision_runtime.py \
             backend/edge_brain_patch.py \
@@ -123,6 +127,7 @@ jobs:
             backend/tests/test_edge_top_ranked_cycle.py \
             backend/tests/test_edge_entry_timing.py \
             backend/tests/test_edge_entry_policy_contract.py \
+            backend/tests/test_edge_time_stop.py \
             backend/tests/test_edge_supervision_v3.py \
             backend/tests/test_flare_intelligence.py \
             2>&1 | tee portfolio-authority-tests.log
@@ -171,10 +176,10 @@ jobs:
           }
           publish_status "Edge Profitability Compile" "$COMPILE_STATUS" "Profitability runtime compiled" "Profitability runtime compile failed"
           publish_status "Edge Existing Authority" "$EXISTING_STATUS" "Existing Edge authority regressions passed" "Existing Edge authority regressions failed"
-          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio-cycle, timing, and supervision regressions passed" "Portfolio-cycle, timing, or supervision regressions failed"
+          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio-cycle, timing, time-stop, and supervision regressions passed" "Portfolio-cycle, timing, time-stop, or supervision regressions failed"
           if [[ "$COMPILE_STATUS" == "0" && "$EXISTING_STATUS" == "0" && "$PORTFOLIO_STATUS" == "0" ]]; then
             overall_state=success
-            overall_description="Existing, timing, and portfolio-cycle regressions passed"
+            overall_description="Existing, timing, time-stop, and portfolio-cycle regressions passed"
           else
             overall_state=failure
             overall_description="One or more strategy regression stages failed"
