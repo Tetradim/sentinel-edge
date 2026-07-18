@@ -4,6 +4,11 @@ from pathlib import Path
 
 import pytest
 
+# The enhanced analyzer imports its Prometheus collectors at module import time.
+# Install the compatibility contract before pytest imports any test module that
+# references signals_enhanced directly.
+import edge_brain_metrics  # noqa: F401,E402
+
 
 EXTERNAL_API_TEST_MODULES = {
     "test_correlation_engine.py",
