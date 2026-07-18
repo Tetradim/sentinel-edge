@@ -24,11 +24,19 @@ supervision_runtime._ORIGINAL_DECIDE = DecisionEngine.decide
 supervision_runtime._ORIGINAL_EMIT = brain_runtime._emit_supervisory_sell
 supervision_runtime.install()
 
-# Install the portfolio coordinator outer-most. It may veto new entries, but it
-# never bypasses emergency exits or the supervisory ladder.
+# Install the per-symbol profitability gate above supervision.
 import edge_profitability_runtime as profitability_runtime  # noqa: E402
 
 profitability_runtime._ORIGINAL_DECIDE = DecisionEngine.decide
 profitability_runtime._ORIGINAL_HANDOFF = EvaluationScheduler._handoff_to_pulse_with_feedback
 profitability_runtime._ORIGINAL_EVALUATE = EvaluationScheduler.evaluate_ticker
 profitability_runtime.install()
+
+# Install the two-phase portfolio cycle outer-most. During a scheduler sweep it
+# scores every unpositioned symbol first, then releases only the top-ranked entry.
+import edge_profitability_cycle_runtime as cycle_runtime  # noqa: E402
+
+cycle_runtime._BASE_DECIDE = DecisionEngine.decide
+cycle_runtime._PRE_PROFITABILITY_DECIDE = profitability_runtime._ORIGINAL_DECIDE
+cycle_runtime._BASE_EVALUATE_ALL = EvaluationScheduler.evaluate_all
+cycle_runtime.install()
