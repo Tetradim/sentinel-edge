@@ -168,3 +168,55 @@ def test_execution_feedback_tracks_slippage(tmp_path, monkeypatch):
         metadata={"price": 100.0},
     )
     assert engine.execution_feedback[-1]["slippage_bps"] == pytest.approx(10.0)
+
+
+def test_external_long_is_rejected_in_bearish_regime(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDGE_MIN_OPPORTUNITY_SCORE", "5")
+    engine = coordinator(tmp_path)
+    result = engine.evaluate_external_proposal(
+        {
+            "source_bot": "sentinel-iron",
+            "symbol": "ES=F",
+            "direction": "long",
+            "strategy": "trend",
+            "regime": "trending_down",
+            "confidence": 0.90,
+            "expected_reward_pct": 3.0,
+            "expected_risk_pct": 1.0,
+        }
+    )
+    assert result["authorized"] is False
+    assert "direction_regime_conflict" in result["reasons"]
+
+
+def test_transport_sent_but_rejected_does_not_advance_card(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDGE_MIN_OPPORTUNITY_SCORE", "5")
+    engine = coordinator(tmp_path)
+    allowed, _regime, _opportunity, card = engine.evaluate_entry(analysis(), thesis())
+    assert allowed and card is not None
+    engine.record_feedback(
+        card,
+        action="buy",
+        feedback={"sent": True, "accepted": False, "status": "rejected", "reason": "risk"},
+        metadata={"price": 100},
+    )
+    assert card.state == TradeCardState.ARMED
+    assert engine.execution_feedback[-1]["accepted"] is False
+
+
+def test_broker_realized_pnl_is_used_for_outcome(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDGE_MIN_OPPORTUNITY_SCORE", "5")
+    engine = coordinator(tmp_path)
+    allowed, _regime, _opportunity, card = engine.evaluate_entry(analysis(), thesis())
+    assert allowed and card is not None
+    engine.record_feedback(card, action="buy", feedback={"accepted": True, "status": "accepted"}, metadata={"price": 100})
+    engine.observe_position("AAPL", {"qty": 10, "avg_entry": 100, "current_pnl_dollar": 0}, current_price=100)
+    engine.record_feedback(
+        card,
+        action="sell",
+        feedback={"accepted": True, "status": "accepted", "realized_pnl": 37.5, "realized_return_pct": 3.75},
+        metadata={"price": 104},
+    )
+    engine.observe_position("AAPL", {"qty": 0}, current_price=104)
+    assert engine.outcomes[-1]["realized_pnl"] == 37.5
+    assert engine.outcomes[-1]["realized_return_pct"] == 3.75
