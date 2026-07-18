@@ -11,6 +11,7 @@ on:
       - 'backend/bot_event_bus_routes.py'
       - 'backend/shared/bot_event_bus.py'
       - 'backend/tests/test_edge_profitability.py'
+      - 'backend/tests/test_edge_counterfactuals.py'
       - 'backend/tests/test_edge_top_ranked_cycle.py'
       - 'backend/tests/test_edge_supervision_v3.py'
       - 'backend/tests/test_flare_intelligence.py'
@@ -62,6 +63,7 @@ jobs:
             backend/edge_profitability_state.py \
             backend/edge_profitability_scoring.py \
             backend/edge_profitability_lifecycle.py \
+            backend/edge_profitability_counterfactual.py \
             backend/edge_profitability_cycle.py \
             backend/edge_profitability.py \
             backend/edge_profitability_runtime.py \
@@ -111,6 +113,7 @@ jobs:
           set +e
           pytest -q --tb=short \
             backend/tests/test_edge_profitability.py \
+            backend/tests/test_edge_counterfactuals.py \
             backend/tests/test_edge_top_ranked_cycle.py \
             backend/tests/test_edge_supervision_v3.py \
             backend/tests/test_flare_intelligence.py \
