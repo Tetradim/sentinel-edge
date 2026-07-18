@@ -14,7 +14,18 @@ from pydantic import BaseModel, Field
 
 EVENT_SCHEMA_VERSION = "bot-event.v1"
 DEFAULT_EVENT_DIR = Path(__file__).resolve().parents[1] / "data" / "event-bus"
-EDGE_ACTION_TARGET_BOTS = ["sentinel-pulse", "sentinel-echo"]
+_DEFAULT_EDGE_TARGET_BOTS = [
+    "sentinel-pulse",
+    "sentinel-iron",
+    "sentinel-chain",
+    "sentinel-echo",
+    "sentinel-flare",
+]
+EDGE_ACTION_TARGET_BOTS = [
+    value.strip()
+    for value in os.getenv("EDGE_ACTION_TARGET_BOTS", ",".join(_DEFAULT_EDGE_TARGET_BOTS)).split(",")
+    if value.strip()
+]
 
 
 class BotEvent(BaseModel):
@@ -110,6 +121,8 @@ def build_edge_action_event_payload(
 ) -> dict[str, Any]:
     """Build the strategic action payload that all bots can understand."""
     metadata = command_payload.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    execution_intent = metadata.get("execution_intent") if isinstance(metadata.get("execution_intent"), dict) else {}
     return {
         "contract_version": "edge.action.v1",
         "symbol": command_payload.get("symbol"),
@@ -123,6 +136,16 @@ def build_edge_action_event_payload(
         "stop_type": command_payload.get("stop_type"),
         "trailing_percent": command_payload.get("trailing_percent"),
         "dca": command_payload.get("dca"),
-        "metadata": metadata if isinstance(metadata, dict) else {},
+        "target_bot": metadata.get("target_bot") or execution_intent.get("target_bot"),
+        "strategy_id": metadata.get("strategy_id"),
+        "thesis_id": metadata.get("thesis_id"),
+        "position_id": metadata.get("position_id"),
+        "trade_card": metadata.get("trade_card"),
+        "strategy_lifecycle": metadata.get("strategy_lifecycle"),
+        "risk_budget_pct": metadata.get("risk_budget_pct"),
+        "expected_value_pct": metadata.get("expected_value_pct"),
+        "opportunity_score": metadata.get("opportunity_score"),
+        "metadata": metadata,
+        "execution_feedback": feedback or {},
         "pulse_feedback": feedback or {},
     }
