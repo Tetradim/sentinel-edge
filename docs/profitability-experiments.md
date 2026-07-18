@@ -106,7 +106,7 @@ Compare raw ticker count with correlation-adjusted position count, factor concen
 
 - Trade cards calculate `maximum_entry_price` from the entry risk distance.
 - Edge rechecks the selected price immediately before releasing the winner.
-- BUY execution intents now carry `edge.entry_policy.v1`, including reference price, maximum price, expected value, baseline cost, cost allowance, minimum remaining edge, position ID, card ID, and trigger state.
+- BUY execution intents carry `edge.entry_policy.v1`, including reference price, maximum price, expected value, baseline cost, cost allowance, minimum remaining edge, position ID, card ID, and trigger state.
 - Chased entries are invalidated with `maximum_entry_price_exceeded` so the next cycle can select again.
 
 ### Pulse changes
@@ -129,7 +129,7 @@ Correct direction does not guarantee a profitable entry. Preventing price chasin
 
 ## EXP-006 — Forecast, setup, and trigger entry
 
-**Status:** Edge state machine implemented; advanced Pulse order styles remain planned.
+**Status:** Edge state machine and Pulse execution styles implemented on `OC-Iteration`.
 
 ### Edge changes
 
@@ -139,21 +139,23 @@ Correct direction does not guarantee a profitable entry. Preventing price chasin
 - Persist setup observations across complete portfolio cycles.
 - Store ideal entry, trigger price, maximum price, timing reason, and trigger state in the trade card and Pulse entry policy.
 
-### Pulse next extension
+### Pulse implementation
 
-- Support passive limit, breakout stop-limit, and pullback-entry order policies.
-- Report `ENTRY_DEFERRED_TRIGGER_NOT_MET` without closing a still-valid thesis.
+- Pullback and continuation theses prefer `passive_limit`.
+- Ordinary trend entries prefer `timed_limit`.
+- Confirmed ORB and squeeze breakouts prefer `breakout_stop_limit`.
+- Style selection remains bounded by Edge's maximum price and minimum remaining expected value.
 
 ### Why it may improve profitability
 
-The earlier replay entered near the first eligible bar. Requiring location plus confirmation should reduce extended purchases and false breakouts while preserving immediate execution for genuinely confirmed structure breaks.
+The earlier replay entered near the first eligible bar. Requiring location plus confirmation should reduce extended purchases and false breakouts while preserving immediate but bounded execution for genuinely confirmed structure breaks.
 
 ### Success measures
 
 - Entry slippage in R compared with immediate-entry counterfactuals.
 - False-breakout loss rate.
 - Missed winners caused by the trigger requirement.
-- Net expectancy by `confirmed_resistance_breakout` versus `pullback_reclaim_confirmed`.
+- Net expectancy by entry trigger and execution style.
 
 ## EXP-007 — Time stop and capital recycling
 
@@ -182,7 +184,7 @@ Stagnant positions consume scarce risk budget and can become losses without vali
 
 ## EXP-008 — Pulse execution-cost veto
 
-**Status:** Initial typed veto implemented in `Sentinel-Pulse` on `OC-Iteration`.
+**Status:** Typed veto implemented in `Sentinel-Pulse` on `OC-Iteration`.
 
 ### Code changes
 
@@ -190,12 +192,8 @@ Stagnant positions consume scarce risk budget and can become losses without vali
 - Estimate spread, adverse movement from the Edge reference, configured fees, and a slippage buffer.
 - Compare fresh executable cost with Edge's maximum cost allowance and minimum remaining expected value.
 - Validate once before Pulse mutates strategy state and again against broker-native bid/ask immediately before live placement.
-- Return structured outcomes:
-  - `ENTRY_DEFERRED_POOR_LIQUIDITY`
-  - `ENTRY_REJECTED_SLIPPAGE_LIMIT`
-  - `ENTRY_REJECTED_EXPECTED_VALUE_ERODED`
-  - `ENTRY_REJECTED_MAXIMUM_ENTRY_PRICE`
-- Persist preflight, broker checks, and rejection detail in `edge_entry_policy_audit`.
+- Return structured outcomes for poor liquidity, price extension, slippage, expected-value erosion, and unavailable styles.
+- Persist preflight, broker checks, selection, and rejection detail in `edge_entry_policy_audit`.
 
 ### Why it may improve profitability
 
@@ -204,7 +202,7 @@ Edge can identify a good thesis that is temporarily untradeable. Pulse should pr
 ### Evaluation
 
 - Measure gross signal expectancy, executable expectancy, and realized expectancy separately.
-- Track defer/reject frequency by symbol, session, spread, and broker.
+- Track defer/reject frequency by symbol, session, spread, broker, and style.
 - Compare rejected-order counterfactual returns with accepted fills.
 - Tune fee and slippage buffers from observed fill data.
 
@@ -228,6 +226,73 @@ Edge can identify a good thesis that is temporarily untradeable. Pulse should pr
 ### Why it may improve profitability
 
 Executed trades alone cannot prove that ranking works. Counterfactual results show whether Edge selected the right opportunity and whether rejected trades were correctly avoided.
+
+## EXP-010 — ORB and short-squeeze fusion
+
+**Status:** Implemented on Edge `OC-Iteration`.
+
+### Code changes
+
+- Promote locked premarket and regular-session ORB ranges into `edge.orb.evidence.v1` inside the authoritative enhanced analysis.
+- Preserve 5-, 15-, and 30-minute confirmation details without adding a second execution path.
+- Add durable `edge.squeeze.snapshot.v1` ingestion with timestamp, expiry, deduplication, and bounded pressure components.
+- Compute squeeze pressure from short float, days to cover, borrow rate, utilization, borrow availability, gamma context, and catalysts.
+- Require price/volume confirmation before a squeeze can become `triggering`; pressure alone remains `watch` or `armed` and cannot authorize a BUY.
+- Fuse ORB, squeeze, pattern, volume, MTF, and structure evidence once, with bounded adjustments to avoid double-counting chart patterns or volume.
+- Create the explicit `short_squeeze_breakout` strategy when pressure, ORB or bullish structure, and volume confirm together.
+- Persist ORB, squeeze, and fusion metadata in ticker state, decision history, trade thesis, trade card, and Pulse entry policy.
+
+### Why it may improve profitability
+
+Short interest represents stored buying pressure, not timing. ORB and price structure identify whether that pressure has begun to release. Combining the distinct evidence families should avoid buying high-short-interest names that never trigger while recognizing session-specific breakouts that ordinary chart patterns cannot fully describe.
+
+### Risks and guardrails
+
+- Short-interest data can be delayed, so every snapshot expires and carries its observation time.
+- A high squeeze score never bypasses regime, EV, reward/risk, correlation, timing, maximum-price, or execution-cost gates.
+- Bearish structure blocks the squeeze trigger.
+- The fused signal adjustment is bounded and records its ORB and squeeze components separately.
+
+### Success measures
+
+- Net expectancy of `short_squeeze_breakout` versus ordinary breakout trades.
+- Triggered versus armed-only counterfactual returns.
+- False-breakout rate after returning inside the ORB.
+- Contribution of short-float, days-to-cover, borrow, gamma, and catalyst components by regime.
+- Performance by ORB timeframe and premarket versus regular-session confirmation.
+
+## EXP-011 — Pulse execution-style selection and attribution
+
+**Status:** Implemented on Pulse `OC-Iteration`; promotion remains evidence-driven.
+
+### Code changes
+
+- Add `edge.execution_style.v1` inside the existing entry policy.
+- Select among `passive_limit`, `timed_limit`, and `breakout_stop_limit` from thesis urgency and confirmation.
+- Recompute exact prices from fresh broker quotes while preserving Edge's maximum entry.
+- Poll timed limit and breakout stop-limit orders until the configured deadline, then cancel unfilled remainder on Alpaca and Tradier.
+- Keep passive limits pending and reconciliation-safe rather than pretending submission is a fill.
+- Persist style, arrival quote, limit, stop, timeout, fill price, fill quantity, and slippage.
+- Classify zero-fill canceled, expired, rejected, deferred, or failed attempts as missed fills.
+- Mark post-fill price movement once at 30, 60, and 300 seconds.
+- Write attribution to the ticker, trade, broker-order ledger, and dedicated `execution_attributions` collection.
+
+### Why it may improve profitability
+
+Different theses require different urgency. A pullback setup can benefit from price improvement, an ordinary trend entry may need a short bounded attempt, and an ORB or squeeze breakout should activate only beyond its trigger. Separating styles allows Pulse to preserve Edge's alpha while measuring the cost of urgency.
+
+### Promotion evidence
+
+Compare each style on:
+
+- Net expectancy after spread, slippage, fees, and missed opportunities.
+- Median, 90th-percentile, and worst fill slippage.
+- Fill, partial-fill, cancellation, reconciliation, and missed-fill rates.
+- Post-fill movement at 30, 60, and 300 seconds.
+- Adverse selection after aggressive fills.
+- Results by strategy, symbol liquidity, market regime, ORB timeframe, and squeeze state.
+
+A style is not promoted because it fills more often. It must improve net expectancy after the value of missed and avoided trades is included.
 
 ## Promotion checklist
 
