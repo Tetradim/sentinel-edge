@@ -70,16 +70,24 @@ jobs:
           REPLAY_SYMBOLS: ${{ inputs.symbols || 'SPY QQQ AAPL NVDA TSLA' }}
         shell: bash
         run: |
+          set +e
           read -r -a symbols <<< "$REPLAY_SYMBOLS"
           python backend/integration/historical_profit_replay.py \
             --pulse-backend pulse-repo/backend \
             --output historical-profit-report.json \
-            --symbols "${symbols[@]}"
+            --symbols "${symbols[@]}" \
+            > historical-profit.log 2>&1
+          status=$?
+          cat historical-profit.log
+          exit $status
 
-      - name: Upload profit audit
+      - name: Upload profit audit and diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: edge-pulse-historical-profit-report
-          path: historical-profit-report.json
+          path: |
+            historical-profit-report.json
+            historical-profit.log
           if-no-files-found: error
           retention-days: 30
