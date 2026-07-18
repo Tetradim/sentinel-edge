@@ -5,6 +5,7 @@ on:
     branches: [OC-Iteration]
     paths:
       - 'scripts/run_edge_pulse_minute_sweep.py'
+      - 'scripts/run_edge_pulse_minute_sweep_entry.py'
       - '.github/workflows/edge-pulse-minute-sweep.yml'
   workflow_dispatch:
 
@@ -47,7 +48,7 @@ jobs:
         env:
           PYTHONPATH: backend
         run: |
-          python -m py_compile scripts/run_edge_pulse_minute_sweep.py
+          python -m py_compile scripts/run_edge_pulse_minute_sweep.py scripts/run_edge_pulse_minute_sweep_entry.py
           python scripts/run_edge_pulse_minute_sweep.py --self-test
       - name: Run rolling-month minute sweep
         id: sweep
@@ -67,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          python scripts/run_edge_pulse_minute_sweep.py \
+          python scripts/run_edge_pulse_minute_sweep_entry.py \
             --start 2026-06-19 \
             --end 2026-07-18 \
             --provider auto \
