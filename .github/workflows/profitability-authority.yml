@@ -1,0 +1,60 @@
+name: Edge Profitability Authority
+
+on:
+  push:
+    branches: [OC-Iteration]
+    paths:
+      - 'backend/edge_profitability*.py'
+      - 'backend/edge_supervision*.py'
+      - 'backend/edge_brain_patch.py'
+      - 'backend/bot_event_bus_routes.py'
+      - 'backend/shared/bot_event_bus.py'
+      - 'backend/tests/test_edge_profitability.py'
+      - 'backend/tests/test_edge_supervision_v3.py'
+      - '.github/workflows/profitability-authority.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edge-profitability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  profitability-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r backend/requirements-dev.txt
+      - name: Compile profitability runtime
+        run: |
+          python -m py_compile \
+            backend/edge_profitability_models.py \
+            backend/edge_profitability_state.py \
+            backend/edge_profitability_scoring.py \
+            backend/edge_profitability_lifecycle.py \
+            backend/edge_profitability.py \
+            backend/edge_profitability_runtime.py \
+            backend/edge_supervision_contract.py \
+            backend/edge_supervision_runtime.py \
+            backend/edge_brain_patch.py \
+            backend/bot_event_bus_routes.py \
+            backend/shared/bot_event_bus.py
+      - name: Run profitability and supervision regressions
+        env:
+          PYTHONPATH: backend
+          EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-state.json
+        run: |
+          pytest -q \
+            backend/tests/test_edge_profitability.py \
+            backend/tests/test_edge_supervision_v3.py
