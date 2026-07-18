@@ -1,4 +1,4 @@
-"""Cross-repository contract replay for Flare, Edge, Chain, and Iron."""
+"""Cross-repository contract replay for Flare, Edge, Chain, Iron, and Pulse."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -105,6 +105,37 @@ def main() -> int:
         assert intent.instrument_id == "ES-202609-CME"
         assert intent.quantity == 1
 
+        # Exercise the full specialist feedback lifecycle with broker-style field
+        # names, including average_price and a broker-confirmed realized result.
+        iron_card_id = iron_auth["trade_card"]["card_id"]
+        iron_card = coordinator.cards[iron_card_id]
+        coordinator.record_feedback(
+            iron_card,
+            action="buy",
+            feedback={"accepted": True, "status": "submitted", "quantity": 1},
+            metadata={"price": 5000.25},
+        )
+        coordinator.observe_position(
+            "ES-202609-CME",
+            {"quantity": 1, "average_price": 5000.25, "current_price": 5001.0},
+            current_price=5001.0,
+        )
+        assert coordinator.cards[iron_card_id].state.value == "active"
+        assert coordinator.cards[iron_card_id].entry_price == 5000.25
+        coordinator.record_feedback(
+            coordinator.cards[iron_card_id],
+            action="exit",
+            feedback={"accepted": True, "status": "accepted", "realized_pnl": 37.5, "realized_return_pct": 0.75},
+        )
+        coordinator.observe_position(
+            "ES-202609-CME",
+            {"quantity": 0, "average_price": 5000.25, "current_price": 5037.75, "realized_pnl": 37.5, "realized_return_pct": 0.75},
+            current_price=5037.75,
+        )
+        assert coordinator.cards[iron_card_id].state.value == "completed"
+        assert coordinator.cards[iron_card_id].current_stop is None
+        assert any(item.get("card_id") == iron_card_id and item.get("realized_pnl") == 37.5 for item in coordinator.outcomes)
+
         report = {
             "passed": True,
             "flare": {
@@ -116,9 +147,11 @@ def main() -> int:
                 "position_id": chain_auth["trade_card"]["position_id"],
             },
             "iron": {
-                "card_id": iron_auth["trade_card"]["card_id"],
+                "card_id": iron_card_id,
                 "position_id": iron_auth["trade_card"]["position_id"],
                 "client_order_id": intent.client_order_id,
+                "lifecycle": coordinator.cards[iron_card_id].state.value,
+                "realized_pnl": coordinator.cards[iron_card_id].realized_pnl,
             },
         }
         print(json.dumps(report, indent=2, sort_keys=True))
