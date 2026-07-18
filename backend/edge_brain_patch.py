@@ -25,7 +25,14 @@ supervision_runtime._ORIGINAL_DECIDE = DecisionEngine.decide
 supervision_runtime._ORIGINAL_EMIT = brain_runtime._emit_supervisory_sell
 supervision_runtime.install()
 
-# Install the per-symbol profitability gate above supervision.
+# Measure position progress outside the bearish supervision ladder. Shadow is the
+# default; reduce/exit modes reuse the same typed supervisory handoff path.
+import edge_time_stop_runtime as time_stop_runtime  # noqa: E402
+
+time_stop_runtime._ORIGINAL_DECIDE = DecisionEngine.decide
+time_stop_runtime.install()
+
+# Install the per-symbol profitability gate above supervision and time stops.
 import edge_profitability_runtime as profitability_runtime  # noqa: E402
 
 profitability_runtime._ORIGINAL_DECIDE = DecisionEngine.decide
