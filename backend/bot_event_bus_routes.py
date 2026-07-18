@@ -13,6 +13,7 @@ from shared.bot_event_bus import EDGE_ACTION_TARGET_BOTS, BotEvent, event_bus, p
 # wrappers are already installed before Edge's strategist brain wraps the pipeline.
 import edge_brain_patch as _edge_brain_patch  # noqa: F401,E402
 from edge_profitability import coordinator
+from edge_orb_squeeze import short_squeeze_store
 from flare_intelligence import flare_intelligence_store
 
 
@@ -68,6 +69,30 @@ async def record_flare_intelligence(request: Request, payload: dict):
 @router.get("/intelligence/flare/status")
 async def flare_intelligence_status():
     return flare_intelligence_store.status()
+
+
+@router.post("/intelligence/short-squeeze")
+async def record_short_squeeze_snapshot(request: Request, payload: dict):
+    """Accept validated short-interest pressure; never an execution command."""
+    _require_operator_action_secret(request)
+    try:
+        snapshot = short_squeeze_store.record(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    event = publish_event(
+        "edge.squeeze.snapshot.recorded",
+        payload=snapshot,
+        correlation_id=snapshot["symbol"],
+        dedupe_key=snapshot["snapshot_id"],
+        target_bots=["sentinel-edge"],
+        trace={"source": snapshot.get("source")},
+    )
+    return {"status": "recorded", "snapshot": snapshot, "event": event.model_dump(mode="json")}
+
+
+@router.get("/intelligence/short-squeeze/status")
+async def short_squeeze_status():
+    return short_squeeze_store.status()
 
 
 @router.post("/profitability/opportunities")
@@ -193,6 +218,7 @@ async def automation_operations():
         "execution_data": execution_data,
         "profitability": coordinator.portfolio_status(include_cards=False),
         "flare_intelligence": flare_intelligence_store.status(),
+        "short_squeeze": short_squeeze_store.status(),
         "summary": {
             "symbols": len(execution_data),
             "executable_symbols": sum(1 for value in execution_data.values() if value.get("executable")),
