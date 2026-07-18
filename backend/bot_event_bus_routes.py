@@ -100,10 +100,17 @@ async def record_specialist_execution_feedback(request: Request, payload: dict):
     if card is None:
         raise HTTPException(status_code=404, detail="Unknown trade card")
     action = str(payload.get("action") or "feedback").lower()
-    feedback = payload.get("feedback") if isinstance(payload.get("feedback"), dict) else payload
+    position = payload.get("position") if isinstance(payload.get("position"), dict) else None
+    feedback = payload.get("feedback") if isinstance(payload.get("feedback"), dict) else dict(payload)
+    if position is not None and action in {"position_update", "position_reconciliation", "reconcile", "exit"}:
+        feedback.setdefault("accepted", True)
+        feedback.setdefault("status", "accepted")
+        if position.get("realized_pnl") is not None:
+            feedback.setdefault("realized_pnl", position.get("realized_pnl"))
+        if position.get("realized_return_pct") is not None:
+            feedback.setdefault("realized_return_pct", position.get("realized_return_pct"))
     metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
     coordinator.record_feedback(card, action=action, feedback=feedback, metadata=metadata)
-    position = payload.get("position") if isinstance(payload.get("position"), dict) else None
     if position is not None:
         coordinator.observe_position(
             card.symbol,
