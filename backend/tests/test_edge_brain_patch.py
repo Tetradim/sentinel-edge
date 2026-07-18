@@ -13,10 +13,12 @@ from automation import AutomationAction
 from engine import Decision, DecisionEngine
 from scheduler import EvaluationScheduler
 from signals import TrendDirection as DecisionTrend
+from shared.observations import ExecutionObservation, ObservationSource
 from signals_enhanced import (
     AnalysisResult,
     ConfidenceScore,
     PatternResult,
+    SCIPY_AVAILABLE,
     SignalEngineEnhanced,
     TrendDirection as EnhancedTrend,
 )
@@ -71,6 +73,7 @@ def test_uppercase_provider_data_runs_full_enhanced_engine():
     engine = SignalEngineEnhanced(enable_talib=False, multi_timeframe=False)
     result = asyncio.run(engine.analyze("ASTS", _uppercase_frame(), timeframe="15m"))
 
+    assert SCIPY_AVAILABLE is True
     assert engine.multi_timeframe is True
     assert engine.default_timeframe == "15m"
     assert "HEAD_SHOULDERS" in engine.enabled_patterns
@@ -178,3 +181,38 @@ def test_extended_patterns_bridge_into_observation_contract():
     assert observation.observation_period == "1h"
     assert observation.score_impact < 0
     assert 0.0 <= observation.strength <= 1.0
+
+
+def test_non_edge_observations_remain_part_of_authoritative_signal():
+    engine = DecisionEngine()
+    engine.observations["SPY"].append(
+        ExecutionObservation(
+            symbol="SPY",
+            source=ObservationSource.PULSE,
+            observation_type="ORDER_REJECTED",
+        )
+    )
+
+    assert runtime_patch._non_edge_observation_adjustment(engine, "SPY") < 0
+
+
+def test_emergency_override_bypasses_low_signal_confidence():
+    engine = DecisionEngine()
+    engine.global_kill_switch = True
+    context = {"analysis": _analysis(confidence=0.1), "supervisory_action": None}
+    token = runtime_patch._BRAIN_CONTEXT.set(context)
+    try:
+        decision = runtime_patch._decide(
+            engine,
+            symbol="SPY",
+            trend=DecisionTrend.NEUTRAL,
+            signal_strength=0.0,
+            confidence=0.1,
+            current_drawdown=0.0,
+            has_position=True,
+            trailing_enabled=False,
+        )
+    finally:
+        runtime_patch._BRAIN_CONTEXT.reset(token)
+
+    assert decision == Decision.EMERGENCY_EXIT
