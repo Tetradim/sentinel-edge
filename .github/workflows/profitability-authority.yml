@@ -6,19 +6,15 @@ on:
     paths:
       - 'backend/edge_profitability*.py'
       - 'backend/edge_entry_policy_contract.py'
+      - 'backend/edge_execution_thesis.py'
+      - 'backend/edge_orb_squeeze*.py'
       - 'backend/edge_time_stop_runtime.py'
       - 'backend/edge_supervision*.py'
       - 'backend/edge_brain_patch.py'
       - 'backend/flare_intelligence*.py'
       - 'backend/bot_event_bus_routes.py'
       - 'backend/shared/bot_event_bus.py'
-      - 'backend/tests/test_edge_profitability.py'
-      - 'backend/tests/test_edge_counterfactuals.py'
-      - 'backend/tests/test_edge_top_ranked_cycle.py'
-      - 'backend/tests/test_edge_entry_timing.py'
-      - 'backend/tests/test_edge_entry_policy_contract.py'
-      - 'backend/tests/test_edge_time_stop.py'
-      - 'backend/tests/test_edge_supervision_v3.py'
+      - 'backend/tests/test_edge_*.py'
       - 'backend/tests/test_flare_intelligence.py'
       - 'docs/profitability-experiments.md'
       - '.github/workflows/profitability-authority.yml'
@@ -47,7 +43,7 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d "{\"state\":\"pending\",\"context\":\"Edge Profitability Authority\",\"description\":\"Existing and portfolio regressions are running\",\"target_url\":\"${target_url}\"}"
+            -d "{\"state\":\"pending\",\"context\":\"Edge Profitability Authority\",\"description\":\"Existing and market-event regressions are running\",\"target_url\":\"${target_url}\"}"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -77,6 +73,9 @@ jobs:
             backend/edge_profitability_runtime.py \
             backend/edge_profitability_cycle_runtime.py \
             backend/edge_entry_policy_contract.py \
+            backend/edge_execution_thesis.py \
+            backend/edge_orb_squeeze.py \
+            backend/edge_orb_squeeze_runtime.py \
             backend/edge_time_stop_runtime.py \
             backend/edge_supervision_contract.py \
             backend/edge_supervision_runtime.py \
@@ -95,6 +94,7 @@ jobs:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-existing-state.json
           EDGE_FLARE_INTELLIGENCE_STATE_FILE: ${{ runner.temp }}/edge-flare-existing-state.json
+          EDGE_SHORT_SQUEEZE_STATE_FILE: ${{ runner.temp }}/edge-squeeze-existing-state.json
         shell: bash
         run: |
           set +e
@@ -112,12 +112,13 @@ jobs:
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
-      - name: Run portfolio and communication regressions
+      - name: Run portfolio and market-event regressions
         id: portfolio
         env:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-state.json
           EDGE_FLARE_INTELLIGENCE_STATE_FILE: ${{ runner.temp }}/edge-flare-state.json
+          EDGE_SHORT_SQUEEZE_STATE_FILE: ${{ runner.temp }}/edge-squeeze-state.json
         shell: bash
         run: |
           set +e
@@ -127,6 +128,8 @@ jobs:
             backend/tests/test_edge_top_ranked_cycle.py \
             backend/tests/test_edge_entry_timing.py \
             backend/tests/test_edge_entry_policy_contract.py \
+            backend/tests/test_edge_execution_style_contract.py \
+            backend/tests/test_edge_orb_squeeze.py \
             backend/tests/test_edge_time_stop.py \
             backend/tests/test_edge_supervision_v3.py \
             backend/tests/test_flare_intelligence.py \
@@ -174,12 +177,12 @@ jobs:
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
               -d "{\"state\":\"${state}\",\"context\":\"${context}\",\"description\":\"${description}\",\"target_url\":\"${target_url}\"}"
           }
-          publish_status "Edge Profitability Compile" "$COMPILE_STATUS" "Profitability runtime compiled" "Profitability runtime compile failed"
+          publish_status "Edge Profitability Compile" "$COMPILE_STATUS" "Profitability and market-event runtime compiled" "Profitability or market-event runtime compile failed"
           publish_status "Edge Existing Authority" "$EXISTING_STATUS" "Existing Edge authority regressions passed" "Existing Edge authority regressions failed"
-          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio-cycle, timing, time-stop, and supervision regressions passed" "Portfolio-cycle, timing, time-stop, or supervision regressions failed"
+          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio, ORB, squeeze, timing, and supervision passed" "Portfolio, ORB, squeeze, timing, or supervision failed"
           if [[ "$COMPILE_STATUS" == "0" && "$EXISTING_STATUS" == "0" && "$PORTFOLIO_STATUS" == "0" ]]; then
             overall_state=success
-            overall_description="Existing, timing, time-stop, and portfolio-cycle regressions passed"
+            overall_description="Existing, portfolio, ORB, and squeeze regressions passed"
           else
             overall_state=failure
             overall_description="One or more strategy regression stages failed"
