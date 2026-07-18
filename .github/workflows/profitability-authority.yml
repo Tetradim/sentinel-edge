@@ -25,7 +25,7 @@ concurrency:
 jobs:
   profitability-authority:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Mark strategy tests pending
         env:
@@ -37,7 +37,7 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d '{"state":"pending","context":"Edge Profitability Authority","description":"Portfolio strategy regressions are running"}'
+            -d '{"state":"pending","context":"Edge Profitability Authority","description":"Existing and portfolio regressions are running"}'
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -62,12 +62,27 @@ jobs:
             backend/edge_brain_patch.py \
             backend/bot_event_bus_routes.py \
             backend/shared/bot_event_bus.py
-      - name: Run profitability and supervision regressions
+      - name: Run existing Edge authority regressions
+        env:
+          PYTHONPATH: backend
+          EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-existing-state.json
+        run: |
+          pytest -q --tb=short \
+            backend/tests/test_fill_authoritative_automation.py \
+            backend/tests/test_live_runtime_wiring.py \
+            backend/tests/test_live_scheduler_execution.py \
+            backend/tests/test_live_scheduler_arbitration.py \
+            backend/tests/test_scheduler_handoff_feedback.py \
+            backend/tests/test_automation_handoff_metrics.py \
+            backend/tests/test_frontend_live_operations_wiring.py \
+            backend/tests/test_edge_brain_metrics_contract.py \
+            backend/tests/test_edge_brain_patch.py
+      - name: Run portfolio and supervision regressions
         env:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-state.json
         run: |
-          pytest -q \
+          pytest -q --tb=short \
             backend/tests/test_edge_profitability.py \
             backend/tests/test_edge_supervision_v3.py
       - name: Mark strategy tests successful
@@ -81,7 +96,7 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d '{"state":"success","context":"Edge Profitability Authority","description":"Portfolio strategy regressions passed"}'
+            -d '{"state":"success","context":"Edge Profitability Authority","description":"Existing and portfolio regressions passed"}'
       - name: Mark strategy tests failed
         if: ${{ failure() }}
         env:
@@ -93,4 +108,4 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d '{"state":"failure","context":"Edge Profitability Authority","description":"Portfolio strategy regressions failed"}'
+            -d '{"state":"failure","context":"Edge Profitability Authority","description":"Existing or portfolio regressions failed"}'
