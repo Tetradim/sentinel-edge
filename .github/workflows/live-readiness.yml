@@ -42,6 +42,7 @@ jobs:
             backend/tests/test_scheduler_handoff_feedback.py \
             backend/tests/test_automation_handoff_metrics.py \
             backend/tests/test_frontend_live_operations_wiring.py \
+            backend/tests/test_edge_brain_metrics_contract.py \
             backend/tests/test_edge_brain_patch.py \
             -q --tb=short 2>&1 | tee edge-fill-authority-tests.txt
           status=${PIPESTATUS[0]}
