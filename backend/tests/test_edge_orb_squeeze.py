@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from edge_orb_squeeze import ShortSqueezeStore, calculate_squeeze_pressure, fuse_orb_and_squeeze
@@ -37,14 +37,15 @@ def _scheduler(*, high=100.0, low=95.0, average_volume=100.0):
 
 
 def _record(store):
+    observed = datetime.now(timezone.utc)
     return store.record(
         {
             "contract_version": "edge.squeeze.snapshot.v1",
             "snapshot_id": "squeeze:GME:1",
             "symbol": "GME",
             "source": "test",
-            "observed_at": "2026-07-18T12:00:00+00:00",
-            "expires_at": "2099-07-19T12:00:00+00:00",
+            "observed_at": observed.isoformat(),
+            "expires_at": (observed + timedelta(days=2)).isoformat(),
             "short_float_pct": 28.0,
             "days_to_cover": 8.0,
             "borrow_rate_pct": 80.0,
