@@ -292,6 +292,9 @@ class ProfitabilityScoringMixin:
         symbol = str(payload.get("symbol") or "").strip().upper()
         target_bot = str(payload.get("target_bot") or payload.get("source_bot") or infer_target_bot(symbol)).strip()
         strategy = str(payload.get("strategy") or "external_specialist")
+        direction = str(payload.get("direction") or "long").strip().lower()
+        if direction not in {"long", "short"}:
+            direction = "long"
         raw_confidence = clamp(finite(payload.get("confidence"), 0.0), 0.0, 1.0)
         reward_pct = max(0.0, finite(payload.get("expected_reward_pct")))
         risk_pct = max(0.0, finite(payload.get("expected_risk_pct")))
@@ -306,6 +309,23 @@ class ProfitabilityScoringMixin:
         risk_budget = min(self.per_trade_max_risk_pct, remaining, self.per_trade_max_risk_pct * calibrated)
         rank = self._rank_candidate(symbol, score, target_bot, {"strategy": strategy, "regime": regime, "external": True})
         reasons: list[str] = []
+        normalized_regime = regime.strip().lower()
+        if not symbol:
+            reasons.append("missing_symbol")
+        if not target_bot:
+            reasons.append("missing_target_bot")
+        if normalized_regime == MarketRegime.PANIC.value:
+            reasons.append("panic_regime")
+        if normalized_regime == MarketRegime.RANGE.value and os.getenv("EDGE_ALLOW_RANGE_ENTRIES", "false").lower() not in {"1", "true", "yes", "on"}:
+            reasons.append("range_no_trade")
+        if direction == "long" and normalized_regime in {MarketRegime.TRENDING_DOWN.value, MarketRegime.BREAKOUT_DOWN.value}:
+            reasons.append("direction_regime_conflict")
+        if direction == "short" and normalized_regime in {MarketRegime.TRENDING_UP.value, MarketRegime.BREAKOUT_UP.value}:
+            reasons.append("direction_regime_conflict")
+        if normalized_regime == MarketRegime.HIGH_VOLATILITY.value and raw_confidence < env_float("EDGE_HIGH_VOL_MIN_CONFIDENCE", 0.82, minimum=0.0):
+            reasons.append("high_volatility_no_trade")
+        if normalized_regime == MarketRegime.UNKNOWN.value and raw_confidence < env_float("EDGE_UNKNOWN_REGIME_MIN_CONFIDENCE", 0.78, minimum=0.0):
+            reasons.append("unclassified_no_trade")
         if raw_confidence < env_float("EDGE_ENTRY_MIN_CONFIDENCE", 0.64, minimum=0.0):
             reasons.append("confidence_below_profitability_threshold")
         if reward_risk < env_float("EDGE_MIN_REWARD_RISK", 1.5, minimum=0.1):
@@ -350,7 +370,7 @@ class ProfitabilityScoringMixin:
                 position_id=position_id,
                 symbol=symbol,
                 target_bot=target_bot,
-                direction=str(payload.get("direction") or "long").lower(),
+                direction=direction,
                 strategy=strategy,
                 state=TradeCardState.ARMED,
                 regime=regime,
