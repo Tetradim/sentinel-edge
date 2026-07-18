@@ -8,6 +8,7 @@ on:
       - 'backend/edge_entry_policy_contract.py'
       - 'backend/edge_execution_thesis.py'
       - 'backend/edge_orb_squeeze*.py'
+      - 'backend/edge_short_interest_runtime.py'
       - 'backend/edge_time_stop_runtime.py'
       - 'backend/edge_supervision*.py'
       - 'backend/edge_brain_patch.py'
@@ -76,6 +77,7 @@ jobs:
             backend/edge_execution_thesis.py \
             backend/edge_orb_squeeze.py \
             backend/edge_orb_squeeze_runtime.py \
+            backend/edge_short_interest_runtime.py \
             backend/edge_time_stop_runtime.py \
             backend/edge_supervision_contract.py \
             backend/edge_supervision_runtime.py \
