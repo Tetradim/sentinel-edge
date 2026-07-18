@@ -12,6 +12,7 @@ from shared.bot_event_bus import EDGE_ACTION_TARGET_BOTS, BotEvent, event_bus, p
 # server.py imports scheduler and alert_handler first, so the freshness/exactly-once
 # wrappers are already installed before Edge's strategist brain wraps the pipeline.
 import edge_brain_patch as _edge_brain_patch  # noqa: F401,E402
+from edge_profitability import coordinator
 
 
 router = APIRouter(prefix="/bus", tags=["Cross Bot Event Bus"])
@@ -42,6 +43,76 @@ async def publish_edge_action(request: Request, payload: dict):
         target_bots=EDGE_ACTION_TARGET_BOTS,
     )
     return {"status": "accepted", "event": action_event.model_dump(mode="json")}
+
+
+@router.post("/profitability/opportunities")
+async def evaluate_specialist_opportunity(request: Request, payload: dict):
+    """Rank and authorize a specialist bot's proposed trade before execution."""
+    _require_operator_action_secret(request)
+    authorization = coordinator.evaluate_external_proposal(payload)
+    target_bot = str(authorization.get("target_bot") or payload.get("source_bot") or "")
+    event = publish_event(
+        "edge.strategy.authorization",
+        payload=authorization,
+        correlation_id=str(payload.get("correlation_id") or authorization.get("symbol") or ""),
+        dedupe_key=str(payload.get("proposal_id") or authorization.get("trade_card", {}).get("card_id") or ""),
+        target_bots=[target_bot] if target_bot else EDGE_ACTION_TARGET_BOTS,
+        trace={"source_proposal_id": payload.get("proposal_id")},
+    )
+    return {
+        "status": "authorized" if authorization.get("authorized") else "rejected",
+        "authorization": authorization,
+        "event": event.model_dump(mode="json"),
+    }
+
+
+@router.post("/profitability/feedback")
+async def record_specialist_execution_feedback(request: Request, payload: dict):
+    """Record execution quality and lifecycle feedback from any specialist bot."""
+    _require_operator_action_secret(request)
+    card_id = str(payload.get("card_id") or "")
+    card = coordinator.cards.get(card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Unknown trade card")
+    action = str(payload.get("action") or "feedback").lower()
+    feedback = payload.get("feedback") if isinstance(payload.get("feedback"), dict) else payload
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    coordinator.record_feedback(card, action=action, feedback=feedback, metadata=metadata)
+    event = publish_event(
+        "edge.strategy.feedback.recorded",
+        payload={
+            "contract_version": "edge.strategy.feedback.v1",
+            "card_id": card.card_id,
+            "position_id": card.position_id,
+            "symbol": card.symbol,
+            "target_bot": card.target_bot,
+            "action": action,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        },
+        correlation_id=card.position_id,
+        dedupe_key=str(payload.get("feedback_id") or ""),
+        target_bots=[card.target_bot],
+    )
+    return {"status": "recorded", "trade_card": card.public_dict(), "event": event.model_dump(mode="json")}
+
+
+@router.get("/profitability/status")
+async def profitability_status():
+    return coordinator.portfolio_status(include_cards=True)
+
+
+@router.get("/profitability/trade-cards")
+async def profitability_trade_cards(include_terminal: bool = False):
+    cards = [card.public_dict() for card in coordinator.cards.values()]
+    if not include_terminal:
+        cards = [card for card in cards if card.get("state") not in {"completed", "invalidated", "expired"}]
+    cards.sort(key=lambda item: str(item.get("updated_at") or ""), reverse=True)
+    return {"trade_cards": cards}
+
+
+@router.get("/profitability/outcomes")
+async def profitability_outcomes(limit: int = 100):
+    return {"outcomes": coordinator.recent_outcomes(limit=limit)}
 
 
 @router.get("/automation-operations")
@@ -81,6 +152,7 @@ async def automation_operations():
             "retry_queue": queue_stats,
         },
         "execution_data": execution_data,
+        "profitability": coordinator.portfolio_status(include_cards=False),
         "summary": {
             "symbols": len(execution_data),
             "executable_symbols": sum(1 for value in execution_data.values() if value.get("executable")),
