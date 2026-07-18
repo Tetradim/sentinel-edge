@@ -175,13 +175,20 @@ Edge can identify a good thesis that is temporarily untradeable. Pulse should pr
 
 ## EXP-009 — Selected-versus-rejected counterfactual ledger
 
-**Status:** Planned.
+**Status:** Initial cycle-horizon ledger implemented.
 
-### Proposed changes
+### Code changes
 
-- Continue marking prices for selected, rejected, expired, and no-trade candidates.
-- Calculate hypothetical returns at the selected trade’s exit horizon.
-- Attribute whether selection, entry timing, execution, sizing, or exit management added value.
+- Persist one counterfactual record for every scored candidate, including selected and rejected opportunities.
+- Mark each record at subsequent evaluation prices for the same symbol.
+- Track horizon observations, marked return, maximum favorable excursion, and maximum adverse excursion.
+- Compare average selected-candidate return with rejected-candidate return through `selection_edge_pct`.
+- Expose the aggregate in portfolio profitability status and preserve the ledger across restarts.
+
+### Next extension
+
+- Close records at the selected trade’s actual exit horizon in addition to the fixed cycle horizon.
+- Attribute selection, entry timing, execution, sizing, and exit management separately.
 
 ### Why it may improve profitability
 
