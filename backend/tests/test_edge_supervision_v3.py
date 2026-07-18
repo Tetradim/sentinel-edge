@@ -168,11 +168,13 @@ async def test_emitter_sends_reduce_as_sell_envelope_with_typed_directive():
     assert scheduler.ticker_state["SPY"]["last_decision"] == "reduce_position"
 
 
-def test_production_install_order_is_profitability_then_supervision_then_brain():
+def test_production_install_order_is_profitability_then_time_stop_then_supervision_then_brain():
     import edge_brain_patch  # noqa: F401
     import edge_profitability_runtime as profitability
+    import edge_time_stop_runtime as time_stop
 
     assert DecisionEngine.decide is profitability._profitability_decide
-    assert profitability._ORIGINAL_DECIDE is supervision._decide_with_supervision
+    assert profitability._ORIGINAL_DECIDE is time_stop._decide_with_time_stop
+    assert time_stop._ORIGINAL_DECIDE is supervision._decide_with_supervision
     assert supervision._ORIGINAL_DECIDE is brain_runtime._decide
     assert "tighten_stop" in __import__("live_scheduler_patch")._PRICE_SENSITIVE_ACTIONS
