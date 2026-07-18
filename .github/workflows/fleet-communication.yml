@@ -7,6 +7,7 @@ on:
       - 'backend/integration/fleet_communication_contract.py'
       - 'backend/flare_intelligence*.py'
       - 'backend/edge_profitability*.py'
+      - 'backend/bot_event_bus_routes.py'
       - '.github/workflows/fleet-communication.yml'
   workflow_dispatch:
 
@@ -93,6 +94,8 @@ jobs:
           python -m py_compile \
             edge/backend/integration/fleet_communication_contract.py \
             edge/backend/flare_intelligence.py \
+            edge/backend/edge_profitability_lifecycle.py \
+            edge/backend/bot_event_bus_routes.py \
             flare/edge_intelligence.py \
             chain/src/sentinel_chain/edge_strategy.py \
             iron/src/sentinel_iron/edge_strategy.py \
