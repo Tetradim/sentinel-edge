@@ -31,13 +31,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          curl --fail-with-body -sS -L \
-            -X POST \
+          target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl --fail-with-body -sS -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d '{"state":"pending","context":"Edge Profitability Authority","description":"Existing and portfolio regressions are running"}'
+            -d "{\"state\":\"pending\",\"context\":\"Edge Profitability Authority\",\"description\":\"Existing and portfolio regressions are running\",\"target_url\":\"${target_url}\"}"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -49,7 +49,10 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install -r backend/requirements-dev.txt
       - name: Compile profitability runtime
+        id: compile
+        shell: bash
         run: |
+          set +e
           python -m py_compile \
             backend/edge_profitability_models.py \
             backend/edge_profitability_state.py \
@@ -61,12 +64,19 @@ jobs:
             backend/edge_supervision_runtime.py \
             backend/edge_brain_patch.py \
             backend/bot_event_bus_routes.py \
-            backend/shared/bot_event_bus.py
+            backend/shared/bot_event_bus.py \
+            2>&1 | tee profitability-compile.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
       - name: Run existing Edge authority regressions
+        id: existing
         env:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-existing-state.json
+        shell: bash
         run: |
+          set +e
           pytest -q --tb=short \
             backend/tests/test_fill_authoritative_automation.py \
             backend/tests/test_live_runtime_wiring.py \
@@ -76,36 +86,82 @@ jobs:
             backend/tests/test_automation_handoff_metrics.py \
             backend/tests/test_frontend_live_operations_wiring.py \
             backend/tests/test_edge_brain_metrics_contract.py \
-            backend/tests/test_edge_brain_patch.py
+            backend/tests/test_edge_brain_patch.py \
+            2>&1 | tee existing-authority-tests.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
       - name: Run portfolio and supervision regressions
+        id: portfolio
         env:
           PYTHONPATH: backend
           EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-profitability-state.json
+        shell: bash
         run: |
+          set +e
           pytest -q --tb=short \
             backend/tests/test_edge_profitability.py \
-            backend/tests/test_edge_supervision_v3.py
-      - name: Mark strategy tests successful
-        if: ${{ success() }}
+            backend/tests/test_edge_supervision_v3.py \
+            2>&1 | tee portfolio-authority-tests.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload direct branch test diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-profitability-authority-diagnostics
+          path: |
+            profitability-compile.log
+            existing-authority-tests.log
+            portfolio-authority-tests.log
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish stage statuses
+        if: ${{ always() }}
         env:
           GH_TOKEN: ${{ github.token }}
+          COMPILE_STATUS: ${{ steps.compile.outputs.status }}
+          EXISTING_STATUS: ${{ steps.existing.outputs.status }}
+          PORTFOLIO_STATUS: ${{ steps.portfolio.outputs.status }}
+        shell: bash
         run: |
-          curl --fail-with-body -sS -L \
-            -X POST \
+          target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          publish_status() {
+            local context="$1"
+            local result="$2"
+            local success_description="$3"
+            local failure_description="$4"
+            if [[ "$result" == "0" ]]; then
+              state=success
+              description="$success_description"
+            else
+              state=failure
+              description="$failure_description"
+            fi
+            curl --fail-with-body -sS -L -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -d "{\"state\":\"${state}\",\"context\":\"${context}\",\"description\":\"${description}\",\"target_url\":\"${target_url}\"}"
+          }
+          publish_status "Edge Profitability Compile" "$COMPILE_STATUS" "Profitability runtime compiled" "Profitability runtime compile failed"
+          publish_status "Edge Existing Authority" "$EXISTING_STATUS" "Existing Edge authority regressions passed" "Existing Edge authority regressions failed"
+          publish_status "Edge Portfolio Authority" "$PORTFOLIO_STATUS" "Portfolio and supervision regressions passed" "Portfolio or supervision regressions failed"
+          if [[ "$COMPILE_STATUS" == "0" && "$EXISTING_STATUS" == "0" && "$PORTFOLIO_STATUS" == "0" ]]; then
+            overall_state=success
+            overall_description="Existing and portfolio regressions passed"
+          else
+            overall_state=failure
+            overall_description="One or more strategy regression stages failed"
+          fi
+          curl --fail-with-body -sS -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d '{"state":"success","context":"Edge Profitability Authority","description":"Existing and portfolio regressions passed"}'
-      - name: Mark strategy tests failed
-        if: ${{ failure() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          curl --fail-with-body -sS -L \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d '{"state":"failure","context":"Edge Profitability Authority","description":"Existing or portfolio regressions failed"}'
+            -d "{\"state\":\"${overall_state}\",\"context\":\"Edge Profitability Authority\",\"description\":\"${overall_description}\",\"target_url\":\"${target_url}\"}"
+      - name: Fail when any strategy stage failed
+        if: ${{ always() && (steps.compile.outputs.status != '0' || steps.existing.outputs.status != '0' || steps.portfolio.outputs.status != '0') }}
+        run: exit 1
