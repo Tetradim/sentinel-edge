@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 
 import live_scheduler_patch  # noqa: F401 - installs safety wrapper first
-import edge_brain_patch  # noqa: F401
 import edge_brain_analysis as analysis_patch
 import edge_brain_data as data_patch
 import edge_brain_runtime as runtime_patch
@@ -71,7 +70,10 @@ def _analysis(
 
 def test_uppercase_provider_data_runs_full_enhanced_engine():
     engine = SignalEngineEnhanced(enable_talib=False, multi_timeframe=False)
-    result = asyncio.run(engine.analyze("ASTS", _uppercase_frame(), timeframe="15m"))
+    data_patch.configure_engine(engine)
+    result = asyncio.run(
+        runtime_patch._analyze(engine, "ASTS", _uppercase_frame(), timeframe="15m")
+    )
 
     assert SCIPY_AVAILABLE is True
     assert engine.multi_timeframe is True
@@ -101,7 +103,9 @@ def test_enhanced_failure_is_neutral_not_full_confidence(monkeypatch):
 
     monkeypatch.setattr(runtime_patch, "_ORIGINAL_ANALYZE", explode)
     engine = SignalEngineEnhanced(enable_talib=False)
-    result = asyncio.run(engine.analyze("ASTS", _uppercase_frame(), timeframe="15m"))
+    result = asyncio.run(
+        runtime_patch._analyze(engine, "ASTS", _uppercase_frame(), timeframe="15m")
+    )
 
     assert result.signal_strength == 0.0
     assert result.trend == EnhancedTrend.NEUTRAL
