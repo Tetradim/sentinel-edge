@@ -2,7 +2,7 @@ name: Edge Fill Authority
 
 on:
   pull_request:
-    branches: [OC-Iteration]
+    branches: [OC-Iteration, codex/edge-brain-foundation]
     paths:
       - 'backend/**'
       - 'frontend/**'
