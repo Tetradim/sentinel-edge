@@ -1,0 +1,113 @@
+name: Edge Pulse Minute Sweep
+
+on:
+  push:
+    branches: [OC-Iteration]
+    paths:
+      - 'scripts/run_edge_pulse_minute_sweep.py'
+      - '.github/workflows/edge-pulse-minute-sweep.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: edge-pulse-minute-sweep-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  minute-sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Mark minute sweep pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl --fail-with-body -sS -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -d "{\"state\":\"pending\",\"context\":\"Edge Pulse Minute Sweep\",\"description\":\"Downloading minute bars and running parameter sweep\",\"target_url\":\"${target_url}\"}"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install experiment dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r backend/requirements-dev.txt
+          pip install yfinance requests
+      - name: Compile and self-test runner
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m py_compile scripts/run_edge_pulse_minute_sweep.py
+          python scripts/run_edge_pulse_minute_sweep.py --self-test
+      - name: Run rolling-month minute sweep
+        id: sweep
+        env:
+          PYTHONPATH: backend
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          EDGE_PROFITABILITY_STATE_FILE: ${{ runner.temp }}/edge-minute-sweep-state.json
+          EDGE_SHORT_SQUEEZE_STATE_FILE: ${{ runner.temp }}/edge-minute-squeeze-state.json
+          EDGE_ENTRY_MIN_CONFIDENCE: '0.64'
+          EDGE_MIN_NET_EXPECTED_VALUE_PCT: '0.15'
+          EDGE_EXPERIMENT_MIN_REWARD_RISK: '2.0'
+          EDGE_MIN_OPPORTUNITY_SCORE: '20.0'
+          EDGE_MAX_CYCLE_ENTRIES: '1'
+          EDGE_ESTIMATED_ROUND_TRIP_COST_BPS: '10.0'
+          EDGE_ALLOW_RANGE_ENTRIES: 'false'
+        shell: bash
+        run: |
+          set +e
+          python scripts/run_edge_pulse_minute_sweep.py \
+            --start 2026-06-19 \
+            --end 2026-07-18 \
+            --provider auto \
+            --eval-minutes 5 \
+            --output artifacts/edge-pulse-minute-sweep \
+            2>&1 | tee edge-pulse-minute-sweep.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload minute sweep evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-pulse-minute-sweep-june-july-2026
+          path: |
+            edge-pulse-minute-sweep.log
+            artifacts/edge-pulse-minute-sweep/**
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Publish minute sweep status
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SWEEP_STATUS: ${{ steps.sweep.outputs.status }}
+        shell: bash
+        run: |
+          target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [[ "$SWEEP_STATUS" == "0" ]]; then
+            state=success
+            description="Minute bars, Edge/Pulse communications, and parameter grid completed"
+          else
+            state=failure
+            description="Minute sweep failed; inspect the diagnostics artifact"
+          fi
+          curl --fail-with-body -sS -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -d "{\"state\":\"${state}\",\"context\":\"Edge Pulse Minute Sweep\",\"description\":\"${description}\",\"target_url\":\"${target_url}\"}"
+      - name: Fail when sweep failed
+        if: ${{ always() && steps.sweep.outputs.status != '0' }}
+        run: exit 1
