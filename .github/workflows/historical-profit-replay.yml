@@ -1,0 +1,85 @@
+name: Historical Edge Pulse Profit
+
+on:
+  push:
+    branches: [codex/edge-supervision-v3]
+    paths:
+      - 'backend/integration/**'
+      - '.github/workflows/historical-profit-replay.yml'
+      - 'backend/edge_brain_*.py'
+      - 'backend/edge_supervision_*.py'
+  pull_request:
+    branches: [codex/edge-brain-foundation, OC-Iteration]
+    paths:
+      - 'backend/integration/**'
+      - '.github/workflows/historical-profit-replay.yml'
+      - 'backend/edge_brain_*.py'
+      - 'backend/edge_supervision_*.py'
+  workflow_dispatch:
+    inputs:
+      pulse_ref:
+        description: Sentinel-Pulse ref containing the handoff consumer
+        required: false
+        default: codex/edge-supervision-v3
+      symbols:
+        description: Space-separated replay symbols
+        required: false
+        default: SPY QQQ AAPL NVDA TSLA
+
+permissions:
+  contents: read
+
+concurrency:
+  group: historical-edge-pulse-profit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  historical-profit:
+    name: Profit Jan-Feb 2026 and Oct-Nov 2025
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Sentinel Edge
+        uses: actions/checkout@v4
+
+      - name: Checkout Sentinel Pulse consumer
+        uses: actions/checkout@v4
+        with:
+          repository: Tetradim/Sentinel-Pulse
+          ref: ${{ inputs.pulse_ref || 'codex/edge-supervision-v3' }}
+          path: pulse-repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements-dev.txt
+            pulse-repo/backend/requirements.txt
+
+      - name: Install Edge and Pulse dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r backend/requirements-dev.txt
+          pip install -r pulse-repo/backend/requirements.txt
+
+      - name: Replay historical profit
+        env:
+          PYTHONPATH: backend
+          REPLAY_SYMBOLS: ${{ inputs.symbols || 'SPY QQQ AAPL NVDA TSLA' }}
+        shell: bash
+        run: |
+          read -r -a symbols <<< "$REPLAY_SYMBOLS"
+          python backend/integration/historical_profit_replay.py \
+            --pulse-backend pulse-repo/backend \
+            --output historical-profit-report.json \
+            --symbols "${symbols[@]}"
+
+      - name: Upload profit audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-pulse-historical-profit-report
+          path: historical-profit-report.json
+          if-no-files-found: error
+          retention-days: 30
