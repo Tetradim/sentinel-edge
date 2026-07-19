@@ -4,6 +4,7 @@ on:
   push:
     branches: [OC-Iteration]
     paths:
+      - 'scripts/run_spy_qqq_execution_validation.py'
       - '.github/workflows/edge-scalp-follow-tick-validation.yml'
   workflow_dispatch:
 
@@ -19,175 +20,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install data dependencies
+      - name: Install validation dependencies
         run: pip install --quiet pandas numpy yfinance requests
-      - name: Run SPY QQQ execution validation
+      - name: Compile and self-test
+        run: |
+          python -m py_compile scripts/run_spy_qqq_execution_validation.py
+          python scripts/run_spy_qqq_execution_validation.py --self-test
+      - name: Run SPY and QQQ execution validation
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
           APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
-        shell: bash
         run: |
-          python - <<'PY'
-          import json, os, math
-          from collections import deque
-          from pathlib import Path
-          import numpy as np
-          import pandas as pd
-          import requests
-          import yfinance as yf
-
-          OUT=Path('artifacts/edge-scalp-follow-tick-validation'); OUT.mkdir(parents=True,exist_ok=True)
-          START=pd.Timestamp('2026-06-19',tz='UTC'); END=pd.Timestamp('2026-07-18',tz='UTC')
-          SYMBOLS=['SPY','QQQ']; DAYS=['2026-07-15','2026-07-16','2026-07-17']
-          def cents(x): return round(float(x)+1e-12,2)
-          def yf_bars(sym):
-              cur=START; parts=[]
-              while cur<END:
-                  nxt=min(cur+pd.Timedelta(days=6),END)
-                  f=yf.download(sym,start=cur.date().isoformat(),end=nxt.date().isoformat(),interval='1m',auto_adjust=False,prepost=False,progress=False,threads=False)
-                  if not f.empty:
-                      if isinstance(f.columns,pd.MultiIndex): f.columns=[x[0].lower() for x in f.columns]
-                      else: f.columns=[str(x).lower() for x in f.columns]
-                      f=f.reset_index(); tc='Datetime' if 'Datetime' in f.columns else 'datetime'; f=f.rename(columns={tc:'timestamp'})
-                      f['timestamp']=pd.to_datetime(f.timestamp,utc=True); f['symbol']=sym; parts.append(f[['timestamp','symbol','open','high','low','close','volume']])
-                  cur=nxt-pd.Timedelta(days=1)
-                  if cur<=START and parts: cur=nxt
-              if not parts: return pd.DataFrame()
-              f=pd.concat(parts).drop_duplicates(['timestamp','symbol']).sort_values('timestamp')
-              minute=f.timestamp.dt.hour*60+f.timestamp.dt.minute
-              f=f[(minute>=810)&(minute<=1200)].copy(); f['day']=f.timestamp.dt.date
-              pc=f.close.shift(1); tr=pd.concat([f.high-f.low,(f.high-pc).abs(),(f.low-pc).abs()],axis=1).max(axis=1)
-              f['atr']=tr.rolling(14,min_periods=3).mean().fillna(tr.expanding().mean())
-              return f
-          bars=pd.concat([yf_bars(s) for s in SYMBOLS],ignore_index=True)
-          coverage=[{'symbol':s,'bars':int((bars.symbol==s).sum()),'sessions':int(bars.loc[bars.symbol==s,'day'].nunique())} for s in SYMBOLS]
-
-          def minute_test(g,half,order):
-              pnl=[]; rec=0
-              for _,d in g.groupby('day'):
-                  d=d.sort_values('timestamp'); center=cents(d.iloc[0].close); pos=None; closes=deque(maxlen=7); last=None; up=down=0
-                  for r in d.itertuples(index=False):
-                      px=cents(r.close); closes.append(px); trig=max(4*half,float(r.atr)); buy=cents(center-half); target=cents(center+half)
-                      if pos:
-                          sh=r.low<=pos['stop']; th=r.high>=pos['target']; exit_px=None
-                          if sh and th: exit_px=pos['stop'] if order=='stop_first' else pos['target']
-                          elif sh: exit_px=pos['stop']
-                          elif th: exit_px=pos['target']
-                          elif r.timestamp.hour*60+r.timestamp.minute>=1195: exit_px=px
-                          if exit_px is not None: pnl.append((exit_px-pos['entry'])*(500/pos['entry'])); pos=None
-                      if not pos:
-                          dist=px-center; up=up+1 if dist>=trig else 0; down=down+1 if dist<=-trig else 0
-                          ready=last is None or (r.timestamp-last).total_seconds()>=600
-                          if ready and len(closes)>=5 and (up>=3 or down>=5):
-                              recent=list(closes)[-5:]; ok=True
-                              if down>=5:
-                                  l3=recent[-3:]; ok=int(np.argmin(l3))==0 and l3[-1]>=l3[-2]
-                              if ok:
-                                  new=cents(round(float(np.median(recent))/0.25)*0.25)
-                                  if abs(new-center)>=half: center=new; rec+=1; last=r.timestamp
-                                  up=down=0
-                          buy=cents(center-half); target=cents(center+half)
-                          if r.low<=buy and r.timestamp.hour*60+r.timestamp.minute<=1155:
-                              pos={'entry':buy,'target':target,'stop':cents(buy-(target-buy))}
-                  if pos: pnl.append((cents(d.iloc[-1].close)-pos['entry'])*(500/pos['entry']))
-              wins=[x for x in pnl if x>0]; losses=[x for x in pnl if x<0]
-              return {'trades':len(pnl),'pnl':sum(pnl),'win_rate':100*len(wins)/len(pnl) if pnl else 0,'profit_factor':sum(wins)/abs(sum(losses)) if losses else 0,'recenters':rec}
-          minute=[]
-          for sym in SYMBOLS:
-              for half in [0.25,0.5,0.75,1.0]:
-                  for order in ['stop_first','target_first']:
-                      minute.append({'symbol':sym,'half_width':half,'sequence':order,**minute_test(bars[bars.symbol==sym],half,order)})
-
-          key=os.getenv('ALPACA_API_KEY') or os.getenv('APCA_API_KEY_ID') or ''
-          secret=os.getenv('ALPACA_API_SECRET') or os.getenv('APCA_API_SECRET_KEY') or ''
-          exact_provider='unavailable'; exact_error=''; exact=[]; exact_coverage=[]
-          def fetch(sym,kind,day,feed):
-              url=f'https://data.alpaca.markets/v2/stocks/{sym}/{kind}'; token=None; rows=[]
-              while True:
-                  p={'start':day+'T13:30:00Z','end':day+'T20:00:00Z','limit':10000,'feed':feed,'sort':'asc'}
-                  if token: p['page_token']=token
-                  r=requests.get(url,params=p,headers={'APCA-API-KEY-ID':key,'APCA-API-SECRET-KEY':secret},timeout=60)
-                  if r.status_code!=200: raise RuntimeError(f'{feed} {kind} {sym}: {r.status_code} {r.text[:180]}')
-                  j=r.json(); rows.extend(j.get(kind,[])); token=j.get('next_page_token')
-                  if not token: return rows
-          def exact_test(events,half,follow=True):
-              if not events: return {'trades':0,'pnl':0,'win_rate':0,'recenters':0}
-              bid=ask=None; center=None; pos=None; pnl=[]; recent=deque(maxlen=7); last=None; up=down=0; rec=0
-              for e in events:
-                  ts=e['ts']; obs=None
-                  if e['kind']=='q':
-                      bid=e['bid']; ask=e['ask'];
-                      if bid and ask and ask>=bid: obs=(bid+ask)/2
-                  else: obs=e['price']
-                  if obs is None: continue
-                  if center is None: center=cents(obs)
-                  recent.append(obs); buy=cents(center-half); target=cents(center+half)
-                  if pos and bid is not None:
-                      exit_px=None
-                      if bid<=pos['stop']: exit_px=bid
-                      elif bid>=pos['target']: exit_px=bid
-                      elif ts.hour*60+ts.minute>=1195: exit_px=bid
-                      if exit_px is not None: pnl.append((exit_px-pos['entry'])*(500/pos['entry'])); pos=None
-                  if not pos:
-                      if follow:
-                          dist=obs-center; trig=4*half; up=up+1 if dist>=trig else 0; down=down+1 if dist<=-trig else 0
-                          ready=last is None or (ts-last).total_seconds()>=600
-                          if ready and len(recent)>=5 and (up>=3 or down>=5):
-                              r=list(recent)[-5:]; ok=True
-                              if down>=5:
-                                  l3=r[-3:]; ok=int(np.argmin(l3))==0 and l3[-1]>=l3[-2]
-                              if ok:
-                                  new=cents(round(float(np.median(r))/0.25)*0.25)
-                                  if abs(new-center)>=half: center=new;rec+=1;last=ts
-                                  up=down=0
-                      else: center=cents(obs)
-                      buy=cents(center-half); target=cents(center+half)
-                      if ask is not None and ask<=buy and ts.hour*60+ts.minute<=1155 and target>ask:
-                          pos={'entry':ask,'target':target,'stop':cents(ask-(target-ask))}
-              if pos and bid is not None: pnl.append((bid-pos['entry'])*(500/pos['entry']))
-              return {'trades':len(pnl),'pnl':sum(pnl),'win_rate':100*sum(x>0 for x in pnl)/len(pnl) if pnl else 0,'recenters':rec}
-          if key and secret:
-              for feed in ['sip','iex']:
-                  try:
-                      exact=[]; exact_coverage=[]
-                      for sym in SYMBOLS:
-                          for day in DAYS:
-                              qs=fetch(sym,'quotes',day,feed); ts=fetch(sym,'trades',day,feed)
-                              ev=[{'ts':pd.Timestamp(x['t']),'kind':'q','bid':float(x.get('bp') or 0),'ask':float(x.get('ap') or 0)} for x in qs]
-                              ev += [{'ts':pd.Timestamp(x['t']),'kind':'t','price':float(x.get('p') or 0)} for x in ts]
-                              ev=sorted(ev,key=lambda x:(x['ts'],x['kind']))
-                              spreads=[e['ask']-e['bid'] for e in ev if e['kind']=='q' and e['bid']>0 and e['ask']>=e['bid']]
-                              exact_coverage.append({'symbol':sym,'day':day,'feed':feed,'quotes':len(qs),'trades':len(ts),'median_spread':float(np.median(spreads)) if spreads else None})
-                              for half in [0.25,0.5,0.75,1.0]:
-                                  exact.append({'symbol':sym,'day':day,'feed':feed,'half_width':half,'profile':'step_follow',**exact_test(ev,half,True)})
-                                  exact.append({'symbol':sym,'day':day,'feed':feed,'half_width':half,'profile':'continuous_chase',**exact_test(ev,half,False)})
-                      exact_provider='alpaca_'+feed; exact_error=''; break
-                  except Exception as e:
-                      exact=[]; exact_coverage=[]; exact_error=str(e)
-          report={'period':{'start':'2026-06-19','end_exclusive':'2026-07-18'},'minute_coverage':coverage,
-                  'exact_provider':exact_provider,'exact_error':exact_error,'exact_coverage':exact_coverage,
-                  'minute_sequence_bounds':minute,'exact_results':exact,
-                  'limitation':None if exact else 'No authenticated historical quote/trade feed was available; exact tick conclusions are not claimed.'}
-          (OUT/'latest.json').write_text(json.dumps(report,indent=2))
-          pd.DataFrame(minute).to_csv(OUT/'minute-sequence-bounds.csv',index=False)
-          pd.DataFrame(exact).to_csv(OUT/'exact-results.csv',index=False)
-          pd.DataFrame(exact_coverage).to_csv(OUT/'exact-coverage.csv',index=False)
-          print(json.dumps({'exact_provider':exact_provider,'exact_error':exact_error,'coverage':coverage,'exact_rows':len(exact)},indent=2))
-          PY
+          python scripts/run_spy_qqq_execution_validation.py \
+            --start 2026-06-19 \
+            --end 2026-07-18 \
+            --exact-days 2026-07-15,2026-07-16,2026-07-17 \
+            --output artifacts/edge-scalp-follow-tick-validation
       - name: Upload validation evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: edge-scalp-follow-tick-validation
           path: artifacts/edge-scalp-follow-tick-validation/**
+          if-no-files-found: warn
           retention-days: 14
-      - name: Commit latest aggregate result
-        shell: bash
+      - name: Commit latest aggregate evidence
+        if: ${{ success() }}
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add artifacts/edge-scalp-follow-tick-validation
           git diff --cached --quiet && exit 0
-          git commit -m 'Record SPY QQQ tick validation [skip ci]'
+          git commit -m 'Record SPY QQQ execution validation [skip ci]'
           git push origin HEAD:OC-Iteration
