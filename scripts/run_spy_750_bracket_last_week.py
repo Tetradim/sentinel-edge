@@ -36,6 +36,10 @@ def run(bars,mode='trend_path',rebracket=True,cost_bps=0.0,fractional=True):
             if pos: close_pos(ts,cents(float(r.open)),'overnight_defensive')
             next_check=ts+pd.Timedelta(seconds=CHECK)
         prior_day=day
+        local=ts.tz_convert(ET)
+        if local.hour*60+local.minute>=15*60+55:
+            if pos: close_pos(ts,cents(float(r.close)),'end_of_day')
+            continue
         while ts>=next_check:
             if rebracket and pos is None:
                 buy,sell=levels(); obs=cents(float(r.open))
@@ -65,8 +69,6 @@ def run(bars,mode='trend_path',rebracket=True,cost_bps=0.0,fractional=True):
                             pos['peak']=max(pos['peak'],b); pos['trail']=max(pos['trail'],cents(pos['peak']*(1-TRAIL)))
                     else:
                         if b<=pos['trail']<=a: close_pos(ts,pos['trail'],'trailing_stop')
-        local=ts.tz_convert(ET)
-        if local.hour*60+local.minute>=15*60+55 and pos: close_pos(ts,cents(float(r.close)),'end_of_day')
     if pos:
         r=bars.iloc[-1]; close_pos(pd.Timestamp(r.timestamp),cents(float(r.close)),'period_end')
     w=[x['net_pnl'] for x in trades if x['net_pnl']>0]; l=[x['net_pnl'] for x in trades if x['net_pnl']<0]
