@@ -1,0 +1,42 @@
+name: SPY 750 Bracket Last Week
+
+on:
+  push:
+    branches: [OC-Iteration]
+    paths:
+      - 'scripts/run_spy_750_bracket_last_week.py'
+      - '.github/workflows/spy-750-bracket-last-week.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install --quiet pandas numpy yfinance requests
+      - name: Compile and run exact requested replay
+        run: |
+          python -m py_compile scripts/run_spy_750_bracket_last_week.py
+          python scripts/run_spy_750_bracket_last_week.py --output artifacts/spy-750-bracket-last-week
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: spy-750-bracket-last-week
+          path: artifacts/spy-750-bracket-last-week/**
+          retention-days: 14
+      - name: Commit aggregate and trade evidence
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add artifacts/spy-750-bracket-last-week
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record SPY 200-second bracket replay [skip ci]'
+          git push origin HEAD:OC-Iteration
