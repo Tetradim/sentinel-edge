@@ -2,10 +2,11 @@
 from __future__ import annotations
 import argparse,json,math
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import numpy as np,pandas as pd
 from run_spy_qqq_execution_validation import download_minute_bars,cents
 
-START='2026-07-13'; END='2026-07-18'; HALF=.50; TRAIL=.0035; CHECK=200
+START='2026-07-13'; END='2026-07-18'; HALF=.50; TRAIL=.0035; CHECK=200; ET=ZoneInfo('America/New_York')
 
 def path_points(r,mode):
     o,h,l,c=map(float,(r.open,r.high,r.low,r.close)); up=c>=o
@@ -31,7 +32,9 @@ def run(bars,mode='trend_path',rebracket=True,cost_bps=0.0,fractional=True):
     prior_day=None
     for r in bars.itertuples(index=False):
         ts=pd.Timestamp(r.timestamp); day=r.day
-        if prior_day is not None and day!=prior_day and pos: close_pos(ts,cents(float(r.open)),'overnight_defensive')
+        if prior_day is not None and day!=prior_day:
+            if pos: close_pos(ts,cents(float(r.open)),'overnight_defensive')
+            next_check=ts+pd.Timedelta(seconds=CHECK)
         prior_day=day
         while ts>=next_check:
             if rebracket and pos is None:
@@ -62,7 +65,8 @@ def run(bars,mode='trend_path',rebracket=True,cost_bps=0.0,fractional=True):
                             pos['peak']=max(pos['peak'],b); pos['trail']=max(pos['trail'],cents(pos['peak']*(1-TRAIL)))
                     else:
                         if b<=pos['trail']<=a: close_pos(ts,pos['trail'],'trailing_stop')
-        if ts.hour*60+ts.minute>=15*60+55 and pos: close_pos(ts,cents(float(r.close)),'end_of_day')
+        local=ts.tz_convert(ET)
+        if local.hour*60+local.minute>=15*60+55 and pos: close_pos(ts,cents(float(r.close)),'end_of_day')
     if pos:
         r=bars.iloc[-1]; close_pos(pd.Timestamp(r.timestamp),cents(float(r.close)),'period_end')
     w=[x['net_pnl'] for x in trades if x['net_pnl']>0]; l=[x['net_pnl'] for x in trades if x['net_pnl']<0]
