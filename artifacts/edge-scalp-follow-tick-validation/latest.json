@@ -1,0 +1,185 @@
+{
+  "period": {
+    "start": "2026-06-19",
+    "end_exclusive": "2026-07-18"
+  },
+  "minute_coverage": [
+    {
+      "symbol": "SPY",
+      "bars": 7409,
+      "sessions": 19
+    },
+    {
+      "symbol": "QQQ",
+      "bars": 7409,
+      "sessions": 19
+    }
+  ],
+  "exact_provider": "unavailable",
+  "exact_error": "credentials missing",
+  "exact_coverage": [],
+  "minute_sequence_bounds": [
+    {
+      "symbol": "SPY",
+      "half_width": 0.25,
+      "sequence": "stop_first",
+      "trades": 1579,
+      "pnl": -394.0546989501138,
+      "win_rate": 12.85623812539582,
+      "profit_factor": 0.14778589416634746,
+      "recenters": 153
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 0.25,
+      "sequence": "target_first",
+      "trades": 1579,
+      "pnl": -392.0434710510336,
+      "win_rate": 13.046231792273591,
+      "profit_factor": 0.15028756359424386,
+      "recenters": 153
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 0.5,
+      "sequence": "stop_first",
+      "trades": 955,
+      "pnl": -550.0893980142246,
+      "win_rate": 7.12041884816754,
+      "profit_factor": 0.07626308606050453,
+      "recenters": 62
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 0.5,
+      "sequence": "target_first",
+      "trades": 955,
+      "pnl": -550.0893980142246,
+      "win_rate": 7.12041884816754,
+      "profit_factor": 0.07626308606050453,
+      "recenters": 62
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 0.75,
+      "sequence": "stop_first",
+      "trades": 492,
+      "pnl": -427.731610951155,
+      "win_rate": 6.9105691056910565,
+      "profit_factor": 0.07356760445769683,
+      "recenters": 33
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 0.75,
+      "sequence": "target_first",
+      "trades": 492,
+      "pnl": -427.731610951155,
+      "win_rate": 6.9105691056910565,
+      "profit_factor": 0.07356760445769683,
+      "recenters": 33
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 1.0,
+      "sequence": "stop_first",
+      "trades": 519,
+      "pnl": -646.2078234759072,
+      "win_rate": 3.6608863198458574,
+      "profit_factor": 0.0343466087725387,
+      "recenters": 19
+    },
+    {
+      "symbol": "SPY",
+      "half_width": 1.0,
+      "sequence": "target_first",
+      "trades": 519,
+      "pnl": -646.2078234759072,
+      "win_rate": 3.6608863198458574,
+      "profit_factor": 0.0343466087725387,
+      "recenters": 19
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 0.25,
+      "sequence": "stop_first",
+      "trades": 2535,
+      "pnl": -544.7506038537335,
+      "win_rate": 19.171597633136095,
+      "profit_factor": 0.23767096954730638,
+      "recenters": 255
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 0.25,
+      "sequence": "target_first",
+      "trades": 2535,
+      "pnl": -512.5572069873793,
+      "win_rate": 20.986193293885602,
+      "profit_factor": 0.26619306819552235,
+      "recenters": 255
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 0.5,
+      "sequence": "stop_first",
+      "trades": 1483,
+      "pnl": -784.9102233445686,
+      "win_rate": 12.070128118678355,
+      "profit_factor": 0.1369067178836092,
+      "recenters": 131
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 0.5,
+      "sequence": "target_first",
+      "trades": 1483,
+      "pnl": -782.0833956385009,
+      "win_rate": 12.204989885367498,
+      "profit_factor": 0.1386764495937538,
+      "recenters": 131
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 0.75,
+      "sequence": "stop_first",
+      "trades": 948,
+      "pnl": -819.1735462748943,
+      "win_rate": 8.649789029535865,
+      "profit_factor": 0.0945889063060993,
+      "recenters": 79
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 0.75,
+      "sequence": "target_first",
+      "trades": 948,
+      "pnl": -819.1735462748943,
+      "win_rate": 8.649789029535865,
+      "profit_factor": 0.0945889063060993,
+      "recenters": 79
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 1.0,
+      "sequence": "stop_first",
+      "trades": 689,
+      "pnl": -822.2925202263189,
+      "win_rate": 7.111756168359942,
+      "profit_factor": 0.07708835415963132,
+      "recenters": 46
+    },
+    {
+      "symbol": "QQQ",
+      "half_width": 1.0,
+      "sequence": "target_first",
+      "trades": 689,
+      "pnl": -822.2925202263189,
+      "win_rate": 7.111756168359942,
+      "profit_factor": 0.07708835415963132,
+      "recenters": 46
+    }
+  ],
+  "exact_results": [],
+  "limitation": "No authenticated historical quote/trade feed was available; exact tick conclusions are not claimed."
+}
